@@ -10,13 +10,13 @@ import (
 )
 
 type Source struct {
-	mux        sync.Mutex
-	id         uuid.UUID
-	address    net.Addr
-	state      types.State
-	sessionId  string
-	leds       int
-	visualizer event.Visualizer
+	mux       sync.Mutex
+	id        uuid.UUID
+	address   net.Addr
+	state     types.State
+	sessionId string
+	//leds       int
+	//visualizer event.Visualizer
 }
 
 func (s *Source) ProcessEvent(e event.Event) {
@@ -34,41 +34,48 @@ func (s *Source) ProcessEvent(e event.Event) {
 }
 
 func (s *Source) handleSetActiveEvent(e event.SetActiveEvent) {
+	if len(e.Sources) == 0 || len(e.Sinks) == 0 {
+		return
+	}
+
 	if s.state == types.StateIdle {
-		s.sessionId = e.SessionId
-
-		if s.leds != e.Leds {
-			fmt.Println("engine restart")
-			s.leds = e.Leds
-		}
-
-		if s.visualizer != e.Visualizer {
-			fmt.Println("set visualizer", e.Visualizer)
-			s.visualizer = e.Visualizer
-		}
+		fmt.Println("Initializing session", e.SessionId, e.Sources, e.Sinks)
 
 		s.state = types.StateActive
+		s.sessionId = e.SessionId
+
+		// TODO allow tracking multiple source->sink mappings
+		//if s.leds != e.Leds {
+		//	fmt.Println("engine restart")
+		//	s.leds = e.Leds
+		//}
+		//
+		//if s.visualizer != e.Visualizer {
+		//	fmt.Println("set visualizer", e.Visualizer)
+		//	s.visualizer = e.Visualizer
+		//}
+
 	}
 }
 
 func (s *Source) handleSetIdleEvent(_ event.SetIdleEvent) {
 	if s.state == types.StateActive {
-		s.sessionId = ""
 		s.state = types.StateIdle
+		s.sessionId = ""
 
-		fmt.Println("===", s.visualizer)
-		if s.visualizer != "" {
-			fmt.Println("stop visualizer")
-			s.visualizer = event.VisualizerNone
-		}
+		// TODO allow tracking multiple source->sink mappings
+		//if s.visualizer != "" {
+		//	fmt.Println("stop visualizer")
+		//	s.visualizer = event.VisualizerNone
+		//}
 	}
 }
 
 func New(address net.Addr) *Source {
 	return &Source{
-		id:         uuid.New(),
-		address:    address,
-		state:      types.StateIdle,
-		visualizer: event.VisualizerNone,
+		id:      uuid.New(),
+		address: address,
+		state:   types.StateIdle,
+		//visualizer: event.VisualizerNone,
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"ledctl3/source"
 	"net"
 	"os"
 	"os/signal"
@@ -12,12 +13,16 @@ import (
 )
 
 func main() {
+
 	reg := registry.New()
 
 	srcAddr := &net.TCPAddr{
 		IP:   net.IPv4(192, 168, 1, 10),
 		Port: 1234,
 	}
+
+	srcDev := source.New(srcAddr)
+	go srcDev.Run()
 
 	addr := &net.TCPAddr{
 		IP:   net.IPv4(192, 168, 1, 11),

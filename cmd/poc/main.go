@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"net"
 	"os"
 	"os/signal"
 
+	"github.com/google/uuid"
+
 	"ledctl3/registry"
 	"ledctl3/registry/types"
+	"ledctl3/registry/types/sink"
+	"ledctl3/registry/types/source"
 )
 
 func main() {
@@ -35,18 +38,18 @@ func main() {
 		Port: 1234,
 	}
 
-	src := types.NewSource("src", srcAddr)
+	src := sink.NewDriver("src", srcAddr)
 
-	d1 := types.NewDevice("d1", addr)
+	d1 := source.NewSource("d1", addr)
 	d1.SetLeds(10)
 
-	d2 := types.NewDevice("d2", addr2)
+	d2 := source.NewSource("d2", addr2)
 	d2.SetLeds(20)
 
-	d3 := types.NewDevice("d3", addr3)
+	d3 := source.NewSource("d3", addr3)
 	d3.SetLeds(40)
 
-	vdev, err := types.NewVirtualDevice("vdev", d1, d3)
+	vdev, err := sink.NewSink("vdev", d1, d3)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +74,7 @@ func main() {
 		panic(err)
 	}
 
-	err = reg.AddSource(src)
+	err = reg.AddDriver(src)
 	if err != nil {
 		panic(err)
 	}

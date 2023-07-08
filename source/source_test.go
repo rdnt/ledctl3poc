@@ -1,13 +1,55 @@
 package source
 
 import (
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"ledctl3/source/types"
-	"ledctl3/source/types/event"
+	"fmt"
+	"image/color"
 	"net"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
+	"ledctl3/source/types"
+	"ledctl3/source/types/event"
 )
+
+type source struct {
+	id   string
+	evts chan UpdateEvent
+}
+
+func (s *source) Id() string {
+	return s.id
+}
+
+func (s *source) Start() error {
+	fmt.Println("start", s.id)
+
+	go func() {
+		for {
+			time.Sleep(200 * time.Millisecond)
+			s.evts <- UpdateEvent{
+				Pix:     make([]color.Color, 4*100),
+				Latency: 16 * time.Millisecond,
+			}
+			fmt.Println("produced event", s.id)
+
+			time.Sleep(800 * time.Millisecond)
+		}
+	}()
+
+	return nil
+}
+
+func (s *source) Events() chan UpdateEvent {
+	return s.evts
+}
+
+func (s *source) Stop() error {
+	fmt.Println("stop", s.id)
+	return nil
+}
 
 func TestHandleSetActiveIdleEvents(t *testing.T) {
 	sessId := uuid.NewString()
@@ -16,33 +58,65 @@ func TestHandleSetActiveIdleEvents(t *testing.T) {
 		Event:      event.SetActiveEvent{}.Type(),
 		SessionId:  sessId,
 		Visualizer: event.VisualizerAudio,
-		Sources:    []event.Source{{Id: uuid.NewString()}},
-		Sinks: []event.Sink{{
-			Id: uuid.NewString(),
-			Address: (&net.TCPAddr{
-				IP:   net.IPv4(192, 168, 1, 10),
-				Port: 1234,
-			}).String(),
-			Leds:        100,
-			Calibration: []float64{},
-		}},
+		Sinks: map[string][]event.Sink{
+			"1": {{
+				Id: uuid.NewString(),
+				Address: (&net.TCPAddr{
+					IP:   net.IPv4(192, 168, 1, 11),
+					Port: 1234,
+				}).String(),
+				Leds:        100,
+				Calibration: []float64{},
+			}},
+			"2": {
+				{
+					Id: uuid.NewString(),
+					Address: (&net.TCPAddr{
+						IP:   net.IPv4(192, 168, 1, 12),
+						Port: 1234,
+					}).String(),
+					Leds:        100,
+					Calibration: []float64{},
+				},
+				{
+					Id: uuid.NewString(),
+					Address: (&net.TCPAddr{
+						IP:   net.IPv4(192, 168, 1, 13),
+						Port: 1234,
+					}).String(),
+					Leds:        100,
+					Calibration: []float64{},
+				},
+			},
+		},
 	}
 
-	src := New(nil)
-	src.ProcessEvent(e)
+	sources := make(map[string]Input)
 
-	assert.Equal(t, src.state, types.StateActive)
-	assert.Equal(t, src.sessionId, sessId)
-	//assert.Equal(t, src.leds, 100)
-	//assert.Equal(t, src.visualizer, event.VisualizerAudio)
+	sources["1"] = &source{id: "1", evts: make(chan UpdateEvent)}
+	sources["2"] = &source{id: "2", evts: make(chan UpdateEvent)}
+
+	d := New(nil)
+	d.ProcessEvent(e)
+
+	assert.Equal(t, d.state, types.StateActive)
+	assert.Equal(t, d.sessionId, sessId)
+
+	update1 := <-sources["1"].Events()
+	update2 := <-sources["2"].Events()
+
+	assert.Len(t, update1.Pix, 4*100)
+	assert.Len(t, update2.Pix, 4*100)
+
+	assert.Equal(t, update1.Latency, 16*time.Millisecond)
+	assert.Equal(t, update2.Latency, 16*time.Millisecond)
 
 	e2 := event.SetIdleEvent{
 		Event: event.SetIdleEvent{}.Type(),
 	}
 
-	src.ProcessEvent(e2)
+	d.ProcessEvent(e2)
 
-	assert.Equal(t, src.state, types.StateIdle)
-	assert.Equal(t, src.sessionId, "")
-	//assert.Equal(t, src.visualizer, event.VisualizerNone)
+	assert.Equal(t, d.state, types.StateIdle)
+	assert.Equal(t, d.sessionId, "")
 }

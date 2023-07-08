@@ -2,29 +2,27 @@ package event
 
 import (
 	"github.com/google/uuid"
-
-	"ledctl3/pkg/event"
 )
+
+type Type string
 
 const (
-	SetIdle   event.Type = "setIdle"
-	SetActive event.Type = "setActive"
-	SetLeds   event.Type = "setLeds"
+	SetIdle   Type = "setIdle"
+	SetActive Type = "setActive"
+	SetLeds   Type = "setLeds"
 )
 
-type Event struct {
-	//Type          event.Type `json:"event"`
-	EventDeviceId uuid.UUID `json:"deviceId"`
-}
-
-func (e Event) DeviceId() uuid.UUID {
-	return e.EventDeviceId
+type Event interface {
+	Type() Type
+	DeviceId() uuid.UUID
+	//DeviceId() uuid.UUID
 }
 
 //type typ struct {
-//	Type event.Type `json:"event"`
+//	Type    Type      `json:"event"`
+//	DeviceId uuid.UUID `json:"deviceId"`
 //}
-//
+
 //// Parse parses a single event object or an array of event objects
 //// into a slice of Type. The slice will contain at least one element if
 //// an error is not returned.
@@ -110,14 +108,14 @@ func (e Event) DeviceId() uuid.UUID {
 //
 //func FromJSON(typ Type, b []byte) (Type, error) {
 //	switch typ {
-//	case SetIdle:
-//		var e SetIdleEvent
-//		err := json.Unmarshal(b, &e)
-//		return e, err
-//	case SetActive:
-//		var e SetActiveEvent
-//		err := json.Unmarshal(b, &e)
-//		return e, err
+//	//case SetIdle:
+//	//	var e SetIdleEvent
+//	//	err := json.Unmarshal(b, &e)
+//	//	return e, err
+//	//case SetActive:
+//	//	var e SetActiveEvent
+//	//	err := json.Unmarshal(b, &e)
+//	//	return e, err
 //	default:
 //		return nil, errors.New("invalid type")
 //	}

@@ -1,9 +1,9 @@
 package event
 
-type SetIdleEvent struct {
-	Event Type `json:"event"`
-}
-
-func (e SetIdleEvent) Type() Type {
-	return SetIdle
-}
+//type SetIdleEvent struct {
+//	Event
+//}
+//
+//func (e SetIdleEvent) Type() event.Type {
+//	return SetIdle
+//}

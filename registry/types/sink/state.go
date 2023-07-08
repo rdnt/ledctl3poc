@@ -1,4 +1,4 @@
-package types
+package sink
 
 type State string
 

@@ -7,22 +7,29 @@ import (
 )
 
 const (
-	SetIdle   event.Type = "setIdle"
-	SetActive event.Type = "setActive"
-	SetLeds   event.Type = "setLeds"
+	//SetIdle            event.Type = "setIdle"
+	SetSinkActive   event.Type = "setActive"
+	SetSourceIdle   event.Type = "setIdle"
+	SetSourceActive event.Type = "setActive"
+	//SetLeds            event.Type = "setLeds"
 )
 
 type Event struct {
-	//Type          event.Type `json:"event"`
-	EventDeviceId uuid.UUID `json:"deviceId"`
+	Type  event.Type `json:"event"`
+	DevId uuid.UUID  `json:"deviceId"`
 }
 
 func (e Event) DeviceId() uuid.UUID {
-	return e.EventDeviceId
+	return e.DevId
 }
 
+//type Type interface {
+//	Type() event.Type
+//	DeviceId() uuid.UUID
+//}
+//
 //type typ struct {
-//	Type event.Type `json:"event"`
+//	Type Type `json:"event"`
 //}
 //
 //// Parse parses a single event object or an array of event objects
@@ -110,14 +117,14 @@ func (e Event) DeviceId() uuid.UUID {
 //
 //func FromJSON(typ Type, b []byte) (Type, error) {
 //	switch typ {
-//	case SetIdle:
-//		var e SetIdleEvent
-//		err := json.Unmarshal(b, &e)
-//		return e, err
-//	case SetActive:
-//		var e SetActiveEvent
-//		err := json.Unmarshal(b, &e)
-//		return e, err
+//	//case SetIdle:
+//	//	var e SetIdleEvent
+//	//	err := json.Unmarshal(b, &e)
+//	//	return e, err
+//	//case SetActive:
+//	//	var e SetSinkActiveEvent
+//	//	err := json.Unmarshal(b, &e)
+//	//	return e, err
 //	default:
 //		return nil, errors.New("invalid type")
 //	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	gcolor "github.com/gookit/color"
 
 	"ledctl3/event"
 
@@ -78,4 +79,16 @@ func (s *Sink) handleSetActiveEvent(e event.SetSinkActiveEvent) {
 
 func (s *Sink) handleDataEvent(e event.DataEvent) {
 	//fmt.Println("SINK: HANDLING DATA EVENT", e.Outputs)
+	for _, output := range e.Outputs {
+		out := ""
+		for _, c := range output.Pix {
+			r, g, b, _ := c.RGBA()
+			if r != 0 {
+				g = 0
+				b = 0
+			}
+			out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+		}
+		fmt.Println(out)
+	}
 }

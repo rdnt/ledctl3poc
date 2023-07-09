@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/google/uuid"
+	gcolor "github.com/gookit/color"
 
 	"ledctl3/event"
 	"ledctl3/pkg/broker"
@@ -26,6 +28,20 @@ func main() {
 
 	inputdev1a := inputdev.New()
 	inputdev1b := inputdev.New()
+
+	go func() {
+		for {
+			for _, pix := range inputdev1a.Pixs() {
+				out := ""
+				for _, c := range pix {
+					r, g, b, _ := c.RGBA()
+					out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+				}
+				fmt.Println(out)
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
 
 	src1dev := sourcedev.New()
 	src1dev.AddInput(inputdev1a)
@@ -100,8 +116,8 @@ func main() {
 
 	//////////////////////////
 
-	output1a := sink.NewOutput(uuid.New(), "output1a")
-	output1b := sink.NewOutput(uuid.New(), "output1b")
+	output1a := sink.NewOutput(uuid.New(), "output1a", 4)
+	output1b := sink.NewOutput(uuid.New(), "output1b", 8)
 
 	sink1 := sink.NewSink(sink1dev.Id(), "sink1", map[uuid.UUID]*sink.Output{
 		output1a.Id(): output1a, output1b.Id(): output1b,
@@ -120,8 +136,8 @@ func main() {
 	err = reg.AddSink(sink1)
 	handle(err)
 
-	output2a := sink.NewOutput(uuid.New(), "output2a")
-	output2b := sink.NewOutput(uuid.New(), "output2b")
+	output2a := sink.NewOutput(uuid.New(), "output2a", 16)
+	output2b := sink.NewOutput(uuid.New(), "output2b", 32)
 
 	sink2 := sink.NewSink(sink2dev.Id(), "sink2", map[uuid.UUID]*sink.Output{
 		output2a.Id(): output2a, output2b.Id(): output2b,

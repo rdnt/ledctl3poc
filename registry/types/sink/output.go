@@ -19,11 +19,12 @@ type Output struct {
 	calibration map[int]registry.Calibration
 }
 
-func NewOutput(id uuid.UUID, name string) *Output {
+func NewOutput(id uuid.UUID, name string, leds int) *Output {
 	return &Output{
 		id:    id,
 		name:  name,
 		state: registry.OutputStateIdle,
+		leds:  leds,
 	}
 }
 

@@ -10,8 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"ledctl3/source/types"
 	"ledctl3/source/types/event"
+
+	"ledctl3/source/types"
 )
 
 type source struct {

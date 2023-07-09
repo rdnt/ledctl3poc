@@ -3,7 +3,6 @@ package registry
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
@@ -181,7 +180,7 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		}
 	}
 
-	time.Sleep(1 * time.Second)
+	//time.Sleep(1 * time.Second)
 	fmt.Println("==== registry: disabling active source inputs")
 
 	disableSourceInputs := map[uuid.UUID][]uuid.UUID{}
@@ -216,7 +215,7 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		}
 	}
 
-	time.Sleep(1 * time.Second)
+	//time.Sleep(1 * time.Second)
 	fmt.Println("==== registry: enabling inputs")
 
 	//                     srcId  -->  inputIds  -->  sinkIds  -->  outputIds

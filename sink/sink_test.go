@@ -36,7 +36,7 @@ func (s *source) Start() error {
 			}
 			fmt.Println("produced event", s.id)
 
-			time.Sleep(800 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 

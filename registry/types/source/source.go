@@ -93,8 +93,6 @@ func (s *Source) processEvent(e event.EventIface) {
 			//
 			//	sinks = append(sinks, s)
 			//}
-
-			s.inputs[input.Id].Start()
 		}
 
 		//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)

@@ -68,8 +68,3 @@ func (i *Input) String() string {
 		i.id, i.name, i.state,
 	)
 }
-
-func (i *Input) Start() {
-	fmt.Println("starting input with cfg", i.sinks)
-	//i.state = registry.InputStateActive
-}

@@ -1,13 +1,11 @@
 package registry
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 
 	"ledctl3/event"
@@ -259,30 +257,17 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		}
 	}
 
-	b, _ := json.MarshalIndent(enableSourceIO, "", "  ")
-	fmt.Println("@@@@@@@@@@ registry: config", string(b))
-
-	fmt.Println("==== registry: DEVICES")
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println(lo.Values(lo.MapValues(r.sources, func(v Source, _ uuid.UUID) string {
-		return fmt.Sprintf("\nsource %s (%s): %s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Inputs(), func(v Input, _ uuid.UUID) string {
-			return fmt.Sprintf("\ninput %s (%s)", v.Id(), v.Name())
-		})))
-	})))
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
-
-	fmt.Println(lo.Values(lo.MapValues(r.sinks, func(v Sink, _ uuid.UUID) string {
-		return fmt.Sprintf("\nsink %s (%s):\n%s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Outputs(), func(v Output, _ uuid.UUID) string {
-			return fmt.Sprintf("\noutput %s (%s)", v.Id(), v.Name())
-		})))
-	})))
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
-	fmt.Println("@@@@@@@@@@@@")
+	//fmt.Println(lo.Values(lo.MapValues(r.sources, func(v Source, _ uuid.UUID) string {
+	//	return fmt.Sprintf("\nsource %s (%s): %s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Inputs(), func(v Input, _ uuid.UUID) string {
+	//		return fmt.Sprintf("\ninput %s (%s)", v.Id(), v.Name())
+	//	})))
+	//})))
+	//
+	//fmt.Println(lo.Values(lo.MapValues(r.sinks, func(v Sink, _ uuid.UUID) string {
+	//	return fmt.Sprintf("\nsink %s (%s):\n%s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Outputs(), func(v Output, _ uuid.UUID) string {
+	//		return fmt.Sprintf("\noutput %s (%s)", v.Id(), v.Name())
+	//	})))
+	//})))
 
 	for srcId, inputSinkOutputs := range enableSourceIO {
 
@@ -295,7 +280,6 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 				var outputs []event.SetSourceActiveEventOutput
 				for _, outputId := range outputIds {
-					fmt.Println("append", sinkId, outputId)
 					output := r.sinks[sinkId].Outputs()[outputId]
 
 					outputs = append(outputs, event.SetSourceActiveEventOutput{

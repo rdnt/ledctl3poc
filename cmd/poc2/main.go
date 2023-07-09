@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"ledctl3/registry/types/source"
 	sinkdev "ledctl3/sink"
 	sourcedev "ledctl3/source"
+	inputdev "ledctl3/source/debug"
 )
 
 func main() {
@@ -24,7 +24,12 @@ func main() {
 
 	socket := broker.New[uuid.UUID, event.EventIface]()
 
-	src1dev := sourcedev.New(nil)
+	inputdev1a := inputdev.New()
+	inputdev1b := inputdev.New()
+
+	src1dev := sourcedev.New()
+	src1dev.AddInput(inputdev1a)
+	src1dev.AddInput(inputdev1b)
 	socket.Subscribe(src1dev.Id(), src1dev.ProcessEvent)
 	go func() {
 		for e := range src1dev.Events() {
@@ -32,7 +37,12 @@ func main() {
 		}
 	}()
 
-	src2dev := sourcedev.New(nil)
+	inputdev2a := inputdev.New()
+	inputdev2b := inputdev.New()
+
+	src2dev := sourcedev.New()
+	src2dev.AddInput(inputdev2a)
+	src2dev.AddInput(inputdev2b)
 	socket.Subscribe(src2dev.Id(), src2dev.ProcessEvent)
 	go func() {
 		for e := range src1dev.Events() {
@@ -50,13 +60,12 @@ func main() {
 
 	//////////////////////////
 
-	input1a := source.NewInput(uuid.New(), "input1a")
-	input1b := source.NewInput(uuid.New(), "input1b")
+	input1a := source.NewInput(inputdev1a.Id(), "input1a")
+	input1b := source.NewInput(inputdev1b.Id(), "input1b")
 
 	source1 := source.NewSource(src1dev.Id(), "source1", map[uuid.UUID]*source.Input{
 		input1a.Id(): input1a, input1b.Id(): input1b,
 	}, func(e event.EventIface) error {
-		//fmt.Printf("@@@ send %s (%s) %s\n", src1dev.Id(), e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
 	}, func() <-chan event.EventIface {
@@ -70,13 +79,12 @@ func main() {
 	err := reg.AddSource(source1)
 	handle(err)
 
-	input2a := source.NewInput(uuid.New(), "input2a")
-	input2b := source.NewInput(uuid.New(), "input2b")
+	input2a := source.NewInput(inputdev2a.Id(), "input2a")
+	input2b := source.NewInput(inputdev2b.Id(), "input2b")
 
 	source2 := source.NewSource(src2dev.Id(), "source2", map[uuid.UUID]*source.Input{
 		input2a.Id(): input2a, input2b.Id(): input2b,
 	}, func(e event.EventIface) error {
-		//fmt.Printf("@@@ send %s (%s) %s\n", src2dev.Id(), e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
 	}, func() <-chan event.EventIface {
@@ -144,11 +152,9 @@ func main() {
 	//	{input2b.Id(): {output1b.Id()}},
 	//})
 
-	fmt.Println("==== registry ===")
-	fmt.Println(reg)
-	fmt.Print("========================== \n\n\n")
-
-	time.Sleep(1 * time.Second)
+	//fmt.Println("==== registry ===")
+	//fmt.Println(reg)
+	//fmt.Print("========================== \n\n\n")
 
 	err = reg.SelectProfile(prof1.Id)
 	handle(err)

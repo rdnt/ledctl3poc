@@ -1,6 +1,8 @@
 package event
 
 import (
+	"image/color"
+
 	"github.com/google/uuid"
 )
 
@@ -11,8 +13,8 @@ type DataEvent struct {
 }
 
 type DataEventOutput struct {
-	Id  uuid.UUID `json:"id"`
-	Pix []byte    `json:"pix"`
+	Id  uuid.UUID     `json:"id"`
+	Pix []color.Color `json:"pix"`
 }
 
 func (e DataEvent) Type() Type {

@@ -77,5 +77,5 @@ func (s *Sink) handleSetActiveEvent(e event.SetSinkActiveEvent) {
 }
 
 func (s *Sink) handleDataEvent(e event.DataEvent) {
-	fmt.Println("SINK: HANDLING DATA EVENT", e.Outputs)
+	//fmt.Println("SINK: HANDLING DATA EVENT", e.Outputs)
 }

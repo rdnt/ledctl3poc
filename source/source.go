@@ -16,15 +16,36 @@ import (
 )
 
 type Input interface {
-	Id() string
-	Start() error
+	Id() uuid.UUID
+	Start(cfg Config) error
 	Events() chan UpdateEvent
 	Stop() error
 }
 
+type Config struct {
+	Framerate int
+	Sinks     []SinkConfig
+}
+
+type SinkConfig struct {
+	Id      uuid.UUID
+	Outputs []OutputConfig
+}
+
+type OutputConfig struct {
+	Id   uuid.UUID
+	Leds int
+}
+
 type UpdateEvent struct {
-	Pix     []color.Color
+	SinkId  uuid.UUID
+	Outputs []UpdateOutput
 	Latency time.Duration
+}
+
+type UpdateOutput struct {
+	Id  uuid.UUID
+	Pix []color.Color
 }
 
 type Source struct {
@@ -48,17 +69,43 @@ type outputConfig struct {
 	Leds int
 }
 
-func New(address net.Addr, inputs map[uuid.UUID]Input) *Source {
+func New() *Source {
 	s := &Source{
-		id:        uuid.New(),
-		address:   address,
+		id: uuid.New(),
+		//address:   address,
 		state:     types.StateIdle,
-		inputs:    inputs,
+		inputs:    make(map[uuid.UUID]Input),
 		events:    make(chan event.EventIface),
 		inputCfgs: map[uuid.UUID][]sinkConfig{},
 	}
 
 	return s
+}
+
+func (s *Source) AddInput(i Input) {
+	s.inputs[i.Id()] = i
+
+	go func() {
+		for e := range i.Events() {
+			var outputs []event.DataEventOutput
+			for _, output := range e.Outputs {
+				outputs = append(outputs, event.DataEventOutput{
+					Id:  output.Id,
+					Pix: output.Pix,
+				})
+			}
+
+			s.events <- event.DataEvent{
+				Event:     event.Event{Type: event.Data, DevId: e.SinkId},
+				SessionId: s.sessionId,
+				Outputs:   outputs,
+			}
+		}
+	}()
+}
+
+func (s *Source) RemoveInput(id uuid.UUID) {
+	delete(s.inputs, id)
 }
 
 func (s *Source) Events() <-chan event.EventIface {
@@ -99,40 +146,56 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 			})
 		}
 
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+		var cfg Config
+		for inputId := range s.inputCfgs {
+			for _, sinkCfg := range s.inputCfgs[inputId] {
+
+				var outputs []OutputConfig
+				for _, outputCfg := range sinkCfg.Outputs {
+					outputs = append(outputs, OutputConfig{
+						Id:   outputCfg.Id,
+						Leds: outputCfg.Leds,
+					})
+				}
+
+				cfg.Sinks = append(cfg.Sinks, SinkConfig{
+					Id:      sinkCfg.Id,
+					Outputs: outputs,
+				})
+			}
+
+			//fmt.Println(s.inputs)
+			_ = s.inputs[inputId].Start(cfg)
+		}
 
 		// TODO: validate there are no sourceIds present in the event but not present on the driver
 
-		for _, input := range e.Inputs {
-			input := input
-			go func() {
-				for {
-					for _, sink := range s.inputCfgs[input.Id] {
-						var outputs []event.DataEventOutput
-						for _, output := range sink.Outputs {
-							pix := make([]byte, output.Leds*4)
-
-							outputs = append(outputs, event.DataEventOutput{
-								Id:  output.Id,
-								Pix: pix,
-							})
-						}
-
-						s.events <- event.DataEvent{
-							Event:     event.Event{Type: event.Data, DevId: sink.Id},
-							SessionId: s.sessionId,
-							Outputs:   outputs,
-						}
-					}
-
-					time.Sleep(1 * time.Second)
-				}
-			}()
-		}
+		//for _, inputCfg := range e.Inputs {
+		//
+		//	go func() {
+		//		for {
+		//			for _, sink := range s.inputCfgs[input.Id] {
+		//				var outputs []event.DataEventOutput
+		//				for _, output := range sink.Outputs {
+		//					pix := make([]byte, output.Leds*4)
+		//
+		//					outputs = append(outputs, event.DataEventOutput{
+		//						Id:  output.Id,
+		//						Pix: pix,
+		//					})
+		//				}
+		//
+		//				s.events <- event.DataEvent{
+		//					Event:     event.Event{Type: event.Data, DevId: sink.Id},
+		//					SessionId: s.sessionId,
+		//					Outputs:   outputs,
+		//				}
+		//			}
+		//
+		//			time.Sleep(1 * time.Second)
+		//		}
+		//	}()
+		//}
 
 		//for _, input := range e.Inputs {
 		//	//fmt.Println("starting input", inputId, "with sink cfgs", sinkCfgs)
@@ -153,7 +216,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//	//			for _, sinkCfg := range sinkCfgs {
 		//	//				e := regevent.SetLedsEvent{
 		//	//					SessionId: uuid.Nil, // TODO
-		//	//					SinkId:    sinkCfg.Id,
+		//	//					Id:    sinkCfg.Id,
 		//	//					// TODO: apply calibration to pix and pass clamped as byte array
 		//	//					Pix: nil, // calibrate(ue.Pix)
 		//	//				}

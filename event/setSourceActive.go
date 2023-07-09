@@ -9,14 +9,23 @@ import (
 // different sinks)
 type SetSourceActiveEvent struct {
 	Event
-	SessionId uuid.UUID                                `json:"sessionId"`
-	Sinks     map[uuid.UUID][]SetSourceActiveEventSink `json:"sinks"`
+	SessionId uuid.UUID                   `json:"sessionId"`
+	Inputs    []SetSourceActiveEventInput `json:"inpus"`
+}
+
+type SetSourceActiveEventInput struct {
+	Id    uuid.UUID                  `json:"id"`
+	Sinks []SetSourceActiveEventSink `json:"sinks"`
 }
 
 type SetSourceActiveEventSink struct {
-	Id        uuid.UUID   `json:"id"`
-	Address   string      `json:"address"`
-	OutputIds []uuid.UUID `json:"outputIds"`
+	Id      uuid.UUID                    `json:"id"`
+	Outputs []SetSourceActiveEventOutput `json:"outputs"`
+}
+
+type SetSourceActiveEventOutput struct {
+	Id   uuid.UUID `json:"id"`
+	Leds int       `json:"leds"`
 }
 
 func (e SetSourceActiveEvent) Type() Type {

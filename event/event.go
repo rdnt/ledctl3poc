@@ -23,6 +23,7 @@ const (
 	SetSinkActive   Type = "setActive"
 	SetSourceIdle   Type = "setIdle"
 	SetSourceActive Type = "setActive"
+	Data            Type = "data"
 	//SetLeds            event.Type = "setLeds"
 )
 

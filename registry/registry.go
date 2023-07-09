@@ -1,11 +1,13 @@
 package registry
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 
 	"ledctl3/event"
@@ -88,6 +90,8 @@ type Output interface {
 	Name() string
 	State() OutputState
 	SessionId() uuid.UUID
+	Leds() int
+	Calibration() map[int]Calibration
 }
 
 var (
@@ -148,8 +152,7 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	var stopSessions []uuid.UUID
 	enableSinkOutputs := map[uuid.UUID][]uuid.UUID{}
 
-	fmt.Println("--------------- START ---------------")
-	fmt.Println("=== registry: configure sink outputs")
+	fmt.Println("==== registry: configuring sink outputs")
 
 	// enable sink outputs for this session
 	for _, mapping := range cfg.MapIO {
@@ -180,10 +183,8 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		}
 	}
 
-	fmt.Println("----------------------------------------")
 	time.Sleep(1 * time.Second)
-	fmt.Println("----------------------------------------")
-	fmt.Println("=== registry: disable active source inputs")
+	fmt.Println("==== registry: disabling active source inputs")
 
 	disableSourceInputs := map[uuid.UUID][]uuid.UUID{}
 
@@ -217,10 +218,8 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		}
 	}
 
-	fmt.Println("----------------------------------------")
 	time.Sleep(1 * time.Second)
-	fmt.Println("----------------------------------------")
-	fmt.Println("=== registry: enable inputs")
+	fmt.Println("==== registry: enabling inputs")
 
 	//                     srcId  -->  inputIds  -->  sinkIds  -->  outputIds
 	enableSourceIO := map[uuid.UUID]map[uuid.UUID]map[uuid.UUID][]uuid.UUID{}
@@ -253,31 +252,74 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 							enableSourceIO[src.Id()][inputId][snk.Id()] = []uuid.UUID{}
 						}
 
-						enableSourceIO[src.Id()][inputId][snk.Id()] = outputIds
+						enableSourceIO[src.Id()][inputId][snk.Id()] = append(enableSourceIO[src.Id()][inputId][snk.Id()], outputId)
 					}
 				}
 			}
 		}
 	}
 
+	b, _ := json.MarshalIndent(enableSourceIO, "", "  ")
+	fmt.Println("@@@@@@@@@@ registry: config", string(b))
+
+	fmt.Println("==== registry: DEVICES")
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println(lo.Values(lo.MapValues(r.sources, func(v Source, _ uuid.UUID) string {
+		return fmt.Sprintf("\nsource %s (%s): %s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Inputs(), func(v Input, _ uuid.UUID) string {
+			return fmt.Sprintf("\ninput %s (%s)", v.Id(), v.Name())
+		})))
+	})))
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+
+	fmt.Println(lo.Values(lo.MapValues(r.sinks, func(v Sink, _ uuid.UUID) string {
+		return fmt.Sprintf("\nsink %s (%s):\n%s", v.Id(), v.Name(), lo.Values(lo.MapValues(v.Outputs(), func(v Output, _ uuid.UUID) string {
+			return fmt.Sprintf("\noutput %s (%s)", v.Id(), v.Name())
+		})))
+	})))
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@")
+
 	for srcId, inputSinkOutputs := range enableSourceIO {
 
-		sinkCfgs := map[uuid.UUID][]event.SetSourceActiveEventSink{}
+		var inputs []event.SetSourceActiveEventInput
 
 		for inputId, sinkOutputs := range inputSinkOutputs {
+
+			var sinks []event.SetSourceActiveEventSink
 			for sinkId, outputIds := range sinkOutputs {
-				sinkCfgs[inputId] = append(sinkCfgs[inputId], event.SetSourceActiveEventSink{
-					Id:        sinkId,
-					Address:   "", // TODO ?
-					OutputIds: outputIds,
+
+				var outputs []event.SetSourceActiveEventOutput
+				for _, outputId := range outputIds {
+					fmt.Println("append", sinkId, outputId)
+					output := r.sinks[sinkId].Outputs()[outputId]
+
+					outputs = append(outputs, event.SetSourceActiveEventOutput{
+						Id:   outputId,
+						Leds: output.Leds(),
+					})
+				}
+
+				sinks = append(sinks, event.SetSourceActiveEventSink{
+					Id:      sinkId,
+					Outputs: outputs,
 				})
 			}
+
+			inputs = append(inputs, event.SetSourceActiveEventInput{
+				Id:    inputId,
+				Sinks: sinks,
+			})
 		}
 
 		err := r.sources[srcId].Handle(event.SetSourceActiveEvent{
 			Event:     event.Event{Type: event.SetSourceActive, DevId: srcId},
 			SessionId: sessId,
-			Sinks:     sinkCfgs,
+			Inputs:    inputs,
 		})
 		if err != nil {
 			fmt.Println("error during send source idle inputs", err)

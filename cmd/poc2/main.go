@@ -13,6 +13,7 @@ import (
 	"ledctl3/registry"
 	"ledctl3/registry/types/sink"
 	"ledctl3/registry/types/source"
+	sinkdev "ledctl3/sink"
 	sourcedev "ledctl3/source"
 )
 
@@ -38,6 +39,14 @@ func main() {
 			socket.Publish(e.DeviceId(), e)
 		}
 	}()
+
+	//////////////////////////
+
+	sink1dev := sinkdev.New(nil)
+	socket.Subscribe(sink1dev.Id(), sink1dev.ProcessEvent)
+
+	sink2dev := sinkdev.New(nil)
+	socket.Subscribe(sink2dev.Id(), sink2dev.ProcessEvent)
 
 	//////////////////////////
 
@@ -86,9 +95,7 @@ func main() {
 	output1a := sink.NewOutput(uuid.New(), "output1a")
 	output1b := sink.NewOutput(uuid.New(), "output1b")
 
-	sink1id := uuid.New()
-	// TODO: actual device uuid
-	sink1 := sink.NewSink(sink1id, "sink1", map[uuid.UUID]*sink.Output{
+	sink1 := sink.NewSink(sink1dev.Id(), "sink1", map[uuid.UUID]*sink.Output{
 		output1a.Id(): output1a, output1b.Id(): output1b,
 	}, func(e event.EventIface) error {
 		//fmt.Printf("~~~ send %s (%s) %s\n", sink1id, e.DeviceId(), e.Type())
@@ -96,14 +103,10 @@ func main() {
 		return nil
 	}, func() <-chan event.EventIface {
 		evts := make(chan event.EventIface)
-		socket.Subscribe(sink1id, func(e event.EventIface) {
+		socket.Subscribe(sink1dev.Id(), func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
-	})
-
-	socket.Subscribe(sink1id, func(e event.EventIface) {
-		fmt.Println("### debug sink1 recv", e.Type())
 	})
 
 	err = reg.AddSink(sink1)
@@ -112,9 +115,7 @@ func main() {
 	output2a := sink.NewOutput(uuid.New(), "output2a")
 	output2b := sink.NewOutput(uuid.New(), "output2b")
 
-	sink2id := uuid.New()
-	// TODO: actual device uuid
-	sink2 := sink.NewSink(sink2id, "sink2", map[uuid.UUID]*sink.Output{
+	sink2 := sink.NewSink(sink2dev.Id(), "sink2", map[uuid.UUID]*sink.Output{
 		output2a.Id(): output2a, output2b.Id(): output2b,
 	}, func(e event.EventIface) error {
 		//fmt.Printf("~~~ send %s (%s) %s\n", sink2id, e.DeviceId(), e.Type())
@@ -122,14 +123,10 @@ func main() {
 		return nil
 	}, func() <-chan event.EventIface {
 		evts := make(chan event.EventIface)
-		socket.Subscribe(sink2id, func(e event.EventIface) {
+		socket.Subscribe(sink2dev.Id(), func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
-	})
-
-	socket.Subscribe(sink2id, func(e event.EventIface) {
-		fmt.Println("### debug sink2 recv", e.Type())
 	})
 
 	err = reg.AddSink(sink2)
@@ -142,12 +139,12 @@ func main() {
 		{input2b.Id(): {output1b.Id()}},
 	})
 
-	prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{
-		{input1a.Id(): {output1a.Id(), output2b.Id()}},
-		{input2b.Id(): {output1b.Id()}},
-	})
+	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{
+	//	{input1a.Id(): {output1a.Id(), output2b.Id()}},
+	//	{input2b.Id(): {output1b.Id()}},
+	//})
 
-	fmt.Println("=== REGISTRY ===")
+	fmt.Println("==== registry ===")
 	fmt.Println(reg)
 	fmt.Print("========================== \n\n\n")
 
@@ -156,10 +153,10 @@ func main() {
 	err = reg.SelectProfile(prof1.Id)
 	handle(err)
 
-	time.Sleep(5 * time.Second)
-
-	err = reg.SelectProfile(prof2.Id)
-	handle(err)
+	//time.Sleep(5 * time.Second)
+	//
+	//err = reg.SelectProfile(prof2.Id)
+	//handle(err)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)

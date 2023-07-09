@@ -14,6 +14,28 @@ type Input struct {
 
 	state  registry.InputState
 	sessId uuid.UUID
+
+	sinks []sinkConfig
+}
+
+type sinkConfig struct {
+	Id      uuid.UUID
+	Outputs []outputConfig
+}
+
+type outputConfig struct {
+	Id   uuid.UUID
+	Leds int
+}
+
+type sink struct {
+	id      uuid.UUID
+	outputs []output
+}
+
+type output struct {
+	id   uuid.UUID
+	leds int
 }
 
 func NewInput(id uuid.UUID, name string) *Input {
@@ -45,4 +67,9 @@ func (i *Input) String() string {
 		"input{id: %s, name: %s, state: %s}",
 		i.id, i.name, i.state,
 	)
+}
+
+func (i *Input) Start() {
+	fmt.Println("starting input with cfg", i.sinks)
+	//i.state = registry.InputStateActive
 }

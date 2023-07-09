@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"ledctl3/event"
 	"ledctl3/registry"
@@ -22,9 +23,8 @@ type Source struct {
 
 func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input, send func(event.EventIface) error, recv func() <-chan event.EventIface) *Source {
 	return &Source{
-		id:   id,
-		name: name,
-		//state:  StateOffline,
+		id:     id,
+		name:   name,
 		inputs: inputs,
 		send:   send,
 		recv:   recv,
@@ -64,9 +64,37 @@ func (s *Source) processEvent(e event.EventIface) {
 	case event.SetSourceActiveEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceActiveEvent\n", s.id)
 
-		for inputId := range e.Sinks {
-			s.inputs[inputId].state = registry.InputStateActive
-			s.inputs[inputId].sessId = e.SessionId
+		for _, input := range e.Inputs {
+			s.inputs[input.Id].state = registry.InputStateActive
+			s.inputs[input.Id].sessId = e.SessionId
+
+			s.inputs[input.Id].sinks = lo.Map(input.Sinks, func(sink event.SetSourceActiveEventSink, index int) sinkConfig {
+				return sinkConfig{
+					Id: sink.Id,
+					Outputs: lo.Map(sink.Outputs, func(output event.SetSourceActiveEventOutput, _ int) outputConfig {
+						return outputConfig(output)
+					}),
+				}
+			})
+
+			//
+			//var sinks []sink
+			//for _, cfg := range input.Sinks {
+			//	s := sink{
+			//		id: cfg.Id,
+			//	}
+			//
+			//	for _, out := range cfg.Outputs {
+			//		s.outputs = append(s.outputs, output{
+			//			id:   out.Id,
+			//			leds: out.Leds,
+			//		})
+			//	}
+			//
+			//	sinks = append(sinks, s)
+			//}
+
+			s.inputs[input.Id].Start()
 		}
 
 		//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)

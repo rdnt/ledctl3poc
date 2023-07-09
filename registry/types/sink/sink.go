@@ -93,8 +93,6 @@ func (s *Sink) Handle(e event.EventIface) error {
 func (s *Sink) processEvent(e event.EventIface) {
 	switch e := e.(type) {
 	case regevent.SetSinkActiveEvent:
-		fmt.Printf("=== reg sink %s: proccess SetSinkActiveEvent\n", s.id)
-
 		for _, outputId := range e.OutputIds {
 			s.outputs[outputId].state = registry.OutputStateActive
 			s.outputs[outputId].sessId = e.SessionId

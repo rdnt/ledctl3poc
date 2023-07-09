@@ -10,4 +10,4 @@ Its goals include but are not limited to:
 - Lightweight: pluggable networking (main implementation will be JSON over websockets), allowing easier testing of the protocol and using different implementations.
 - Ability to embed effects engines (sources) and renderers (sinks) into the same binary, allowing for server-rendered effects for better performance and ease of use.
 
-I am currently developing this architecture in my free time and in the open. If you are interesting in contributing/collaborating, please reach out to me via Discord (rdnt).
+I am currently developing this architecture in my free time and in the open. If you are interested in contributing/collaborating, please reach out to me via Discord (rdnt).

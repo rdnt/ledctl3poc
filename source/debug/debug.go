@@ -13,17 +13,34 @@ import (
 type DebugInput struct {
 	id     uuid.UUID
 	events chan source.UpdateEvent
-	pixs   map[uuid.UUID][]color.Color
+	//pixs   map[uuid.UUID][]color.Color
 }
 
 func New() *DebugInput {
-	return &DebugInput{
+	i := &DebugInput{
 		id:     uuid.New(),
 		events: make(chan source.UpdateEvent),
-		pixs:   make(map[uuid.UUID][]color.Color),
+		//pixs:   make(map[uuid.UUID][]color.Color),
 	}
+
+	//go func() {
+	//	for {
+	//		for _, pix := range i.pixs {
+	//			out := ""
+	//			for _, c := range pix {
+	//				r, g, b, _ := c.RGBA()
+	//				out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+	//			}
+	//			fmt.Println(out)
+	//		}
+	//		time.Sleep(500 * time.Millisecond)
+	//	}
+	//}()
+
+	return i
 }
 
+// TODO: cursed variable name T_T
 func (i *DebugInput) Id() uuid.UUID {
 	return i.id
 }
@@ -44,7 +61,7 @@ func (i *DebugInput) Start(cfg source.Config) error {
 
 					pix[rand.Intn(output.Leds)] = color.RGBA{R: 255, G: 255, B: 255}
 
-					i.pixs[output.Id] = pix
+					//i.pixs[output.Id] = pix
 
 					outputs = append(outputs, source.UpdateOutput{
 						Id:  output.Id,
@@ -55,10 +72,12 @@ func (i *DebugInput) Start(cfg source.Config) error {
 				i.events <- source.UpdateEvent{
 					Outputs: outputs,
 					SinkId:  sinkCfg.Id,
-					Latency: 1000 * time.Millisecond,
+					Latency: 500 * time.Millisecond,
 				}
 
-				time.Sleep(1000 * time.Millisecond)
+				time.Sleep(500 * time.Millisecond)
+				//fmt.Println("---------------------------------------------")
+
 			}
 		}()
 	}
@@ -74,6 +93,6 @@ func (i *DebugInput) Stop() error {
 	return nil
 }
 
-func (i *DebugInput) Pixs() map[uuid.UUID][]color.Color {
-	return i.pixs
-}
+//func (i *DebugInput) Pixs() map[uuid.UUID][]color.Color {
+//	return i.pixs
+//}

@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/google/uuid"
-	gcolor "github.com/gookit/color"
 
 	"ledctl3/event"
 	"ledctl3/pkg/broker"
@@ -28,20 +26,6 @@ func main() {
 
 	inputdev1a := inputdev.New()
 	inputdev1b := inputdev.New()
-
-	go func() {
-		for {
-			for _, pix := range inputdev1a.Pixs() {
-				out := ""
-				for _, c := range pix {
-					r, g, b, _ := c.RGBA()
-					out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
-				}
-				fmt.Println(out)
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
 
 	src1dev := sourcedev.New()
 	src1dev.AddInput(inputdev1a)

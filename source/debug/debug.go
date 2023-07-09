@@ -13,6 +13,7 @@ import (
 type DebugInput struct {
 	id     uuid.UUID
 	events chan source.UpdateEvent
+
 	//pixs   map[uuid.UUID][]color.Color
 }
 

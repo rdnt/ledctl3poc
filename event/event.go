@@ -19,12 +19,13 @@ type EventIface interface {
 }
 
 const (
-	//SetIdle            event.Type = "setIdle"
-	SetSinkActive   Type = "setActive"
-	SetSourceIdle   Type = "setIdle"
-	SetSourceActive Type = "setActive"
-	Data            Type = "data"
-	//SetLeds            event.Type = "setLeds"
+	Connect          Type = "connect"
+	ListCapabilities Type = "listCapabilities"
+	Capabilities     Type = "capabilities"
+	SetSinkActive    Type = "setActive"
+	SetSourceIdle    Type = "setIdle"
+	SetSourceActive  Type = "setActive"
+	Data             Type = "data"
 )
 
 type Event struct {

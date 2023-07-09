@@ -3,6 +3,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
@@ -11,9 +12,12 @@ import (
 )
 
 type Registry struct {
+	id       uuid.UUID
+	mux      sync.Mutex
 	sources  map[uuid.UUID]Source
 	sinks    map[uuid.UUID]Sink
 	profiles map[uuid.UUID]Profile
+	events   chan event.EventIface
 }
 
 type Profile struct {
@@ -24,10 +28,16 @@ type Profile struct {
 
 func New() *Registry {
 	return &Registry{
+		id:       uuid.New(),
 		sources:  map[uuid.UUID]Source{},
 		sinks:    map[uuid.UUID]Sink{},
 		profiles: map[uuid.UUID]Profile{},
+		events:   make(chan event.EventIface),
 	}
+}
+
+func (r *Registry) Id() uuid.UUID {
+	return r.id
 }
 
 func (r *Registry) String() string {
@@ -312,73 +322,37 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	return nil
 }
 
-//func (r *Registry) setState(srcId uuid.UUID, devId uuid.UUID, state types.State) error {
-//	_, ok := r.sources[srcId]
-//	if !ok {
-//		return ErrDeviceNotFound
-//	}
-//
-//	_, ok = r.sinks[devId]
-//	if !ok {
-//		return ErrDeviceNotFound
-//	}
-//
-//	if state == types.StateActive {
-//		sessId := uuid.New()
-//
-//		// set sinks to active for new session
-//		for _, s := range r.sinks {
-//			err := s.Handle(regevent.SetSinkActiveEvent{
-//				SessionId: sessId,
-//				Leds:      0,
-//			})
-//			if err != nil {
-//				fmt.Println("error during send sink active", err)
-//			}
-//		}
-//
-//		// go -> stop active sources TODO: relevant to this sink (dont stop all...)
-//		for _, s := range r.sources {
-//			if s.State() == source.StateActive {
-//				err := s.Handle(regevent.SetSourceIdleEvent{})
-//				if err != nil {
-//					fmt.Println("error during send source idle", err)
-//				}
-//			}
-//		}
-//
-//		// set sources to active for new session
-//		for _, s := range r.sources {
-//			if s.State() == source.StateActive {
-//				err := s.Handle(regevent.SetSourceIdleEvent{})
-//				if err != nil {
-//					fmt.Println("error during send source idle", err)
-//				}
-//			}
-//		}
-//	}
-//
-//	// TODO: somehow we should notify sinks to start handling events for sessionId
-//	//go func() {
-//	//	for e := range r.sources[srcId].Events() {
-//	//		r.sinks[devId].Handle(e)
-//	//	}
-//	//}()
-//
-//	// TODO fix
-//	//// prepare the server to start receiving the events
-//	//r.sinks[devId].SetState(state)
-//	//
-//	//// switch state on the source to start event transmission
-//	//r.sources[srcId].SetState(state)
-//
-//	return nil
-//}
+func (r *Registry) Events() <-chan event.EventIface {
+	return r.events
+}
 
-//func (r *Registry) Events() <-chan event.EventIface {
-//	return r.events
-//}
+func (r *Registry) ProcessEvent(e event.EventIface) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-func (r *Registry) ProcessEvent(e event.Event) {
-	fmt.Println("UNHANDLED PROCESS REGISTRY", e)
+	switch e := e.(type) {
+	case event.ConnectEvent:
+		fmt.Printf("-> registry %s: recv ConnectEvent\n", r.id)
+		r.handleConnectEvent(e)
+	//case event.SetSourceIdleEvent:
+	//	fmt.Printf("-> source %s: recv SetSourceIdleEvent\n", s.id)
+	//	s.handleSetIdleEvent(e)
+	default:
+		fmt.Println("unknown event", e)
+	}
+}
+
+func (r *Registry) handleConnectEvent(e event.ConnectEvent) {
+	_, srcRegistered := r.sources[e.Id]
+	_, sinkRegistered := r.sinks[e.Id]
+
+	if !srcRegistered || !sinkRegistered {
+		fmt.Println("#### registry: unknown device", e.Id)
+
+		r.events <- event.ListCapabilitiesEvent{
+			Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
+		}
+
+		return
+	}
 }

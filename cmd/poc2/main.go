@@ -20,14 +20,20 @@ import (
 func main() {
 	time.Sleep(1 * time.Second)
 
-	reg := registry.New()
-
 	socket := broker.New[uuid.UUID, event.EventIface]()
+
+	reg := registry.New()
+	socket.Subscribe(reg.Id(), reg.ProcessEvent)
+	go func() {
+		for e := range reg.Events() {
+			socket.Publish(e.DeviceId(), e)
+		}
+	}()
 
 	inputdev1a := inputdev.New()
 	inputdev1b := inputdev.New()
 
-	src1dev := sourcedev.New()
+	src1dev := sourcedev.New(reg.Id())
 	src1dev.AddInput(inputdev1a)
 	src1dev.AddInput(inputdev1b)
 	socket.Subscribe(src1dev.Id(), src1dev.ProcessEvent)
@@ -37,18 +43,21 @@ func main() {
 		}
 	}()
 
+	src1dev.Connect()
+
 	inputdev2a := inputdev.New()
 	inputdev2b := inputdev.New()
 
-	src2dev := sourcedev.New()
+	src2dev := sourcedev.New(reg.Id())
 	src2dev.AddInput(inputdev2a)
 	src2dev.AddInput(inputdev2b)
 	socket.Subscribe(src2dev.Id(), src2dev.ProcessEvent)
 	go func() {
-		for e := range src1dev.Events() {
+		for e := range src2dev.Events() {
 			socket.Publish(e.DeviceId(), e)
 		}
 	}()
+	src2dev.Connect()
 
 	//////////////////////////
 

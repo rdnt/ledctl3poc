@@ -49,14 +49,15 @@ type UpdateOutput struct {
 }
 
 type Source struct {
-	mux       sync.Mutex
-	id        uuid.UUID
-	address   net.Addr
-	state     types.State
-	sessionId uuid.UUID
-	inputs    map[uuid.UUID]Input
-	events    chan event.EventIface
-	inputCfgs map[uuid.UUID][]sinkConfig
+	mux        sync.Mutex
+	id         uuid.UUID
+	address    net.Addr
+	state      types.State
+	sessionId  uuid.UUID
+	inputs     map[uuid.UUID]Input
+	events     chan event.EventIface
+	inputCfgs  map[uuid.UUID][]sinkConfig
+	registryId uuid.UUID
 }
 
 type sinkConfig struct {
@@ -69,14 +70,15 @@ type outputConfig struct {
 	Leds int
 }
 
-func New() *Source {
+func New(registryId uuid.UUID) *Source {
 	s := &Source{
 		id: uuid.New(),
 		//address:   address,
-		state:     types.StateIdle,
-		inputs:    make(map[uuid.UUID]Input),
-		events:    make(chan event.EventIface),
-		inputCfgs: map[uuid.UUID][]sinkConfig{},
+		state:      types.StateIdle,
+		inputs:     make(map[uuid.UUID]Input),
+		events:     make(chan event.EventIface),
+		inputCfgs:  map[uuid.UUID][]sinkConfig{},
+		registryId: registryId,
 	}
 
 	return s
@@ -86,6 +88,7 @@ func (s *Source) AddInput(i Input) {
 	s.inputs[i.Id()] = i
 
 	go func() {
+		// forward events from input to the network~
 		for e := range i.Events() {
 			var outputs []event.DataEventOutput
 			for _, output := range e.Outputs {
@@ -123,6 +126,9 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 	case event.SetSourceIdleEvent:
 		fmt.Printf("-> source %s: recv SetSourceIdleEvent\n", s.id)
 		s.handleSetIdleEvent(e)
+	case event.ListCapabilitiesEvent:
+		fmt.Printf("-> source %s: recv ListCapabilitiesEvent\n", s.id)
+		s.handleListCapabilitiesEvent(e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -250,4 +256,15 @@ func (s *Source) handleSetIdleEvent(_ event.SetSourceIdleEvent) {
 
 func (s *Source) Id() uuid.UUID {
 	return s.id
+}
+
+func (s *Source) Connect() {
+	s.events <- event.ConnectEvent{
+		Event: event.Event{Type: event.Connect, DevId: s.registryId},
+		Id:    s.id,
+	}
+}
+
+func (s *Source) handleListCapabilitiesEvent(e event.ListCapabilitiesEvent) {
+
 }

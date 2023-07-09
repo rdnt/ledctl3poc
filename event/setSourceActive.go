@@ -2,8 +2,6 @@ package event
 
 import (
 	"github.com/google/uuid"
-
-	"ledctl3/pkg/event"
 )
 
 // SetSourceActiveEvent instructs a source to become active for the specified inputs (keys on the sinks map)
@@ -21,6 +19,6 @@ type SetSourceActiveEventSink struct {
 	OutputIds []uuid.UUID `json:"outputIds"`
 }
 
-func (e SetSourceActiveEvent) Type() event.Type {
+func (e SetSourceActiveEvent) Type() Type {
 	return SetSourceActive
 }

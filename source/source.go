@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/pkg/event"
-	regevent "ledctl3/registry/types/event"
+	"ledctl3/event"
+
 	"ledctl3/source/types"
 )
 
@@ -33,7 +33,7 @@ type Source struct {
 	state     types.State
 	sessionId uuid.UUID
 	inputs    map[uuid.UUID]Input
-	events    chan event.Event
+	events    chan event.EventIface
 }
 
 func New(address net.Addr) *Source {
@@ -42,25 +42,25 @@ func New(address net.Addr) *Source {
 		address: address,
 		state:   types.StateIdle,
 		inputs:  make(map[uuid.UUID]Input),
-		events:  make(chan event.Event),
+		events:  make(chan event.EventIface),
 	}
 
 	return s
 }
 
-func (s *Source) Events() <-chan event.Event {
+func (s *Source) Events() <-chan event.EventIface {
 	return s.events
 }
 
-func (s *Source) ProcessEvent(e event.Event) {
+func (s *Source) ProcessEvent(e event.EventIface) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	switch e := e.(type) {
-	case regevent.SetSourceActiveEvent:
+	case event.SetSourceActiveEvent:
 		fmt.Printf("=== source %s: recv SetSourceActiveEvent\n", s.id)
 		s.handleSetActiveEvent(e)
-	case regevent.SetSourceIdleEvent:
+	case event.SetSourceIdleEvent:
 		fmt.Printf("=== source %s: recv SetSourceIdleEvent\n", s.id)
 		s.handleSetIdleEvent(e)
 	default:
@@ -68,7 +68,7 @@ func (s *Source) ProcessEvent(e event.Event) {
 	}
 }
 
-func (s *Source) handleSetActiveEvent(e regevent.SetSourceActiveEvent) {
+func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 	if len(e.Sinks) == 0 {
 		return
 	}
@@ -117,7 +117,7 @@ func (s *Source) handleSetActiveEvent(e regevent.SetSourceActiveEvent) {
 	}
 }
 
-func (s *Source) handleSetIdleEvent(_ regevent.SetSourceIdleEvent) {
+func (s *Source) handleSetIdleEvent(_ event.SetSourceIdleEvent) {
 	if s.state == types.StateActive {
 		s.state = types.StateIdle
 		s.sessionId = uuid.Nil

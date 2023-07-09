@@ -2,8 +2,6 @@ package event
 
 import (
 	"github.com/google/uuid"
-
-	"ledctl3/pkg/event"
 )
 
 type SetSourceIdleEvent struct {
@@ -11,6 +9,6 @@ type SetSourceIdleEvent struct {
 	InputIds []uuid.UUID `json:"inputIds"`
 }
 
-func (e SetSourceIdleEvent) Type() event.Type {
+func (e SetSourceIdleEvent) Type() Type {
 	return SetSourceIdle
 }

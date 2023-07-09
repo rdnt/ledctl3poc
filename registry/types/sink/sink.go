@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/pkg/event"
+	"ledctl3/event"
+	regevent "ledctl3/event"
 	"ledctl3/registry"
-	regevent "ledctl3/registry/types/event"
 )
 
 type Sink struct {
@@ -17,11 +17,11 @@ type Sink struct {
 
 	outputs map[uuid.UUID]*Output
 
-	send func(event.Event) error
-	recv func() <-chan event.Event
+	send func(event.EventIface) error
+	recv func() <-chan event.EventIface
 }
 
-func NewSink(id uuid.UUID, name string, outputs map[uuid.UUID]*Output, send func(event.Event) error, recv func() <-chan event.Event) *Sink {
+func NewSink(id uuid.UUID, name string, outputs map[uuid.UUID]*Output, send func(event.EventIface) error, recv func() <-chan event.EventIface) *Sink {
 	return &Sink{
 		id:      id,
 		name:    name,
@@ -80,7 +80,7 @@ func (s *Sink) Outputs() map[uuid.UUID]registry.Output {
 	return outputs
 }
 
-func (s *Sink) Handle(e event.Event) error {
+func (s *Sink) Handle(e event.EventIface) error {
 	err := s.send(e)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (s *Sink) Handle(e event.Event) error {
 	return nil
 }
 
-func (s *Sink) processEvent(e event.Event) {
+func (s *Sink) processEvent(e event.EventIface) {
 	switch e := e.(type) {
 	case regevent.SetSinkActiveEvent:
 		fmt.Printf("=== reg sink %s: proccess SetSinkActiveEvent\n", s.id)
@@ -107,6 +107,6 @@ func (s *Sink) processEvent(e event.Event) {
 	}
 }
 
-func (s *Sink) Events() <-chan event.Event {
+func (s *Sink) Events() <-chan event.EventIface {
 	return s.recv()
 }

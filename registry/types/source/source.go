@@ -6,9 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/pkg/event"
+	"ledctl3/event"
 	"ledctl3/registry"
-	regevent "ledctl3/registry/types/event"
 )
 
 type Source struct {
@@ -17,11 +16,11 @@ type Source struct {
 
 	inputs map[uuid.UUID]*Input
 
-	send func(event.Event) error
-	recv func() <-chan event.Event
+	send func(event.EventIface) error
+	recv func() <-chan event.EventIface
 }
 
-func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input, send func(event.Event) error, recv func() <-chan event.Event) *Source {
+func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input, send func(event.EventIface) error, recv func() <-chan event.EventIface) *Source {
 	return &Source{
 		id:   id,
 		name: name,
@@ -50,7 +49,7 @@ func (s *Source) Name() string {
 	return s.name
 }
 
-func (s *Source) Handle(e event.Event) error {
+func (s *Source) Handle(e event.EventIface) error {
 	err := s.send(e)
 	if err != nil {
 		return err
@@ -60,9 +59,9 @@ func (s *Source) Handle(e event.Event) error {
 	return nil
 }
 
-func (s *Source) processEvent(e event.Event) {
+func (s *Source) processEvent(e event.EventIface) {
 	switch e := e.(type) {
-	case regevent.SetSourceActiveEvent:
+	case event.SetSourceActiveEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceActiveEvent\n", s.id)
 
 		for inputId := range e.Sinks {
@@ -71,7 +70,7 @@ func (s *Source) processEvent(e event.Event) {
 		}
 
 		//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)
-	case regevent.SetSourceIdleEvent:
+	case event.SetSourceIdleEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceIdleEvent\n", s.id)
 		//s.state = StateIdle
 		//s.sessId = uuid.Nil
@@ -89,7 +88,7 @@ func (s *Source) processEvent(e event.Event) {
 	}
 }
 
-func (s *Source) Events() <-chan event.Event {
+func (s *Source) Events() <-chan event.EventIface {
 	return s.recv()
 }
 

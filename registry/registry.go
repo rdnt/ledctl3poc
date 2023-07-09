@@ -8,8 +8,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
 
-	"ledctl3/pkg/event"
-	regevent "ledctl3/registry/types/event"
+	"ledctl3/event"
 )
 
 type Registry struct {
@@ -41,8 +40,8 @@ type Source interface {
 	Name() string
 	String() string
 	Inputs() map[uuid.UUID]Input
-	Handle(event event.Event) error
-	Events() <-chan event.Event
+	Handle(event event.EventIface) error
+	Events() <-chan event.EventIface
 }
 
 type InputState string
@@ -80,8 +79,8 @@ type Sink interface {
 	Calibration() map[int]Calibration
 	Outputs() map[uuid.UUID]Output
 	String() string
-	Handle(event event.Event) error
-	Events() <-chan event.Event
+	Handle(event event.EventIface) error
+	Events() <-chan event.EventIface
 }
 
 type Output interface {
@@ -171,8 +170,8 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	}
 
 	for sinkId, outputIds := range enableSinkOutputs {
-		err := r.sinks[sinkId].Handle(regevent.SetSinkActiveEvent{
-			Event:     regevent.Event{Type: regevent.SetSinkActive, DevId: sinkId},
+		err := r.sinks[sinkId].Handle(event.SetSinkActiveEvent{
+			Event:     event.Event{Type: event.SetSinkActive, DevId: sinkId},
 			SessionId: sessId,
 			OutputIds: outputIds,
 		})
@@ -208,9 +207,9 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	}
 
 	for srcId, inputIds := range disableSourceInputs {
-		err := r.sources[srcId].Handle(regevent.SetSourceIdleEvent{
-			Event: regevent.Event{Type: regevent.SetSourceIdle, DevId: srcId},
-			//Event:    regevent.Event{EventDeviceId: sinkId},
+		err := r.sources[srcId].Handle(event.SetSourceIdleEvent{
+			Event: event.Event{Type: event.SetSourceIdle, DevId: srcId},
+			//EventIface:    regevent.EventIface{EventDeviceId: sinkId},
 			InputIds: inputIds,
 		})
 		if err != nil {
@@ -263,11 +262,11 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 	for srcId, inputSinkOutputs := range enableSourceIO {
 
-		sinkCfgs := map[uuid.UUID][]regevent.SetSourceActiveEventSink{}
+		sinkCfgs := map[uuid.UUID][]event.SetSourceActiveEventSink{}
 
 		for inputId, sinkOutputs := range inputSinkOutputs {
 			for sinkId, outputIds := range sinkOutputs {
-				sinkCfgs[inputId] = append(sinkCfgs[inputId], regevent.SetSourceActiveEventSink{
+				sinkCfgs[inputId] = append(sinkCfgs[inputId], event.SetSourceActiveEventSink{
 					Id:        sinkId,
 					Address:   "", // TODO ?
 					OutputIds: outputIds,
@@ -275,8 +274,8 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 			}
 		}
 
-		err := r.sources[srcId].Handle(regevent.SetSourceActiveEvent{
-			Event:     regevent.Event{Type: regevent.SetSourceActive, DevId: srcId},
+		err := r.sources[srcId].Handle(event.SetSourceActiveEvent{
+			Event:     event.Event{Type: event.SetSourceActive, DevId: srcId},
 			SessionId: sessId,
 			Sinks:     sinkCfgs,
 		})
@@ -351,7 +350,7 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 //	return nil
 //}
 
-//func (r *Registry) Events() <-chan event.Event {
+//func (r *Registry) Events() <-chan event.EventIface {
 //	return r.events
 //}
 

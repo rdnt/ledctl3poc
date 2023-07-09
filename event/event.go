@@ -12,17 +12,38 @@ const (
 	SetLeds   Type = "setLeds"
 )
 
-type Event interface {
+type EventIface interface {
 	Type() Type
 	DeviceId() uuid.UUID
 	//DeviceId() uuid.UUID
 }
 
-//type typ struct {
-//	Type    Type      `json:"event"`
-//	DeviceId uuid.UUID `json:"deviceId"`
-//}
+const (
+	//SetIdle            event.Type = "setIdle"
+	SetSinkActive   Type = "setActive"
+	SetSourceIdle   Type = "setIdle"
+	SetSourceActive Type = "setActive"
+	//SetLeds            event.Type = "setLeds"
+)
 
+type Event struct {
+	Type  Type      `json:"event"`
+	DevId uuid.UUID `json:"deviceId"`
+}
+
+func (e Event) DeviceId() uuid.UUID {
+	return e.DevId
+}
+
+//type Type interface {
+//	Type() event.Type
+//	DeviceId() uuid.UUID
+//}
+//
+//type typ struct {
+//	Type Type `json:"event"`
+//}
+//
 //// Parse parses a single event object or an array of event objects
 //// into a slice of Type. The slice will contain at least one element if
 //// an error is not returned.
@@ -113,7 +134,7 @@ type Event interface {
 //	//	err := json.Unmarshal(b, &e)
 //	//	return e, err
 //	//case SetActive:
-//	//	var e SetActiveEvent
+//	//	var e SetSinkActiveEvent
 //	//	err := json.Unmarshal(b, &e)
 //	//	return e, err
 //	default:

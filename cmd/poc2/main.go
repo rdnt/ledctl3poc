@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"ledctl3/event"
 	"ledctl3/pkg/broker"
-	"ledctl3/pkg/event"
 	"ledctl3/registry"
 	"ledctl3/registry/types/sink"
 	"ledctl3/registry/types/source"
@@ -21,7 +21,7 @@ func main() {
 
 	reg := registry.New()
 
-	socket := broker.New[uuid.UUID, event.Event]()
+	socket := broker.New[uuid.UUID, event.EventIface]()
 
 	src1dev := sourcedev.New(nil)
 	socket.Subscribe(src1dev.Id(), src1dev.ProcessEvent)
@@ -46,13 +46,13 @@ func main() {
 
 	source1 := source.NewSource(src1dev.Id(), "source1", map[uuid.UUID]*source.Input{
 		input1a.Id(): input1a, input1b.Id(): input1b,
-	}, func(e event.Event) error {
+	}, func(e event.EventIface) error {
 		//fmt.Printf("@@@ send %s (%s) %s\n", src1dev.Id(), e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
-	}, func() <-chan event.Event {
-		evts := make(chan event.Event)
-		socket.Subscribe(src1dev.Id(), func(e event.Event) {
+	}, func() <-chan event.EventIface {
+		evts := make(chan event.EventIface)
+		socket.Subscribe(src1dev.Id(), func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
@@ -66,13 +66,13 @@ func main() {
 
 	source2 := source.NewSource(src2dev.Id(), "source2", map[uuid.UUID]*source.Input{
 		input2a.Id(): input2a, input2b.Id(): input2b,
-	}, func(e event.Event) error {
+	}, func(e event.EventIface) error {
 		//fmt.Printf("@@@ send %s (%s) %s\n", src2dev.Id(), e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
-	}, func() <-chan event.Event {
-		evts := make(chan event.Event)
-		socket.Subscribe(src2dev.Id(), func(e event.Event) {
+	}, func() <-chan event.EventIface {
+		evts := make(chan event.EventIface)
+		socket.Subscribe(src2dev.Id(), func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
@@ -90,19 +90,19 @@ func main() {
 	// TODO: actual device uuid
 	sink1 := sink.NewSink(sink1id, "sink1", map[uuid.UUID]*sink.Output{
 		output1a.Id(): output1a, output1b.Id(): output1b,
-	}, func(e event.Event) error {
+	}, func(e event.EventIface) error {
 		//fmt.Printf("~~~ send %s (%s) %s\n", sink1id, e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
-	}, func() <-chan event.Event {
-		evts := make(chan event.Event)
-		socket.Subscribe(sink1id, func(e event.Event) {
+	}, func() <-chan event.EventIface {
+		evts := make(chan event.EventIface)
+		socket.Subscribe(sink1id, func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
 	})
 
-	socket.Subscribe(sink1id, func(e event.Event) {
+	socket.Subscribe(sink1id, func(e event.EventIface) {
 		fmt.Println("### debug sink1 recv", e.Type())
 	})
 
@@ -116,19 +116,19 @@ func main() {
 	// TODO: actual device uuid
 	sink2 := sink.NewSink(sink2id, "sink2", map[uuid.UUID]*sink.Output{
 		output2a.Id(): output2a, output2b.Id(): output2b,
-	}, func(e event.Event) error {
+	}, func(e event.EventIface) error {
 		//fmt.Printf("~~~ send %s (%s) %s\n", sink2id, e.DeviceId(), e.Type())
 		socket.Publish(e.DeviceId(), e)
 		return nil
-	}, func() <-chan event.Event {
-		evts := make(chan event.Event)
-		socket.Subscribe(sink2id, func(e event.Event) {
+	}, func() <-chan event.EventIface {
+		evts := make(chan event.EventIface)
+		socket.Subscribe(sink2id, func(e event.EventIface) {
 			evts <- e
 		})
 		return evts
 	})
 
-	socket.Subscribe(sink2id, func(e event.Event) {
+	socket.Subscribe(sink2id, func(e event.EventIface) {
 		fmt.Println("### debug sink2 recv", e.Type())
 	})
 

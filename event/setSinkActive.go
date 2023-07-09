@@ -2,8 +2,6 @@ package event
 
 import (
 	"github.com/google/uuid"
-
-	"ledctl3/pkg/event"
 )
 
 type SetSinkActiveEvent struct {
@@ -12,6 +10,6 @@ type SetSinkActiveEvent struct {
 	OutputIds []uuid.UUID `json:"outputIds"`
 }
 
-func (e SetSinkActiveEvent) Type() event.Type {
+func (e SetSinkActiveEvent) Type() Type {
 	return SetSinkActive
 }

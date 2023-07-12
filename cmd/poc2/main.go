@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"os"
 	"os/signal"
 	"time"
@@ -13,6 +14,7 @@ import (
 	sinkdev "ledctl3/sink"
 	outputdev "ledctl3/sink/debug"
 	sourcedev "ledctl3/source"
+	"ledctl3/source/audio"
 	inputdev "ledctl3/source/debug"
 )
 
@@ -29,7 +31,16 @@ func main() {
 		}
 	}()
 
-	inputdev1a := inputdev.New()
+	inputdev1a, _ := audio.New(
+		audio.WithColors(
+			color.RGBA{0x4a, 0x15, 0x24, 255},
+			color.RGBA{0x06, 0x53, 0x94, 255},
+			color.RGBA{0x00, 0xb5, 0x85, 255},
+			color.RGBA{0xd6, 0x00, 0xa4, 255},
+			color.RGBA{0xff, 0x00, 0x4c, 255},
+		),
+		audio.WithWindowSize(10),
+		audio.WithBlackPoint(0))
 	inputdev1b := inputdev.New()
 
 	src1dev := sourcedev.New(reg.Id())
@@ -74,7 +85,7 @@ func main() {
 	sink1dev.Connect()
 
 	outputdev2a := outputdev.New(20)
-	outputdev2b := outputdev.New(40)
+	outputdev2b := outputdev.New(120)
 
 	sink2dev := sinkdev.New(reg.Id())
 	sink2dev.AddOutput(outputdev2a)
@@ -144,8 +155,10 @@ func main() {
 	time.Sleep(1 * time.Second)
 
 	prof1 := reg.AddProfile("profile1", []map[uuid.UUID][]uuid.UUID{
-		{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
-		{inputdev2b.Id(): {outputdev1b.Id()}},
+		//{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
+		//{inputdev2b.Id(): {outputdev1b.Id()}},
+
+		{inputdev1a.Id(): {outputdev2b.Id()}},
 	})
 
 	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{

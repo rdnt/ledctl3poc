@@ -66,7 +66,7 @@ func (s *Sink) ProcessEvent(e event.EventIface) {
 		fmt.Printf("-> sink %s: recv SetSinkActiveEvent\n", s.id)
 		s.handleSetActiveEvent(e)
 	case event.DataEvent:
-		fmt.Printf("-> sink %s: recv DataEvent\n", s.id)
+		//fmt.Printf("-> sink %s: recv DataEvent\n", s.id)
 		s.handleDataEvent(e)
 	default:
 		fmt.Println("unknown event", e)

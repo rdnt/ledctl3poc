@@ -8,7 +8,6 @@ import (
 	"github.com/samber/lo"
 
 	"ledctl3/event"
-	"ledctl3/registry"
 )
 
 type Source struct {
@@ -16,23 +15,18 @@ type Source struct {
 	name string
 
 	inputs map[uuid.UUID]*Input
-
-	send func(event.EventIface) error
-	recv func() <-chan event.EventIface
 }
 
-func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input, send func(event.EventIface) error, recv func() <-chan event.EventIface) *Source {
+func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input) *Source {
 	return &Source{
 		id:     id,
 		name:   name,
 		inputs: inputs,
-		send:   send,
-		recv:   recv,
 	}
 }
 
-func (s *Source) Inputs() map[uuid.UUID]registry.Input {
-	inputs := make(map[uuid.UUID]registry.Input)
+func (s *Source) Inputs() map[uuid.UUID]*Input {
+	inputs := make(map[uuid.UUID]*Input)
 
 	for id, input := range s.inputs {
 		inputs[id] = input
@@ -49,23 +43,13 @@ func (s *Source) Name() string {
 	return s.name
 }
 
-func (s *Source) Handle(e event.EventIface) error {
-	err := s.send(e)
-	if err != nil {
-		return err
-	}
-
-	s.processEvent(e)
-	return nil
-}
-
-func (s *Source) processEvent(e event.EventIface) {
+func (s *Source) Process(e event.EventIface) {
 	switch e := e.(type) {
 	case event.SetSourceActiveEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceActiveEvent\n", s.id)
 
 		for _, input := range e.Inputs {
-			s.inputs[input.Id].state = registry.InputStateActive
+			s.inputs[input.Id].state = InputStateActive
 			s.inputs[input.Id].sessId = e.SessionId
 
 			s.inputs[input.Id].sinks = lo.Map(input.Sinks, func(sink event.SetSourceActiveEventSink, index int) sinkConfig {
@@ -104,7 +88,7 @@ func (s *Source) processEvent(e event.EventIface) {
 		// TODO MUTATE INPUTS STATE AND SESSION
 
 		for _, inputId := range e.InputIds {
-			s.inputs[inputId].state = registry.InputStateIdle
+			s.inputs[inputId].state = InputStateIdle
 			s.inputs[inputId].sessId = uuid.Nil
 		}
 
@@ -112,10 +96,6 @@ func (s *Source) processEvent(e event.EventIface) {
 	default:
 		fmt.Println("@@@ 2 unknown event", e, reflect.TypeOf(e))
 	}
-}
-
-func (s *Source) Events() <-chan event.EventIface {
-	return s.recv()
 }
 
 func (s *Source) String() string {

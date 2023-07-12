@@ -3,12 +3,11 @@ package sink
 import (
 	"fmt"
 	"image/color"
-	"net"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	gcolor "github.com/gookit/color"
+	"github.com/samber/lo"
 
 	"ledctl3/event"
 
@@ -16,34 +15,35 @@ import (
 )
 
 type Output interface {
-	Id() string
+	Id() uuid.UUID
 	Start() error
-	Handle(UpdateEvent)
+	//Handle(UpdateEvent)
 	Stop() error
 }
 
 type UpdateEvent struct {
-	Pix     []color.Color
-	Latency time.Duration
+	Pix []color.Color
 }
 
 type Sink struct {
-	mux       sync.Mutex
-	id        uuid.UUID
-	address   net.Addr
-	state     types.State
-	sessionId uuid.UUID
-	outputs   map[uuid.UUID]Output
-	events    chan event.EventIface
+	mux sync.Mutex
+	id  uuid.UUID
+	//address    net.Addr
+	state      types.State
+	sessionId  uuid.UUID
+	outputs    map[uuid.UUID]Output
+	events     chan event.EventIface
+	registryId uuid.UUID
 }
 
-func New(address net.Addr) *Sink {
+func New(registryId uuid.UUID) *Sink {
 	s := &Sink{
-		id:      uuid.New(),
-		address: address,
-		state:   types.StateIdle,
-		outputs: make(map[uuid.UUID]Output),
-		events:  make(chan event.EventIface),
+		id: uuid.New(),
+		//address: address,
+		state:      types.StateIdle,
+		outputs:    make(map[uuid.UUID]Output),
+		events:     make(chan event.EventIface),
+		registryId: registryId,
 	}
 
 	return s
@@ -58,6 +58,9 @@ func (s *Sink) ProcessEvent(e event.EventIface) {
 	defer s.mux.Unlock()
 
 	switch e := e.(type) {
+	case event.ListCapabilitiesEvent:
+		fmt.Printf("-> sink %s: recv ListCapabilitiesEvent\n", s.id)
+		s.handleListCapabilitiesEvent(e)
 	case event.SetSinkActiveEvent:
 		fmt.Printf("-> sink %s: recv SetSinkActiveEvent\n", s.id)
 		s.handleSetActiveEvent(e)
@@ -91,4 +94,52 @@ func (s *Sink) handleDataEvent(e event.DataEvent) {
 		}
 		fmt.Println(out)
 	}
+}
+
+func (s *Sink) Connect() {
+	s.events <- event.ConnectEvent{
+		Event: event.Event{Type: event.Connect, DevId: s.registryId},
+		Id:    s.id,
+	}
+}
+
+func (s *Sink) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
+	s.events <- event.CapabilitiesEvent{
+		Event:  event.Event{Type: event.Capabilities, DevId: s.registryId},
+		Id:     s.id,
+		Inputs: []event.CapabilitiesEventInput{},
+		Outputs: lo.Map(lo.Values(s.outputs), func(output Output, _ int) event.CapabilitiesEventOutput {
+			return event.CapabilitiesEventOutput{
+				Id:   output.Id(),
+				Leds: 100, // TODO
+			}
+		}),
+	}
+}
+
+func (s *Sink) AddOutput(o Output) {
+	s.outputs[o.Id()] = o
+
+	//go func() {
+	//	// forward events from input to the network~
+	//	for e := range o.Events() {
+	//		var outputs []event.DataEventOutput
+	//		for _, output := range e.Outputs {
+	//			outputs = append(outputs, event.DataEventOutput{
+	//				Id:  output.Id,
+	//				Pix: output.Pix,
+	//			})
+	//		}
+	//
+	//		s.events <- event.DataEvent{
+	//			Event:     event.Event{Type: event.Data, DevId: e.SinkId},
+	//			SessionId: s.sessionId,
+	//			Outputs:   outputs,
+	//		}
+	//	}
+	//}()
+}
+
+func (s *Sink) Events() <-chan event.EventIface {
+	return s.events
 }

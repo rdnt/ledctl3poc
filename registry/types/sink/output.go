@@ -4,26 +4,31 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
-	"ledctl3/registry"
 )
 
 type Output struct {
 	id   uuid.UUID
 	name string
 
-	state  registry.OutputState
+	state  OutputState
 	sessId uuid.UUID
 
 	leds        int
-	calibration map[int]registry.Calibration
+	calibration map[int]Calibration
 }
+
+type OutputState string
+
+const (
+	OutputStateIdle   OutputState = "idle"
+	OutputStateActive OutputState = "active"
+)
 
 func NewOutput(id uuid.UUID, name string, leds int) *Output {
 	return &Output{
 		id:    id,
 		name:  name,
-		state: registry.OutputStateIdle,
+		state: OutputStateIdle,
 		leds:  leds,
 	}
 }
@@ -40,11 +45,11 @@ func (o *Output) Leds() int {
 	return o.leds
 }
 
-func (o *Output) Calibration() map[int]registry.Calibration {
+func (o *Output) Calibration() map[int]Calibration {
 	return o.calibration
 }
 
-func (o *Output) State() registry.OutputState {
+func (o *Output) State() OutputState {
 	return o.state
 }
 

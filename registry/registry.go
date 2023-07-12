@@ -6,16 +6,19 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 
 	"ledctl3/event"
+	"ledctl3/registry/types/sink"
+	"ledctl3/registry/types/source"
 )
 
 type Registry struct {
 	id       uuid.UUID
 	mux      sync.Mutex
-	sources  map[uuid.UUID]Source
-	sinks    map[uuid.UUID]Sink
+	sources  map[uuid.UUID]*source.Source
+	sinks    map[uuid.UUID]*sink.Sink
 	profiles map[uuid.UUID]Profile
 	events   chan event.EventIface
 }
@@ -29,8 +32,8 @@ type Profile struct {
 func New() *Registry {
 	return &Registry{
 		id:       uuid.New(),
-		sources:  map[uuid.UUID]Source{},
-		sinks:    map[uuid.UUID]Sink{},
+		sources:  map[uuid.UUID]*source.Source{},
+		sinks:    map[uuid.UUID]*sink.Sink{},
 		profiles: map[uuid.UUID]Profile{},
 		events:   make(chan event.EventIface),
 	}
@@ -49,56 +52,33 @@ type Source interface {
 	Name() string
 	String() string
 	Inputs() map[uuid.UUID]Input
-	Handle(event event.EventIface) error
-	Events() <-chan event.EventIface
+	Process(event event.EventIface)
 }
-
-type InputState string
-
-const (
-	InputStateIdle   InputState = "idle"
-	InputStateActive InputState = "active"
-)
-
-type OutputState string
-
-const (
-	OutputStateIdle   OutputState = "idle"
-	OutputStateActive OutputState = "active"
-)
 
 type Input interface {
 	Id() uuid.UUID
 	Name() string
-	State() InputState
+	State() source.InputState
 	SessionId() uuid.UUID
-}
-
-type Calibration struct {
-	R float64
-	G float64
-	B float64
-	A float64
 }
 
 type Sink interface {
 	Id() uuid.UUID
 	Name() string
 	Leds() int
-	Calibration() map[int]Calibration
+	Calibration() map[int]sink.Calibration
 	Outputs() map[uuid.UUID]Output
 	String() string
-	Handle(event event.EventIface) error
-	Events() <-chan event.EventIface
+	Process(event event.EventIface)
 }
 
 type Output interface {
 	Id() uuid.UUID
 	Name() string
-	State() OutputState
+	State() sink.OutputState
 	SessionId() uuid.UUID
 	Leds() int
-	Calibration() map[int]Calibration
+	Calibration() map[int]sink.Calibration
 }
 
 var (
@@ -107,7 +87,7 @@ var (
 	ErrConfigNotFound = errors.New("config not found")
 )
 
-func (r *Registry) AddSource(src Source) error {
+func (r *Registry) AddSource(src *source.Source) error {
 	_, ok := r.sources[src.Id()]
 	if ok {
 		return ErrDeviceExists
@@ -118,7 +98,7 @@ func (r *Registry) AddSource(src Source) error {
 	return nil
 }
 
-func (r *Registry) AddSink(snk Sink) error {
+func (r *Registry) AddSink(snk *sink.Sink) error {
 	_, ok := r.sinks[snk.Id()]
 	if ok {
 		return ErrDeviceExists
@@ -129,11 +109,11 @@ func (r *Registry) AddSink(snk Sink) error {
 	return nil
 }
 
-func (r *Registry) Sources() map[uuid.UUID]Source {
+func (r *Registry) Sources() map[uuid.UUID]*source.Source {
 	return r.sources
 }
 
-func (r *Registry) Sinks() map[uuid.UUID]Sink {
+func (r *Registry) Sinks() map[uuid.UUID]*sink.Sink {
 	return r.sinks
 }
 
@@ -180,14 +160,14 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	}
 
 	for sinkId, outputIds := range enableSinkOutputs {
-		err := r.sinks[sinkId].Handle(event.SetSinkActiveEvent{
+		e := event.SetSinkActiveEvent{
 			Event:     event.Event{Type: event.SetSinkActive, DevId: sinkId},
 			SessionId: sessId,
 			OutputIds: outputIds,
-		})
-		if err != nil {
-			fmt.Println("error during send sink disabled outputs", err)
 		}
+
+		r.sinks[sinkId].Process(e)
+		r.events <- e
 	}
 
 	//time.Sleep(1 * time.Second)
@@ -204,25 +184,22 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 					continue
 				}
 
-				if input.State() == InputStateActive && slices.Contains(stopSessions, input.SessionId()) {
+				if input.State() == source.InputStateActive && slices.Contains(stopSessions, input.SessionId()) {
 					// this input is broadcasting to a now-idle output. stop it
 					disableSourceInputs[src.Id()] = append(disableSourceInputs[src.Id()], inputId)
 				}
-
 			}
-
 		}
 	}
 
 	for srcId, inputIds := range disableSourceInputs {
-		err := r.sources[srcId].Handle(event.SetSourceIdleEvent{
-			Event: event.Event{Type: event.SetSourceIdle, DevId: srcId},
-			//EventIface:    regevent.EventIface{EventDeviceId: sinkId},
+		e := event.SetSourceIdleEvent{
+			Event:    event.Event{Type: event.SetSourceIdle, DevId: srcId},
 			InputIds: inputIds,
-		})
-		if err != nil {
-			fmt.Println("error during send source idle inputs", err)
 		}
+
+		r.sources[srcId].Process(e)
+		r.events <- e
 	}
 
 	//time.Sleep(1 * time.Second)
@@ -309,14 +286,14 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 			})
 		}
 
-		err := r.sources[srcId].Handle(event.SetSourceActiveEvent{
+		e := event.SetSourceActiveEvent{
 			Event:     event.Event{Type: event.SetSourceActive, DevId: srcId},
 			SessionId: sessId,
 			Inputs:    inputs,
-		})
-		if err != nil {
-			fmt.Println("error during send source idle inputs", err)
 		}
+
+		r.sources[srcId].Process(e)
+		r.events <- e
 	}
 
 	return nil
@@ -337,6 +314,9 @@ func (r *Registry) ProcessEvent(e event.EventIface) {
 	//case event.SetSourceIdleEvent:
 	//	fmt.Printf("-> source %s: recv SetSourceIdleEvent\n", s.id)
 	//	s.handleSetIdleEvent(e)
+	case event.CapabilitiesEvent:
+		fmt.Printf("-> registry %s: recv CapabilitiesEvent\n", r.id)
+		r.handleCapabilitiesEvent(e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -354,5 +334,49 @@ func (r *Registry) handleConnectEvent(e event.ConnectEvent) {
 		}
 
 		return
+	}
+}
+
+func (r *Registry) handleCapabilitiesEvent(e event.CapabilitiesEvent) {
+	if len(e.Inputs) > 0 {
+		_, srcRegistered := r.sources[e.Id]
+
+		if !srcRegistered {
+			inputs := lo.Map(e.Inputs, func(input event.CapabilitiesEventInput, _ int) *source.Input {
+				return source.NewInput(input.Id, "")
+			})
+
+			inputsMap := lo.SliceToMap(inputs, func(input *source.Input) (uuid.UUID, *source.Input) {
+				return input.Id(), input
+			})
+
+			src := source.NewSource(e.Id, "", inputsMap)
+
+			err := r.AddSource(src)
+			if err != nil {
+				fmt.Println("error during add source", err)
+			}
+		}
+	}
+
+	if len(e.Outputs) > 0 {
+		_, sinkRegistered := r.sinks[e.Id]
+
+		if !sinkRegistered {
+			outputs := lo.Map(e.Outputs, func(output event.CapabilitiesEventOutput, _ int) *sink.Output {
+				return sink.NewOutput(output.Id, "", output.Leds)
+			})
+
+			outputsMap := lo.SliceToMap(outputs, func(output *sink.Output) (uuid.UUID, *sink.Output) {
+				return output.Id(), output
+			})
+
+			snk := sink.NewSink(e.Id, "", outputsMap)
+
+			err := r.AddSink(snk)
+			if err != nil {
+				fmt.Println("error during add sink", err)
+			}
+		}
 	}
 }

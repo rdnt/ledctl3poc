@@ -4,19 +4,24 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
-	"ledctl3/registry"
 )
 
 type Input struct {
 	id   uuid.UUID
 	name string
 
-	state  registry.InputState
+	state  InputState
 	sessId uuid.UUID
 
 	sinks []sinkConfig
 }
+
+type InputState string
+
+const (
+	InputStateIdle   InputState = "idle"
+	InputStateActive InputState = "active"
+)
 
 type sinkConfig struct {
 	Id      uuid.UUID
@@ -42,7 +47,7 @@ func NewInput(id uuid.UUID, name string) *Input {
 	return &Input{
 		id:    id,
 		name:  name,
-		state: registry.InputStateIdle,
+		state: InputStateIdle,
 	}
 }
 
@@ -54,7 +59,7 @@ func (i *Input) Name() string {
 	return i.name
 }
 
-func (i *Input) State() registry.InputState {
+func (i *Input) State() InputState {
 	return i.state
 }
 

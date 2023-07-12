@@ -3,7 +3,6 @@ package source
 import (
 	"fmt"
 	"image/color"
-	"net"
 	"sync"
 	"time"
 
@@ -49,9 +48,9 @@ type UpdateOutput struct {
 }
 
 type Source struct {
-	mux        sync.Mutex
-	id         uuid.UUID
-	address    net.Addr
+	mux sync.Mutex
+	id  uuid.UUID
+	//address    net.Addr
 	state      types.State
 	sessionId  uuid.UUID
 	inputs     map[uuid.UUID]Input
@@ -170,7 +169,6 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				})
 			}
 
-			//fmt.Println(s.inputs)
 			_ = s.inputs[inputId].Start(cfg)
 		}
 
@@ -265,6 +263,16 @@ func (s *Source) Connect() {
 	}
 }
 
-func (s *Source) handleListCapabilitiesEvent(e event.ListCapabilitiesEvent) {
-
+func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
+	s.events <- event.CapabilitiesEvent{
+		Event: event.Event{Type: event.Capabilities, DevId: s.registryId},
+		Id:    s.id,
+		Inputs: lo.Map(lo.Values(s.inputs), func(input Input, _ int) event.CapabilitiesEventInput {
+			return event.CapabilitiesEventInput{
+				Id:   input.Id(),
+				Type: event.InputTypeDefault,
+			}
+		}),
+		Outputs: []event.CapabilitiesEventOutput{},
+	}
 }

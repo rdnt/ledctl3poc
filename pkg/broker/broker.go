@@ -49,7 +49,7 @@ func (o *Broker[C, E]) Publish(channel C, e E) {
 
 		for _, h := range subs {
 			if h != nil {
-				h(e)
+				go h(e)
 			}
 		}
 	}

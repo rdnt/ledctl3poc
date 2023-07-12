@@ -4,6 +4,7 @@ import "github.com/google/uuid"
 
 type CapabilitiesEvent struct {
 	Event
+	Id      uuid.UUID                 `json:"id"`
 	Inputs  []CapabilitiesEventInput  `json:"inputs"`
 	Outputs []CapabilitiesEventOutput `json:"outputs"`
 }
@@ -14,7 +15,8 @@ type CapabilitiesEventInput struct {
 }
 
 type CapabilitiesEventOutput struct {
-	Id uuid.UUID `json:"id"`
+	Id   uuid.UUID `json:"id"`
+	Leds int       `json:"leds"`
 }
 
 type InputType string

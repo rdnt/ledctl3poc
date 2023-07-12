@@ -76,7 +76,7 @@ func (i *DebugInput) Start(cfg source.Config) error {
 					Latency: 500 * time.Millisecond,
 				}
 
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(16 * time.Millisecond)
 				//fmt.Println("---------------------------------------------")
 
 			}

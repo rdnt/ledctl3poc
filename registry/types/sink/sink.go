@@ -8,26 +8,35 @@ import (
 
 	"ledctl3/event"
 	regevent "ledctl3/event"
-	"ledctl3/registry"
 )
+
+type Calibration struct {
+	R float64
+	G float64
+	B float64
+	A float64
+}
 
 type Sink struct {
 	id   uuid.UUID
 	name string
 
 	outputs map[uuid.UUID]*Output
-
-	send func(event.EventIface) error
-	recv func() <-chan event.EventIface
 }
 
-func NewSink(id uuid.UUID, name string, outputs map[uuid.UUID]*Output, send func(event.EventIface) error, recv func() <-chan event.EventIface) *Sink {
+//type State string
+//
+//const (
+//	StateOffline State = "offline"
+//	StateIdle    State = "idle"
+//	StateActive  State = "active"
+//)
+
+func NewSink(id uuid.UUID, name string, outputs map[uuid.UUID]*Output) *Sink {
 	return &Sink{
 		id:      id,
 		name:    name,
 		outputs: outputs,
-		send:    send,
-		recv:    recv,
 	}
 }
 
@@ -48,8 +57,8 @@ func (s *Sink) Leds() int {
 	return leds
 }
 
-func (s *Sink) Calibration() map[int]registry.Calibration {
-	calib := make(map[int]registry.Calibration)
+func (s *Sink) Calibration() map[int]Calibration {
+	calib := make(map[int]Calibration)
 
 	var acc int
 	for _, out := range s.outputs {
@@ -70,8 +79,8 @@ func (s *Sink) String() string {
 	)
 }
 
-func (s *Sink) Outputs() map[uuid.UUID]registry.Output {
-	outputs := make(map[uuid.UUID]registry.Output)
+func (s *Sink) Outputs() map[uuid.UUID]*Output {
+	outputs := make(map[uuid.UUID]*Output)
 
 	for id, output := range s.outputs {
 		outputs[id] = output
@@ -80,21 +89,11 @@ func (s *Sink) Outputs() map[uuid.UUID]registry.Output {
 	return outputs
 }
 
-func (s *Sink) Handle(e event.EventIface) error {
-	err := s.send(e)
-	if err != nil {
-		return err
-	}
-
-	s.processEvent(e)
-	return nil
-}
-
-func (s *Sink) processEvent(e event.EventIface) {
+func (s *Sink) Process(e event.EventIface) {
 	switch e := e.(type) {
 	case regevent.SetSinkActiveEvent:
 		for _, outputId := range e.OutputIds {
-			s.outputs[outputId].state = registry.OutputStateActive
+			s.outputs[outputId].state = OutputStateActive
 			s.outputs[outputId].sessId = e.SessionId
 		}
 
@@ -103,8 +102,4 @@ func (s *Sink) processEvent(e event.EventIface) {
 	default:
 		fmt.Printf("@@@ 1 unknown event %#v %s\n", e, reflect.TypeOf(e))
 	}
-}
-
-func (s *Sink) Events() <-chan event.EventIface {
-	return s.recv()
 }

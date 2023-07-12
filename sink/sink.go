@@ -19,6 +19,7 @@ type Output interface {
 	Start() error
 	//Handle(UpdateEvent)
 	Stop() error
+	Leds() int
 }
 
 type UpdateEvent struct {
@@ -111,7 +112,7 @@ func (s *Sink) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 		Outputs: lo.Map(lo.Values(s.outputs), func(output Output, _ int) event.CapabilitiesEventOutput {
 			return event.CapabilitiesEventOutput{
 				Id:   output.Id(),
-				Leds: 100, // TODO
+				Leds: output.Leds(),
 			}
 		}),
 	}

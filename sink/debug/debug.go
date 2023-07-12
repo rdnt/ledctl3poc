@@ -9,13 +9,15 @@ import (
 type DebugOutput struct {
 	id     uuid.UUID
 	events chan sink.UpdateEvent
+	leds   int
 
 	//pixs   map[uuid.UUID][]color.Color
 }
 
-func New() *DebugOutput {
+func New(leds int) *DebugOutput {
 	i := &DebugOutput{
 		id:     uuid.New(),
+		leds:   leds,
 		events: make(chan sink.UpdateEvent),
 		//pixs:   make(map[uuid.UUID][]color.Color),
 	}
@@ -45,6 +47,10 @@ func (o *DebugOutput) Id() uuid.UUID {
 func (o *DebugOutput) Start() error {
 
 	return nil
+}
+
+func (o *DebugOutput) Leds() int {
+	return o.leds
 }
 
 func (o *DebugOutput) Events() chan sink.UpdateEvent {

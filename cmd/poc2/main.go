@@ -59,8 +59,8 @@ func main() {
 
 	//////////////////////////
 
-	outputdev1a := outputdev.New()
-	outputdev1b := outputdev.New()
+	outputdev1a := outputdev.New(5)
+	outputdev1b := outputdev.New(10)
 
 	sink1dev := sinkdev.New(reg.Id())
 	sink1dev.AddOutput(outputdev1a)
@@ -73,8 +73,8 @@ func main() {
 	}()
 	sink1dev.Connect()
 
-	outputdev2a := outputdev.New()
-	outputdev2b := outputdev.New()
+	outputdev2a := outputdev.New(20)
+	outputdev2b := outputdev.New(40)
 
 	sink2dev := sinkdev.New(reg.Id())
 	sink2dev.AddOutput(outputdev2a)

@@ -19,6 +19,8 @@ type Input interface {
 	Start(cfg Config) error
 	Events() chan UpdateEvent
 	Stop() error
+	Schema() map[string]any
+	ApplyConfig(b []byte) error
 }
 
 type Config struct {
@@ -269,8 +271,9 @@ func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 		Id:    s.id,
 		Inputs: lo.Map(lo.Values(s.inputs), func(input Input, _ int) event.CapabilitiesEventInput {
 			return event.CapabilitiesEventInput{
-				Id:   input.Id(),
-				Type: event.InputTypeDefault,
+				Id:           input.Id(),
+				Type:         event.InputTypeDefault,
+				ConfigSchema: input.Schema(),
 			}
 		}),
 		Outputs: []event.CapabilitiesEventOutput{},

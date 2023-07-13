@@ -1,0 +1,44 @@
+[
+  {
+    "type": "boolean",
+    "name": "Boolean option",
+    "default": true
+  },
+  {
+    "type": "string",
+    "name": "String option",
+    "default": "default value"
+  },
+  {
+    "type": "integer",
+    "name": "Integer option",
+    "default": 1,
+    "minimum": 0,
+    "maximum": 100
+  },
+  {
+    "type": "float",
+    "name": "Float option",
+    "default": 1.5,
+    "minimum": 0.0,
+    "maximum": 100.0
+  },
+  {
+    "type": "object",
+    "name": "Object option",
+    "properties": [
+      {
+        "name": "Object key option",
+        "type": "boolean"
+      }
+    ]
+  },
+  {
+    "type": "array",
+    "name": "ashdaj",
+    "items": {
+      "type": "float",
+      "name": "Array float option"
+    }
+  }
+]

@@ -343,7 +343,7 @@ func (r *Registry) handleCapabilitiesEvent(e event.CapabilitiesEvent) {
 
 		if !srcRegistered {
 			inputs := lo.Map(e.Inputs, func(input event.CapabilitiesEventInput, _ int) *source.Input {
-				return source.NewInput(input.Id, "")
+				return source.NewInput(input.Id, "", input.ConfigSchema)
 			})
 
 			inputsMap := lo.SliceToMap(inputs, func(input *source.Input) (uuid.UUID, *source.Input) {

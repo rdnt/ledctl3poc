@@ -13,7 +13,8 @@ type Input struct {
 	state  InputState
 	sessId uuid.UUID
 
-	sinks []sinkConfig
+	sinks  []sinkConfig
+	schema map[string]any
 }
 
 type InputState string
@@ -43,11 +44,12 @@ type output struct {
 	leds int
 }
 
-func NewInput(id uuid.UUID, name string) *Input {
+func NewInput(id uuid.UUID, name string, schema map[string]any) *Input {
 	return &Input{
-		id:    id,
-		name:  name,
-		state: InputStateIdle,
+		id:     id,
+		name:   name,
+		state:  InputStateIdle,
+		schema: schema,
 	}
 }
 

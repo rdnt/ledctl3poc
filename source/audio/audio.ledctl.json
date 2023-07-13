@@ -1,0 +1,28 @@
+[
+  {
+    "type": "string",
+    "name": "Color scheme name"
+  },
+  {
+    "type": "array",
+    "name": "Colors (#rrggbb)",
+    "items": {
+      "type": "string",
+      "name": "Color"
+    }
+  },
+  {
+    "type": "integer",
+    "name": "Window size",
+    "default": 40,
+    "minimum": 2,
+    "maximum": 1000
+  },
+  {
+    "type": "float",
+    "name": "Black point",
+    "default": 0.2,
+    "minimum": 0,
+    "maximum": 1
+  }
+]

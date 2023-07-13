@@ -10,8 +10,9 @@ type CapabilitiesEvent struct {
 }
 
 type CapabilitiesEventInput struct {
-	Id   uuid.UUID `json:"id"`
-	Type InputType `json:"type"`
+	Id           uuid.UUID      `json:"id"`
+	Type         InputType      `json:"type"`
+	ConfigSchema map[string]any `json:"configSchema"`
 }
 
 type CapabilitiesEventOutput struct {

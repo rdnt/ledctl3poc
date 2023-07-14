@@ -1,0 +1,40 @@
+[
+  {
+    "type": "array",
+    "name": "displays",
+    "items": {
+      "type": "object",
+      "name": "display",
+      "properties": [
+        {
+          "name": "width",
+          "type": "integer",
+          "default": 1920,
+          "minimum": 1
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "default": 1080,
+          "minimum": 1
+        },
+        {
+          "name": "left",
+          "type": "integer",
+          "default": 0
+        },
+        {
+          "name": "top",
+          "type": "integer",
+          "default": 0
+        },
+        {
+          "name": "framerate",
+          "type": "integer",
+          "default": 60,
+          "minimum": 1
+        }
+      ]
+    }
+  }
+]

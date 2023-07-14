@@ -14,8 +14,9 @@ import (
 	sinkdev "ledctl3/sink"
 	outputdev "ledctl3/sink/debug"
 	sourcedev "ledctl3/source"
-	"ledctl3/source/audio"
+	audiosrc "ledctl3/source/audio"
 	inputdev "ledctl3/source/debug"
+	videosrc "ledctl3/source/video"
 )
 
 func main() {
@@ -31,17 +32,19 @@ func main() {
 		}
 	}()
 
-	inputdev1a, _ := audio.New(
-		audio.WithColors(
+	inputdev1a, _ := audiosrc.New(
+		audiosrc.WithColors(
 			color.RGBA{0x4a, 0x15, 0x24, 255},
 			color.RGBA{0x06, 0x53, 0x94, 255},
 			color.RGBA{0x00, 0xb5, 0x85, 255},
 			color.RGBA{0xd6, 0x00, 0xa4, 255},
 			color.RGBA{0xff, 0x00, 0x4c, 255},
 		),
-		audio.WithWindowSize(10),
-		audio.WithBlackPoint(0))
-	inputdev1b := inputdev.New()
+		audiosrc.WithWindowSize(10),
+		audiosrc.WithBlackPoint(0),
+	)
+
+	inputdev1b := videosrc.New()
 
 	src1dev := sourcedev.New(reg.Id())
 	src1dev.AddInput(inputdev1a)
@@ -158,7 +161,8 @@ func main() {
 		//{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
 		//{inputdev2b.Id(): {outputdev1b.Id()}},
 
-		{inputdev1a.Id(): {outputdev2b.Id()}},
+		//{inputdev1a.Id(): {outputdev2b.Id()}}, // audio
+		{inputdev1b.Id(): {outputdev2b.Id()}}, // video
 	})
 
 	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{

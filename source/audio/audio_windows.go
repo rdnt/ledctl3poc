@@ -66,7 +66,7 @@ type Visualizer struct {
 	blackPoint float64
 
 	// TODO: config
-	cfg source.Config
+	cfg source.SinkConfig
 	id  uuid.UUID
 }
 
@@ -96,7 +96,9 @@ func (v *Visualizer) Statistics() Statistics {
 	return Statistics{}
 }
 
-func (v *Visualizer) Start(cfg source.Config) error {
+func (v *Visualizer) Start(cfg source.SinkConfig) error {
+	fmt.Printf("## starting audio source with config: %#v\n", cfg)
+
 	v.cfg = cfg
 
 	segs := make([]Segment, 0)

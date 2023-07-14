@@ -16,19 +16,19 @@ import (
 
 type Input interface {
 	Id() uuid.UUID
-	Start(cfg Config) error
+	Start(cfg SinkConfig) error
 	Events() chan UpdateEvent
 	Stop() error
 	Schema() map[string]any
 	ApplyConfig(b []byte) error
 }
 
-type Config struct {
+type SinkConfig struct {
 	Framerate int
-	Sinks     []SinkConfig
+	Sinks     []SinkConfigSinks
 }
 
-type SinkConfig struct {
+type SinkConfigSinks struct {
 	Id      uuid.UUID
 	Outputs []OutputConfig
 }
@@ -153,7 +153,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 			})
 		}
 
-		var cfg Config
+		var cfg SinkConfig
 		for inputId := range s.inputCfgs {
 			for _, sinkCfg := range s.inputCfgs[inputId] {
 
@@ -165,7 +165,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 					})
 				}
 
-				cfg.Sinks = append(cfg.Sinks, SinkConfig{
+				cfg.Sinks = append(cfg.Sinks, SinkConfigSinks{
 					Id:      sinkCfg.Id,
 					Outputs: outputs,
 				})

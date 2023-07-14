@@ -4,9 +4,6 @@
   "items": {
     "type": "object",
     "properties": {
-      "name": {
-        "type": "string"
-      },
       "colors": {
         "type": "array",
         "items": {
@@ -21,7 +18,6 @@
       }
     },
     "required": [
-      "name",
       "colors",
       "windowSize",
       "blackPoint"

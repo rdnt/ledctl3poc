@@ -17,6 +17,14 @@ type DebugInput struct {
 	//pixs   map[uuid.UUID][]color.Color
 }
 
+func (i *DebugInput) Schema() map[string]any {
+	return nil
+}
+
+func (i *DebugInput) ApplyConfig(b []byte) error {
+	return nil
+}
+
 func New() *DebugInput {
 	i := &DebugInput{
 		id:     uuid.New(),
@@ -46,7 +54,7 @@ func (i *DebugInput) Id() uuid.UUID {
 	return i.id
 }
 
-func (i *DebugInput) Start(cfg source.Config) error {
+func (i *DebugInput) Start(cfg source.SinkConfig) error {
 	for _, sinkCfg := range cfg.Sinks {
 
 		sinkCfg := sinkCfg

@@ -1,3 +1,15 @@
+package registry_test
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"ledctl3/registry"
+)
+
+func TestParseConfig(t *testing.T) {
+	err := registry.ParseConfig([]byte(`
 [
   {
     "type": "array",
@@ -22,3 +34,7 @@
     "maximum": 1
   }
 ]
+`))
+
+	assert.NoError(t, err)
+}

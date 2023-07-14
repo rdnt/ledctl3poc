@@ -1,4 +1,4 @@
-package audio
+package video
 
 import (
 	_ "embed"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-//go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p audio --tags json -o schema.gen.go schema.json
+//go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p video --tags json -o schema.gen.go schema.json
 
 //go:embed schema.json
 var b []byte
@@ -16,11 +16,11 @@ func init() {
 	_ = json.Unmarshal(b, &schema)
 }
 
-func (v *Visualizer) Schema() map[string]any {
+func (v *VideoSource) Schema() map[string]any {
 	return schema
 }
 
-func (v *Visualizer) ApplyConfig(b []byte) error {
+func (v *VideoSource) ApplyConfig(b []byte) error {
 	var config SchemaJson
 	err := json.Unmarshal(b, &config)
 	if err != nil {

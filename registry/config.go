@@ -91,7 +91,8 @@ func parseOption(typ string, b []byte) error {
 			return err
 		}
 
-		//fmt.Printf("%#v %s\n", typ, params)
+		//fmt.Printf("%#v\n", opt)
+
 		err = parseOption(optJson.Type, params)
 		if err != nil {
 			return err
@@ -103,7 +104,35 @@ func parseOption(typ string, b []byte) error {
 			return err
 		}
 
-		fmt.Printf("%#v\n", opt)
+		b, err := json.Marshal(opt.Properties)
+		if err != nil {
+			return err
+		}
+
+		var optJson map[string]json.RawMessage
+		err = json.Unmarshal(b, &optJson)
+		if err != nil {
+			return err
+		}
+
+		var config map[string]json.RawMessage
+		err = json.Unmarshal(b, &config)
+		if err != nil {
+			return err
+		}
+
+		for _, b := range config {
+			var optJson ConfigOption
+			err = json.Unmarshal(b, &optJson)
+			if err != nil {
+				return err
+			}
+
+			err = parseOption(optJson.Type, b)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

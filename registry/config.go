@@ -9,7 +9,7 @@ import (
 //go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p registry --tags json -o inputschema.gen.go input-schema.json
 
 func ParseConfig(b []byte) error {
-	var config []json.RawMessage
+	var config map[string]json.RawMessage
 	err := json.Unmarshal(b, &config)
 	if err != nil {
 		return err

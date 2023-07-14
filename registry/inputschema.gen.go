@@ -6,27 +6,6 @@ import "encoding/json"
 import "fmt"
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *IntegerOption) UnmarshalJSON(b []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(b, &raw); err != nil {
-		return err
-	}
-	if v, ok := raw["name"]; !ok || v == nil {
-		return fmt.Errorf("field name in IntegerOption: required")
-	}
-	if v, ok := raw["type"]; !ok || v == nil {
-		return fmt.Errorf("field type in IntegerOption: required")
-	}
-	type Plain IntegerOption
-	var plain Plain
-	if err := json.Unmarshal(b, &plain); err != nil {
-		return err
-	}
-	*j = IntegerOption(plain)
-	return nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
 func (j *FloatOption) UnmarshalJSON(b []byte) error {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(b, &raw); err != nil {
@@ -44,6 +23,27 @@ func (j *FloatOption) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*j = FloatOption(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *IntegerOption) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["name"]; !ok || v == nil {
+		return fmt.Errorf("field name in IntegerOption: required")
+	}
+	if v, ok := raw["type"]; !ok || v == nil {
+		return fmt.Errorf("field type in IntegerOption: required")
+	}
+	type Plain IntegerOption
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = IntegerOption(plain)
 	return nil
 }
 
@@ -82,7 +82,26 @@ type BooleanOption struct {
 	Type interface{} `json:"type"`
 }
 
-type ArrayOptionItems interface{}
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *BooleanOption) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["name"]; !ok || v == nil {
+		return fmt.Errorf("field name in BooleanOption: required")
+	}
+	if v, ok := raw["type"]; !ok || v == nil {
+		return fmt.Errorf("field type in BooleanOption: required")
+	}
+	type Plain BooleanOption
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = BooleanOption(plain)
+	return nil
+}
 
 type FloatOption struct {
 	// Default corresponds to the JSON schema field "default".
@@ -129,35 +148,14 @@ type IntegerOption struct {
 	Type interface{} `json:"type"`
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *BooleanOption) UnmarshalJSON(b []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(b, &raw); err != nil {
-		return err
-	}
-	if v, ok := raw["name"]; !ok || v == nil {
-		return fmt.Errorf("field name in BooleanOption: required")
-	}
-	if v, ok := raw["type"]; !ok || v == nil {
-		return fmt.Errorf("field type in BooleanOption: required")
-	}
-	type Plain BooleanOption
-	var plain Plain
-	if err := json.Unmarshal(b, &plain); err != nil {
-		return err
-	}
-	*j = BooleanOption(plain)
-	return nil
-}
-
-type ObjectOptionPropertiesElem map[string]interface{}
+type ArrayOptionItems interface{}
 
 type ObjectOption struct {
 	// Name corresponds to the JSON schema field "name".
 	Name string `json:"name"`
 
 	// Properties corresponds to the JSON schema field "properties".
-	Properties []ObjectOptionPropertiesElem `json:"properties"`
+	Properties interface{} `json:"properties"`
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type"`
@@ -221,4 +219,4 @@ func (j *StringOption) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type InputSchemaJson []interface{}
+type InputSchemaJson map[string]interface{}

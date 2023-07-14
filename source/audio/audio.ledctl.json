@@ -1,24 +1,24 @@
-[
-  {
+{
+  "colors": {
     "type": "array",
-    "name": "colors",
+    "name": "Colors",
     "items": {
       "type": "string",
-      "name": "color"
+      "name": "Color"
     }
   },
-  {
+  "windowSize": {
     "type": "integer",
-    "name": "windowSize",
+    "name": "Window size",
     "default": 40,
     "minimum": 2,
     "maximum": 1000
   },
-  {
+  "blackPoint": {
     "type": "float",
-    "name": "blackPoint",
+    "name": "Black point",
     "default": 0.2,
     "minimum": 0,
     "maximum": 1
   }
-]
+}

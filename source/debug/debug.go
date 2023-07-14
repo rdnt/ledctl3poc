@@ -21,7 +21,7 @@ func (i *DebugInput) Schema() map[string]any {
 	return nil
 }
 
-func (i *DebugInput) ApplyConfig(b []byte) error {
+func (i *DebugInput) ApplyConfig(cfg map[string]any) error {
 	return nil
 }
 

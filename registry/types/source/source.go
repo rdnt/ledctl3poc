@@ -15,6 +15,8 @@ type Source struct {
 	name string
 
 	inputs map[uuid.UUID]*Input
+	schema map[string]any
+	cfg    map[string]any
 }
 
 func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input) *Source {
@@ -43,7 +45,7 @@ func (s *Source) Name() string {
 	return s.name
 }
 
-func (s *Source) Process(e event.EventIface) {
+func (s *Source) Process(e event.EventIface) error {
 	switch e := e.(type) {
 	case event.SetSourceActiveEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceActiveEvent\n", s.id)
@@ -79,6 +81,8 @@ func (s *Source) Process(e event.EventIface) {
 			//}
 		}
 
+		return nil
+
 		//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)
 	case event.SetSourceIdleEvent:
 		//fmt.Printf("=== reg source %s: proccess SetSourceIdleEvent\n", s.id)
@@ -92,10 +96,26 @@ func (s *Source) Process(e event.EventIface) {
 			s.inputs[inputId].sessId = uuid.Nil
 		}
 
-		//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)
-	default:
-		fmt.Println("@@@ 2 unknown event", e, reflect.TypeOf(e))
+		return nil
+
+	//fmt.Println("==== UNHANDLED PROCESS EVENT IDLE FROM SOURCE", e)
+	case event.SetInputConfigEvent:
+		input, ok := s.inputs[e.InputId]
+		if !ok {
+			return fmt.Errorf("input %s not found", e.InputId)
+		}
+
+		err := input.ApplyConfig(e.Config)
+		if err != nil {
+			return fmt.Errorf("apply input config: %w", err)
+		}
+
+		return nil
 	}
+
+	fmt.Println("@@@ 2 unknown event", e, reflect.TypeOf(e))
+
+	return nil
 }
 
 func (s *Source) String() string {

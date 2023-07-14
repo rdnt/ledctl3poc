@@ -10,7 +10,6 @@ import (
 	"github.com/samber/lo"
 
 	"ledctl3/event"
-
 	"ledctl3/source/types"
 )
 
@@ -20,7 +19,7 @@ type Input interface {
 	Events() chan UpdateEvent
 	Stop() error
 	Schema() map[string]any
-	ApplyConfig(b []byte) error
+	ApplyConfig(cfg map[string]any) error
 }
 
 type SinkConfig struct {
@@ -130,6 +129,9 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 	case event.ListCapabilitiesEvent:
 		fmt.Printf("-> source %s: recv ListCapabilitiesEvent\n", s.id)
 		s.handleListCapabilitiesEvent(e)
+	case event.SetInputConfigEvent:
+		fmt.Printf("-> source %s: recv SetInputConfigEvent\n", s.id)
+		s.handleSetInputConfigEvent(e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -277,5 +279,19 @@ func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 			}
 		}),
 		Outputs: []event.CapabilitiesEventOutput{},
+	}
+}
+
+func (s *Source) handleSetInputConfigEvent(e event.SetInputConfigEvent) {
+	input, ok := s.inputs[e.InputId]
+	if !ok {
+		fmt.Print("input not found")
+		return
+	}
+
+	err := input.ApplyConfig(e.Config)
+	if err != nil {
+		fmt.Println("failed to apply input config", err)
+		return
 	}
 }

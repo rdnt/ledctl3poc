@@ -1,26 +1,22 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "properties": {
-      "colors": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "windowSize": {
-        "type": "integer"
-      },
-      "blackPoint": {
-        "type": "number"
+  "type": "object",
+  "properties": {
+    "colors": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
-    "required": [
-      "colors",
-      "windowSize",
-      "blackPoint"
-    ]
-  }
+    "windowSize": {
+      "type": "integer"
+    },
+    "blackPoint": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "colors",
+    "windowSize",
+    "blackPoint"
+  ]
 }

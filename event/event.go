@@ -26,6 +26,7 @@ const (
 	SetSourceIdle    Type = "setIdle"
 	SetSourceActive  Type = "setActive"
 	Data             Type = "data"
+	SetInputConfig   Type = "setInputConfig"
 )
 
 type Event struct {

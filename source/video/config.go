@@ -20,14 +20,14 @@ func (v *VideoSource) Schema() map[string]any {
 	return schema
 }
 
-func (v *VideoSource) ApplyConfig(b []byte) error {
-	var config SchemaJson
-	err := json.Unmarshal(b, &config)
-	if err != nil {
-		return err
-	}
+func (v *VideoSource) ApplyConfig(cfg map[string]any) error {
+	//var config SchemaJson
+	//err := json.Unmarshal(b, &config)
+	//if err != nil {
+	//	return err
+	//}
 
-	fmt.Printf("applying config: %#v\n", config)
+	fmt.Printf("applying config: %#v\n", cfg)
 
 	return nil
 }

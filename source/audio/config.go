@@ -20,14 +20,14 @@ func (v *Visualizer) Schema() map[string]any {
 	return schema
 }
 
-func (v *Visualizer) ApplyConfig(b []byte) error {
-	var config SchemaJson
-	err := json.Unmarshal(b, &config)
-	if err != nil {
-		return err
-	}
+func (v *Visualizer) ApplyConfig(cfg map[string]any) error {
+	//var config SchemaJson
+	//err := json.Unmarshal(b, &config)
+	//if err != nil {
+	//	return err
+	//}
 
-	fmt.Printf("applying config: %#v\n", config)
+	fmt.Printf("applying config: %#v\n", cfg)
 
 	return nil
 }

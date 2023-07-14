@@ -98,6 +98,30 @@ func (r *Registry) AddSource(src *source.Source) error {
 	return nil
 }
 
+func (r *Registry) ConfigureInput(id uuid.UUID, cfg map[string]any) error {
+	for _, src := range r.sources {
+		for _, input := range src.Inputs() {
+			if input.Id() == id {
+				e := event.SetInputConfigEvent{
+					Event:   event.Event{Type: event.SetInputConfig, DevId: src.Id()},
+					InputId: id,
+					Config:  cfg,
+				}
+
+				err := r.sources[src.Id()].Process(e)
+				if err != nil {
+					return err
+				}
+				r.events <- e
+
+				return nil
+			}
+		}
+	}
+
+	return errors.New("input not found")
+}
+
 func (r *Registry) AddSink(snk *sink.Sink) error {
 	_, ok := r.sinks[snk.Id()]
 	if ok {

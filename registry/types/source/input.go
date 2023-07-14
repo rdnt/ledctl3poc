@@ -1,9 +1,11 @@
 package source
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type Input struct {
@@ -15,6 +17,7 @@ type Input struct {
 
 	sinks  []sinkConfig
 	schema map[string]any
+	cfg    map[string]any
 }
 
 type InputState string
@@ -74,4 +77,25 @@ func (i *Input) String() string {
 		"input{id: %s, name: %s, state: %s}",
 		i.id, i.name, i.state,
 	)
+}
+
+func (i *Input) ApplyConfig(cfg map[string]any) error {
+	schema := gojsonschema.NewGoLoader(i.schema)
+	document := gojsonschema.NewGoLoader(cfg)
+
+	result, err := gojsonschema.Validate(schema, document)
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		fmt.Printf("Invalid input config:\n")
+		for _, desc := range result.Errors() {
+			fmt.Printf("- %s\n", desc)
+		}
+		return errors.New("invalid input config")
+	}
+
+	i.cfg = cfg
+	return nil
 }

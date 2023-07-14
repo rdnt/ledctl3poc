@@ -174,7 +174,20 @@ func main() {
 	//fmt.Println(reg)
 	//fmt.Print("========================== \n\n\n")
 
-	err := reg.SelectProfile(prof1.Id)
+	err := reg.ConfigureInput(inputdev1a.Id(), map[string]any{
+		"colors": []string{
+			"#4a1524",
+			"#065394",
+			"#00b585",
+			"#d600a4",
+			"#ff004c",
+		},
+		"windowSize": 40,
+		"blackPoint": 0.2,
+	})
+	handle(err)
+
+	err = reg.SelectProfile(prof1.Id)
 	handle(err)
 
 	//time.Sleep(5 * time.Second)

@@ -83,7 +83,7 @@ func (s *Sink) handleSetActiveEvent(e event.SetSinkActiveEvent) {
 
 func (s *Sink) handleDataEvent(e event.DataEvent) {
 	for _, output := range e.Outputs {
-		out := ""
+		out := "\n"
 		for _, c := range output.Pix {
 			r, g, b, _ := c.RGBA()
 			//if r != 0 {
@@ -92,7 +92,7 @@ func (s *Sink) handleDataEvent(e event.DataEvent) {
 			//}
 			out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
 		}
-		fmt.Println(out)
+		fmt.Print(out)
 	}
 }
 

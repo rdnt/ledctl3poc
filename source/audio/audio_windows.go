@@ -73,9 +73,14 @@ type AudioCapture struct {
 func (a *AudioCapture) AssistedSetup() (map[string]any, error) {
 	return map[string]any{
 		"colors": []string{
-			"#ffaeff",
-			"#9bbcff",
-			"#94fbd6",
+			//"#ffaeff",
+			//"#9bbcff",
+			//"#94fbd6",
+			"#4a1524",
+			"#065394",
+			"#00b585",
+			"#d600a4",
+			"#ff004c",
 		},
 		"windowSize": 40,
 		"blackPoint": 0.2,

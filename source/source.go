@@ -20,6 +20,7 @@ type Input interface {
 	Stop() error
 	Schema() map[string]any
 	ApplyConfig(cfg map[string]any) error
+	AssistedSetup() (map[string]any, error)
 }
 
 type SinkConfig struct {
@@ -44,8 +45,8 @@ type UpdateEvent struct {
 }
 
 type UpdateOutput struct {
-	Id  uuid.UUID
-	Pix []color.Color
+	OutputId uuid.UUID
+	Pix      []color.Color
 }
 
 type Source struct {
@@ -56,8 +57,13 @@ type Source struct {
 	sessionId  uuid.UUID
 	inputs     map[uuid.UUID]Input
 	events     chan event.EventIface
-	inputCfgs  map[uuid.UUID][]sinkConfig
+	inputCfgs  map[uuid.UUID]inputConfig
 	registryId uuid.UUID
+}
+
+type inputConfig struct {
+	cfg      map[string]any
+	sinkCfgs []sinkConfig
 }
 
 type sinkConfig struct {
@@ -77,7 +83,7 @@ func New(registryId uuid.UUID) *Source {
 		state:      types.StateIdle,
 		inputs:     make(map[uuid.UUID]Input),
 		events:     make(chan event.EventIface),
-		inputCfgs:  map[uuid.UUID][]sinkConfig{},
+		inputCfgs:  map[uuid.UUID]inputConfig{},
 		registryId: registryId,
 	}
 
@@ -86,6 +92,7 @@ func New(registryId uuid.UUID) *Source {
 
 func (s *Source) AddInput(i Input) {
 	s.inputs[i.Id()] = i
+	s.inputCfgs[i.Id()] = inputConfig{}
 
 	go func() {
 		// forward events from input to the network~
@@ -93,7 +100,7 @@ func (s *Source) AddInput(i Input) {
 			var outputs []event.DataEventOutput
 			for _, output := range e.Outputs {
 				outputs = append(outputs, event.DataEventOutput{
-					Id:  output.Id,
+					Id:  output.OutputId,
 					Pix: output.Pix,
 				})
 			}
@@ -132,6 +139,9 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 	case event.SetInputConfigEvent:
 		fmt.Printf("-> source %s: recv SetInputConfigEvent\n", s.id)
 		s.handleSetInputConfigEvent(e)
+	case event.AssistedSetupEvent:
+		fmt.Printf("-> source %s: recv AssistedSetupEvent\n", s.id)
+		s.handleAssistedSetupEvent(e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -145,7 +155,8 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		s.sessionId = e.SessionId
 
 		for _, input := range e.Inputs {
-			s.inputCfgs[input.Id] = lo.Map(input.Sinks, func(sink event.SetSourceActiveEventSink, index int) sinkConfig {
+			cfg := s.inputCfgs[input.Id]
+			cfg.sinkCfgs = lo.Map(input.Sinks, func(sink event.SetSourceActiveEventSink, index int) sinkConfig {
 				return sinkConfig{
 					Id: sink.Id,
 					Outputs: lo.Map(sink.Outputs, func(output event.SetSourceActiveEventOutput, _ int) outputConfig {
@@ -153,11 +164,18 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 					}),
 				}
 			})
+			err := s.inputs[input.Id].ApplyConfig(input.Config)
+			if err != nil {
+				fmt.Println("error applying config", err)
+				return
+			}
+			//s.inputCfgs[input.OutputId].cfg = input.Config
+			s.inputCfgs[input.Id] = cfg
 		}
 
 		var cfg SinkConfig
 		for inputId := range s.inputCfgs {
-			for _, sinkCfg := range s.inputCfgs[inputId] {
+			for _, sinkCfg := range s.inputCfgs[inputId].sinkCfgs {
 
 				var outputs []OutputConfig
 				for _, outputCfg := range sinkCfg.Outputs {
@@ -173,6 +191,8 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				})
 			}
 
+			cfg.Framerate = 60
+
 			_ = s.inputs[inputId].Start(cfg)
 		}
 
@@ -182,19 +202,19 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//
 		//	go func() {
 		//		for {
-		//			for _, sink := range s.inputCfgs[input.Id] {
+		//			for _, sink := range s.inputCfgs[input.OutputId] {
 		//				var outputs []event.DataEventOutput
 		//				for _, output := range sink.Outputs {
 		//					pix := make([]byte, output.Leds*4)
 		//
 		//					outputs = append(outputs, event.DataEventOutput{
-		//						Id:  output.Id,
+		//						OutputId:  output.OutputId,
 		//						Pix: pix,
 		//					})
 		//				}
 		//
 		//				s.events <- event.DataEvent{
-		//					Event:     event.Event{Type: event.Data, DevId: sink.Id},
+		//					Event:     event.Event{Type: event.Data, DevId: sink.OutputId},
 		//					SessionId: s.sessionId,
 		//					Outputs:   outputs,
 		//				}
@@ -224,7 +244,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//	//			for _, sinkCfg := range sinkCfgs {
 		//	//				e := regevent.SetLedsEvent{
 		//	//					SessionId: uuid.Nil, // TODO
-		//	//					Id:    sinkCfg.Id,
+		//	//					OutputId:    sinkCfg.OutputId,
 		//	//					// TODO: apply calibration to pix and pass clamped as byte array
 		//	//					Pix: nil, // calibrate(ue.Pix)
 		//	//				}
@@ -293,5 +313,36 @@ func (s *Source) handleSetInputConfigEvent(e event.SetInputConfigEvent) {
 	if err != nil {
 		fmt.Println("failed to apply input config", err)
 		return
+	}
+}
+
+func (s *Source) handleAssistedSetupEvent(e event.AssistedSetupEvent) {
+	input, ok := s.inputs[e.InputId]
+	if !ok {
+		fmt.Print("input not found")
+		return
+	}
+
+	cfg, err := input.AssistedSetup()
+	if err != nil {
+		fmt.Println("failed to get assisted setup", err)
+		return
+	}
+
+	//inputCfg := s.inputCfgs[e.InputId]
+	//inputCfg.cfg = cfg
+	//s.inputCfgs[e.InputId] = inputCfg
+
+	//err = s.inputs[e.InputId].ApplyConfig(cfg)
+	//if err != nil {
+	//	fmt.Println("failed to apply input config", err)
+	//	return
+	//}
+
+	s.events <- event.AssistedSetupConfigEvent{
+		Event:    event.Event{Type: event.Capabilities, DevId: s.registryId},
+		SourceId: s.id,
+		InputId:  e.InputId,
+		Config:   cfg,
 	}
 }

@@ -14,8 +14,9 @@ type SetSourceActiveEvent struct {
 }
 
 type SetSourceActiveEventInput struct {
-	Id    uuid.UUID                  `json:"id"`
-	Sinks []SetSourceActiveEventSink `json:"sinks"`
+	Id     uuid.UUID                  `json:"id"`
+	Sinks  []SetSourceActiveEventSink `json:"sinks"`
+	Config map[string]any             `json:"config"`
 }
 
 type SetSourceActiveEventSink struct {

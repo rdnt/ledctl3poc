@@ -18,40 +18,24 @@ type Calibration struct {
 }
 
 type Sink struct {
-	id   uuid.UUID
-	name string
+	Id   uuid.UUID
+	Name string
 
-	outputs map[uuid.UUID]*Output
+	Outputs map[uuid.UUID]*Output
 }
-
-//type State string
-//
-//const (
-//	StateOffline State = "offline"
-//	StateIdle    State = "idle"
-//	StateActive  State = "active"
-//)
 
 func NewSink(id uuid.UUID, name string, outputs map[uuid.UUID]*Output) *Sink {
 	return &Sink{
-		id:      id,
-		name:    name,
-		outputs: outputs,
+		Id:      id,
+		Name:    name,
+		Outputs: outputs,
 	}
-}
-
-func (s *Sink) Id() uuid.UUID {
-	return s.id
-}
-
-func (s *Sink) Name() string {
-	return s.name
 }
 
 func (s *Sink) Leds() int {
 	var leds int
-	for _, dev := range s.outputs {
-		leds += dev.leds
+	for _, dev := range s.Outputs {
+		leds += dev.Leds
 	}
 
 	return leds
@@ -61,12 +45,12 @@ func (s *Sink) Calibration() map[int]Calibration {
 	calib := make(map[int]Calibration)
 
 	var acc int
-	for _, out := range s.outputs {
-		for i, c := range out.calibration {
+	for _, out := range s.Outputs {
+		for i, c := range out.Calibration {
 			calib[i+acc] = c
 		}
 
-		acc += out.leds
+		acc += out.Leds
 	}
 
 	return calib
@@ -74,30 +58,20 @@ func (s *Sink) Calibration() map[int]Calibration {
 
 func (s *Sink) String() string {
 	return fmt.Sprintf(
-		"sink{id: %s, name: %s, leds: %d, calibration: %v}",
-		s.id, s.name, s.Leds(), s.Calibration(),
+		"sink{OutputId: %s, Name: %s, Leds: %OutputId, Calibration: %v}",
+		s.Id, s.Name, s.Leds(), s.Calibration(),
 	)
-}
-
-func (s *Sink) Outputs() map[uuid.UUID]*Output {
-	outputs := make(map[uuid.UUID]*Output)
-
-	for id, output := range s.outputs {
-		outputs[id] = output
-	}
-
-	return outputs
 }
 
 func (s *Sink) Process(e event.EventIface) {
 	switch e := e.(type) {
 	case regevent.SetSinkActiveEvent:
 		for _, outputId := range e.OutputIds {
-			s.outputs[outputId].state = OutputStateActive
-			s.outputs[outputId].sessId = e.SessionId
+			s.Outputs[outputId].State = OutputStateActive
+			s.Outputs[outputId].SessionId = e.SessionId
 		}
 
-		// TODO: mutate outputs state
+		// TODO: mutate Outputs State
 		//fmt.Println("=== UNHANDLED EVENT from sink", e)
 	default:
 		fmt.Printf("@@@ 1 unknown event %#v %s\n", e, reflect.TypeOf(e))

@@ -9,8 +9,8 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	v := &audio.Visualizer{}
-	err := v.ApplyConfig([]byte(`
+	a := &audio.AudioCapture{}
+	err := a.ApplyConfig([]byte(`
 {
     "selectedProfile": "a7d5fbcf-698a-406e-ae8c-250e7f14bb79",
       "profiles": [

@@ -9,15 +9,22 @@ import (
 )
 
 type Input struct {
-	id   uuid.UUID
-	name string
+	Id   uuid.UUID
+	Name string
 
-	state  InputState
-	sessId uuid.UUID
+	State     InputState
+	SessionId uuid.UUID
 
-	sinks  []sinkConfig
-	schema map[string]any
-	cfg    map[string]any
+	Sinks   []SinkConfig
+	Schema  map[string]any
+	Config  InputConfig
+	Configs map[uuid.UUID]InputConfig
+}
+
+type InputConfig struct {
+	Id   uuid.UUID
+	Name string
+	Cfg  map[string]any
 }
 
 type InputState string
@@ -27,12 +34,12 @@ const (
 	InputStateActive InputState = "active"
 )
 
-type sinkConfig struct {
+type SinkConfig struct {
 	Id      uuid.UUID
-	Outputs []outputConfig
+	Outputs []OutputConfig
 }
 
-type outputConfig struct {
+type OutputConfig struct {
 	Id   uuid.UUID
 	Leds int
 }
@@ -49,53 +56,60 @@ type output struct {
 
 func NewInput(id uuid.UUID, name string, schema map[string]any) *Input {
 	return &Input{
-		id:     id,
-		name:   name,
-		state:  InputStateIdle,
-		schema: schema,
+		Id:      id,
+		Name:    name,
+		State:   InputStateIdle,
+		Schema:  schema,
+		Configs: map[uuid.UUID]InputConfig{},
 	}
-}
-
-func (i *Input) Id() uuid.UUID {
-	return i.id
-}
-
-func (i *Input) Name() string {
-	return i.name
-}
-
-func (i *Input) State() InputState {
-	return i.state
-}
-
-func (i *Input) SessionId() uuid.UUID {
-	return i.sessId
 }
 
 func (i *Input) String() string {
 	return fmt.Sprintf(
-		"input{id: %s, name: %s, state: %s}",
-		i.id, i.name, i.state,
+		"input{OutputId: %s, Name: %s, State: %s}",
+		i.Id, i.Name, i.State,
 	)
 }
 
-func (i *Input) ApplyConfig(cfg map[string]any) error {
-	schema := gojsonschema.NewGoLoader(i.schema)
+func (i *Input) AddConfig(name string, cfg map[string]any) (InputConfig, error) {
+	schema := gojsonschema.NewGoLoader(i.Schema)
 	document := gojsonschema.NewGoLoader(cfg)
 
 	result, err := gojsonschema.Validate(schema, document)
 	if err != nil {
-		return err
+		return InputConfig{}, err
 	}
 
 	if !result.Valid() {
-		fmt.Printf("Invalid input config:\n")
+		fmt.Printf("Invalid input Config:\n")
 		for _, desc := range result.Errors() {
 			fmt.Printf("- %s\n", desc)
 		}
-		return errors.New("invalid input config")
+		return InputConfig{}, errors.New("invalid input Config")
 	}
 
-	i.cfg = cfg
+	if name == "" {
+		name = "New Config" // TODO: incremental number suffix
+	}
+
+	conf := InputConfig{
+		Id:   uuid.New(),
+		Name: name,
+		Cfg:  cfg,
+	}
+
+	i.Configs[conf.Id] = conf
+
+	return conf, nil
+}
+
+func (i *Input) ApplyConfig(id uuid.UUID) error {
+	cfg, ok := i.Configs[id]
+	if !ok {
+		return errors.New("invalid config OutputId")
+	}
+
+	i.Config = cfg
+
 	return nil
 }

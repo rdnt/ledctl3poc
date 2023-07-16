@@ -17,6 +17,10 @@ type DebugInput struct {
 	//pixs   map[uuid.UUID][]color.Color
 }
 
+func (i *DebugInput) AssistedSetup() (map[string]any, error) {
+	return nil, nil
+}
+
 func (i *DebugInput) Schema() map[string]any {
 	return nil
 }
@@ -70,11 +74,11 @@ func (i *DebugInput) Start(cfg source.SinkConfig) error {
 
 					pix[rand.Intn(output.Leds)] = color.RGBA{R: 255, G: 255, B: 255}
 
-					//i.pixs[output.Id] = pix
+					//i.pixs[output.OutputId] = pix
 
 					outputs = append(outputs, source.UpdateOutput{
-						Id:  output.Id,
-						Pix: pix,
+						OutputId: output.Id,
+						Pix:      pix,
 					})
 				}
 

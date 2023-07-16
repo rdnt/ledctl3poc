@@ -8,30 +8,34 @@ import (
 	"ledctl3/source"
 )
 
-type VideoSource struct {
+type ScreenCapture struct {
 	id     uuid.UUID
 	events chan source.UpdateEvent
 }
 
-func (v *VideoSource) Id() uuid.UUID {
-	return v.id
+func (s *ScreenCapture) AssistedSetup() (map[string]any, error) {
+	return nil, nil
 }
 
-func (v *VideoSource) Start(cfg source.SinkConfig) error {
+func (s *ScreenCapture) Id() uuid.UUID {
+	return s.id
+}
+
+func (s *ScreenCapture) Start(cfg source.SinkConfig) error {
 	fmt.Printf("## starting video source with config: %#v\n", cfg)
 	return nil
 }
 
-func (v *VideoSource) Events() chan source.UpdateEvent {
-	return v.events
+func (s *ScreenCapture) Events() chan source.UpdateEvent {
+	return s.events
 }
 
-func (v *VideoSource) Stop() error {
+func (s *ScreenCapture) Stop() error {
 	return nil
 }
 
-func New() *VideoSource {
-	return &VideoSource{
+func New() *ScreenCapture {
+	return &ScreenCapture{
 		id:     uuid.New(),
 		events: make(chan source.UpdateEvent),
 	}

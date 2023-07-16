@@ -39,13 +39,11 @@ func New(leds int) *DebugOutput {
 	return i
 }
 
-// TODO: cursed variable name T_T
 func (o *DebugOutput) Id() uuid.UUID {
 	return o.id
 }
 
 func (o *DebugOutput) Start() error {
-
 	return nil
 }
 

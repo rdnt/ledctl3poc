@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"ledctl3/event"
 	"ledctl3/pkg/broker"
@@ -32,7 +34,7 @@ func main() {
 		}
 	}()
 
-	inputdev1a, _ := audiosrc.New(
+	inputdev1a, err := audiosrc.New(
 		audiosrc.WithColors(
 			color.RGBA{0x4a, 0x15, 0x24, 255},
 			color.RGBA{0x06, 0x53, 0x94, 255},
@@ -43,6 +45,7 @@ func main() {
 		audiosrc.WithWindowSize(10),
 		audiosrc.WithBlackPoint(0),
 	)
+	handle(err)
 
 	inputdev1b := videosrc.New()
 
@@ -103,22 +106,22 @@ func main() {
 
 	//////////////////////////
 
-	//input1a := source.NewInput(inputdev1a.Id(), "input1a")
-	//input1b := source.NewInput(inputdev1b.Id(), "input1b")
+	//input1a := source.NewInput(inputdev1a.OutputId(), "input1a")
+	//input1b := source.NewInput(inputdev1b.OutputId(), "input1b")
 	//
-	//source1 := source.NewSource(src1dev.Id(), "source1", map[uuid.UUID]*source.Input{
-	//	input1a.Id(): input1a, input1b.Id(): input1b,
+	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.Input{
+	//	input1a.OutputId(): input1a, input1b.OutputId(): input1b,
 	//})
 	//
 	//_ = source1
 	////err := reg.AddSource(source1)
 	////handle(err)
 	//
-	//input2a := source.NewInput(inputdev2a.Id(), "input2a")
-	//input2b := source.NewInput(inputdev2b.Id(), "input2b")
+	//input2a := source.NewInput(inputdev2a.OutputId(), "input2a")
+	//input2b := source.NewInput(inputdev2b.OutputId(), "input2b")
 	//
-	//source2 := source.NewSource(src2dev.Id(), "source2", map[uuid.UUID]*source.Input{
-	//	input2a.Id(): input2a, input2b.Id(): input2b,
+	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.Input{
+	//	input2a.OutputId(): input2a, input2b.OutputId(): input2b,
 	//})
 	//
 	//_ = source2
@@ -130,8 +133,8 @@ func main() {
 	//output1a := sink.NewOutput(uuid.New(), "output1a", 4)
 	//output1b := sink.NewOutput(uuid.New(), "output1b", 8)
 	//
-	//sink1 := sink.NewSink(sink1dev.Id(), "sink1", map[uuid.UUID]*sink.Output{
-	//	output1a.Id(): output1a, output1b.Id(): output1b,
+	//sink1 := sink.NewSink(sink1dev.OutputId(), "sink1", map[uuid.UUID]*sink.Output{
+	//	output1a.OutputId(): output1a, output1b.OutputId(): output1b,
 	//})
 	//
 	//_ = sink1
@@ -141,8 +144,8 @@ func main() {
 	//output2a := sink.NewOutput(uuid.New(), "output2a", 16)
 	//output2b := sink.NewOutput(uuid.New(), "output2b", 32)
 	//
-	//sink2 := sink.NewSink(sink2dev.Id(), "sink2", map[uuid.UUID]*sink.Output{
-	//	output2a.Id(): output2a, output2b.Id(): output2b,
+	//sink2 := sink.NewSink(sink2dev.OutputId(), "sink2", map[uuid.UUID]*sink.Output{
+	//	output2a.OutputId(): output2a, output2b.OutputId(): output2b,
 	//})
 	//
 	//_ = sink2
@@ -157,42 +160,57 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	prof1 := reg.AddProfile("profile1", []map[uuid.UUID][]uuid.UUID{
-		//{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
-		//{inputdev2b.Id(): {outputdev1b.Id()}},
+	err = reg.AssistedSetup(inputdev1a.Id())
+	handle(err)
 
-		//{inputdev1a.Id(): {outputdev2b.Id()}}, // audio
-		{inputdev1b.Id(): {outputdev2b.Id()}}, // video
+	time.Sleep(1 * time.Second)
+
+	cfgs := lo.Values(reg.InputConfigs(inputdev1a.Id()))
+	fmt.Println("@@@", cfgs)
+
+	prof1 := reg.AddProfile("profile1", []registry.ProfileInput{
+		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
+		//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
+		{
+			InputId:   inputdev1a.Id(),
+			CfgId:     cfgs[0].Id,
+			OutputIds: []uuid.UUID{outputdev2b.Id()},
+		},
+
+		//{inputdev1a.OutputId(): {outputdev2b.OutputId()}}, // audio
+		//{inputdev1b.OutputId(): {outputdev2b.OutputId()}}, // video
 	})
 
 	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{
-	//	{input1a.Id(): {output1a.Id(), output2b.Id()}},
-	//	{input2b.Id(): {output1b.Id()}},
+	//	{input1a.OutputId(): {output1a.OutputId(), output2b.OutputId()}},
+	//	{input2b.OutputId(): {output1b.OutputId()}},
 	//})
 
 	//fmt.Println("==== registry ===")
 	//fmt.Println(reg)
 	//fmt.Print("========================== \n\n\n")
 
-	err := reg.ConfigureInput(inputdev1a.Id(), map[string]any{
-		"colors": []string{
-			"#4a1524",
-			"#065394",
-			"#00b585",
-			"#d600a4",
-			"#ff004c",
-		},
-		"windowSize": 40,
-		"blackPoint": 0.2,
-	})
-	handle(err)
-
 	err = reg.SelectProfile(prof1.Id)
 	handle(err)
 
+	time.Sleep(2 * time.Second)
+
+	//err = reg.ConfigureInput(inputdev1a.OutputId(), map[string]any{
+	//	"colors": []string{
+	//		"#4a1524",
+	//		"#065394",
+	//		"#00b585",
+	//		"#d600a4",
+	//		"#ff004c",
+	//	},
+	//	"windowSize": 40,
+	//	"blackPoint": 0.2,
+	//})
+	//handle(err)
+
 	//time.Sleep(5 * time.Second)
 	//
-	//err = reg.SelectProfile(prof2.Id)
+	//err = reg.SelectProfile(prof2.OutputId)
 	//handle(err)
 
 	c := make(chan os.Signal, 1)

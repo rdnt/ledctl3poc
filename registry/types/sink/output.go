@@ -7,14 +7,14 @@ import (
 )
 
 type Output struct {
-	id   uuid.UUID
-	name string
+	Id   uuid.UUID
+	Name string
 
-	state  OutputState
-	sessId uuid.UUID
+	State     OutputState
+	SessionId uuid.UUID
 
-	leds        int
-	calibration map[int]Calibration
+	Leds        int
+	Calibration map[int]Calibration
 }
 
 type OutputState string
@@ -26,40 +26,16 @@ const (
 
 func NewOutput(id uuid.UUID, name string, leds int) *Output {
 	return &Output{
-		id:    id,
-		name:  name,
-		state: OutputStateIdle,
-		leds:  leds,
+		Id:    id,
+		Name:  name,
+		State: OutputStateIdle,
+		Leds:  leds,
 	}
-}
-
-func (o *Output) Id() uuid.UUID {
-	return o.id
-}
-
-func (o *Output) Name() string {
-	return o.name
-}
-
-func (o *Output) Leds() int {
-	return o.leds
-}
-
-func (o *Output) Calibration() map[int]Calibration {
-	return o.calibration
-}
-
-func (o *Output) State() OutputState {
-	return o.state
-}
-
-func (o *Output) SessionId() uuid.UUID {
-	return o.sessId
 }
 
 func (o *Output) String() string {
 	return fmt.Sprintf(
-		"output{id: %s, name: %s, leds: %d, calibration: %v, state: %s}",
-		o.id, o.name, o.Leds(), o.Calibration(), o.state,
+		"output{OutputId: %s, Name: %s, Leds: %OutputId, Calibration: %v, State: %s}",
+		o.Id, o.Name, o.Leds, o.Calibration, o.State,
 	)
 }

@@ -16,18 +16,18 @@ func init() {
 	_ = json.Unmarshal(b, &schema)
 }
 
-func (v *VideoSource) Schema() map[string]any {
+func (s *ScreenCapture) Schema() map[string]any {
 	return schema
 }
 
-func (v *VideoSource) ApplyConfig(cfg map[string]any) error {
+func (s *ScreenCapture) ApplyConfig(cfg map[string]any) error {
 	//var config SchemaJson
 	//err := json.Unmarshal(b, &config)
 	//if err != nil {
 	//	return err
 	//}
 
-	fmt.Printf("applying config: %#v\n", cfg)
+	fmt.Printf("applying config: %#s\n", cfg)
 
 	return nil
 }

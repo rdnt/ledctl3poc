@@ -168,13 +168,27 @@ func main() {
 	cfgs := lo.Values(reg.InputConfigs(inputdev1a.Id()))
 	fmt.Println("@@@", cfgs)
 
-	prof1 := reg.AddProfile("profile1", []registry.ProfileInput{
+	prof1 := reg.AddProfile("profile1", []registry.ProfileSource{
 		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
 		//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
 		{
-			InputId:   inputdev1a.Id(),
-			CfgId:     cfgs[0].Id,
-			OutputIds: []uuid.UUID{outputdev2b.Id()},
+			SourceId: src1dev.Id(),
+			Inputs: []registry.ProfileInput{
+				{
+					InputId: inputdev1a.Id(),
+					Sinks: []registry.ProfileSink{
+						{
+							SinkId: sink2dev.Id(),
+							Outputs: []registry.ProfileOutput{
+								{
+									OutputId:      outputdev2b.Id(),
+									InputConfigId: cfgs[0].Id,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 
 		//{inputdev1a.OutputId(): {outputdev2b.OutputId()}}, // audio

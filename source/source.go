@@ -72,8 +72,9 @@ type sinkConfig struct {
 }
 
 type outputConfig struct {
-	Id   uuid.UUID
-	Leds int
+	Id     uuid.UUID
+	Config map[string]any
+	Leds   int
 }
 
 func New(registryId uuid.UUID) *Source {
@@ -164,11 +165,13 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 					}),
 				}
 			})
-			err := s.inputs[input.Id].ApplyConfig(input.Config)
-			if err != nil {
-				fmt.Println("error applying config", err)
-				return
-			}
+
+			// TODO: 1 config per output
+			//err := s.inputs[input.Id].ApplyConfig(input.Config)
+			//if err != nil {
+			//	fmt.Println("error applying config", err)
+			//	return
+			//}
 			//s.inputCfgs[input.OutputId].cfg = input.Config
 			s.inputCfgs[input.Id] = cfg
 		}
@@ -198,7 +201,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 
 		// TODO: validate there are no sourceIds present in the event but not present on the driver
 
-		//for _, inputCfg := range e.Inputs {
+		//for _, inputCfg := range e.Sources {
 		//
 		//	go func() {
 		//		for {
@@ -225,7 +228,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//	}()
 		//}
 
-		//for _, input := range e.Inputs {
+		//for _, input := range e.Sources {
 		//	//fmt.Println("starting input", inputId, "with sink cfgs", sinkCfgs)
 		//	//fmt.Printf("-> source %s: start input %s\n", s.id, inputId)
 		//	_ = inputId

@@ -6,7 +6,12 @@ import (
 
 type SetSourceIdleEvent struct {
 	Event
-	InputIds []uuid.UUID `json:"inputIds"`
+	Inputs []SetSourceIdleEventInput `json:"inputs"`
+}
+
+type SetSourceIdleEventInput struct {
+	InputId   uuid.UUID   `json:"inputId"`
+	OutputIds []uuid.UUID `json:"outputIds"`
 }
 
 func (e SetSourceIdleEvent) Type() Type {

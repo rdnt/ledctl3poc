@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 
 	"ledctl3/event"
 	"ledctl3/registry/types/sink"
@@ -24,15 +23,29 @@ type Registry struct {
 }
 
 type Profile struct {
-	Id     uuid.UUID
-	Name   string
-	Inputs []ProfileInput
+	Id      uuid.UUID
+	Name    string
+	Sources []ProfileSource
+}
+
+type ProfileSource struct {
+	SourceId uuid.UUID
+	Inputs   []ProfileInput
 }
 
 type ProfileInput struct {
-	InputId   uuid.UUID
-	CfgId     uuid.UUID
-	OutputIds []uuid.UUID
+	InputId uuid.UUID
+	Sinks   []ProfileSink
+}
+
+type ProfileSink struct {
+	SinkId  uuid.UUID
+	Outputs []ProfileOutput
+}
+
+type ProfileOutput struct {
+	OutputId      uuid.UUID
+	InputConfigId uuid.UUID
 }
 
 func New() *Registry {
@@ -55,7 +68,6 @@ func (r *Registry) String() string {
 
 var (
 	ErrDeviceExists   = errors.New("device already exists")
-	ErrDeviceNotFound = errors.New("device not found")
 	ErrConfigNotFound = errors.New("config not found")
 )
 
@@ -143,18 +155,154 @@ func (r *Registry) Sinks() map[uuid.UUID]*sink.Sink {
 	return r.sinks
 }
 
-func (r *Registry) AddProfile(name string, inputs []ProfileInput) Profile {
+func (r *Registry) AddProfile(name string, sources []ProfileSource) Profile {
 	prof := Profile{
-		Id:     uuid.New(),
-		Name:   name,
-		Inputs: inputs,
+		Id:      uuid.New(),
+		Name:    name,
+		Sources: sources,
 	}
 
 	r.profiles[prof.Id] = prof
 	return prof
 }
 
-// TODO: cleanup this mess C:
+func (r *Registry) configureOutputs(sessionId uuid.UUID, prof Profile) {
+	fmt.Println("==== registry: configuring sink outputs")
+
+	sinkEvents := map[uuid.UUID]event.SetSinkActiveEvent{}
+
+	// enable sink outputs for this session
+	for _, src := range prof.Sources {
+		for _, in := range src.Inputs {
+			for _, snk := range in.Sinks {
+				evt, ok := sinkEvents[snk.SinkId]
+				if !ok {
+					evt = event.SetSinkActiveEvent{
+						Event:     event.Event{Type: event.SetSinkActive, DevId: snk.SinkId},
+						SessionId: sessionId,
+						OutputIds: []uuid.UUID{},
+					}
+				}
+
+				for _, out := range snk.Outputs {
+					evt.OutputIds = append(sinkEvents[snk.SinkId].OutputIds, out.OutputId)
+				}
+
+				sinkEvents[snk.SinkId] = evt
+			}
+		}
+	}
+
+	for _, e := range sinkEvents {
+		r.events <- e
+	}
+}
+
+func (r *Registry) disableActiveInputs(prof Profile) {
+	fmt.Println("==== registry: disabling active source inputs")
+
+	sourceEvents := map[uuid.UUID]event.SetSourceIdleEvent{}
+
+	// stop active inputs broadcasting to interrupted sessions
+	for _, src := range prof.Sources {
+		evt, ok := sourceEvents[src.SourceId]
+		if !ok {
+			evt = event.SetSourceIdleEvent{
+				Event:  event.Event{Type: event.SetSinkActive, DevId: src.SourceId},
+				Inputs: []event.SetSourceIdleEventInput{},
+			}
+		}
+
+		for _, in := range src.Inputs {
+			outputIds := []uuid.UUID{}
+
+			for _, snk := range in.Sinks {
+				for _, out := range snk.Outputs {
+					outputIds = append(outputIds, out.OutputId)
+				}
+			}
+
+			evt.Inputs = append(evt.Inputs, event.SetSourceIdleEventInput{
+				InputId:   in.InputId,
+				OutputIds: outputIds,
+			})
+		}
+
+		sourceEvents[src.SourceId] = evt
+	}
+
+	//for _, inputId := range e.InputIds {
+	//	r.sources[srcId].Inputs[inputId].State = source.InputStateIdle
+	//	r.sources[srcId].Inputs[inputId].SessionId = uuid.Nil
+	//}
+
+	for _, e := range sourceEvents {
+		r.events <- e
+	}
+}
+
+func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
+	fmt.Println("==== registry: enabling inputs")
+
+	for _, src := range prof.Sources {
+		//e := event.SetSourceActiveEvent{
+		//	Event:     event.Event{Type: event.SetSourceActive, DevId: src.SourceId},
+		//	SessionId: sessionId,
+		//	Inputs: lo.Map(src.Inputs, func(in ProfileInput, _ int) event.SetSourceActiveEventInput {
+		//		return event.SetSourceActiveEventInput{
+		//			Id: in.InputId,
+		//			Sinks: lo.Map(in.Sinks, func(snk ProfileSink, _ int) event.SetSourceActiveEventSink {
+		//				return event.SetSourceActiveEventSink{
+		//					Id: snk.SinkId,
+		//					Outputs: lo.Map(snk.Outputs, func(out ProfileOutput, _ int) event.SetSourceActiveEventOutput {
+		//						return event.SetSourceActiveEventOutput{
+		//							Id:     out.OutputId,
+		//							Config: r.sources[src.SourceId].Inputs[in.InputId].Configs[out.InputConfigId].Cfg,
+		//							Leds:   r.sinks[snk.SinkId].Outputs[out.OutputId].Leds,
+		//						}
+		//					}),
+		//				}
+		//			}),
+		//		}
+		//	}),
+		//}
+
+		e := event.SetSourceActiveEvent{
+			Event:     event.Event{Type: event.SetSourceActive, DevId: src.SourceId},
+			SessionId: sessionId,
+			Inputs:    []event.SetSourceActiveEventInput{},
+		}
+
+		for _, in := range src.Inputs {
+			inputCfg := event.SetSourceActiveEventInput{
+				Id:    in.InputId,
+				Sinks: []event.SetSourceActiveEventSink{},
+			}
+
+			for _, snk := range in.Sinks {
+				sinkCfg := event.SetSourceActiveEventSink{
+					Id:      snk.SinkId,
+					Outputs: []event.SetSourceActiveEventOutput{},
+				}
+
+				for _, out := range snk.Outputs {
+					sinkCfg.Outputs = append(sinkCfg.Outputs, event.SetSourceActiveEventOutput{
+						Id:     out.OutputId,
+						Config: r.sources[src.SourceId].Inputs[in.InputId].Configs[out.InputConfigId].Cfg,
+						Leds:   r.sinks[snk.SinkId].Outputs[out.OutputId].Leds,
+					})
+				}
+
+				inputCfg.Sinks = append(inputCfg.Sinks, sinkCfg)
+			}
+
+			e.Inputs = append(e.Inputs, inputCfg)
+		}
+
+		r.events <- e
+	}
+}
+
 func (r *Registry) SelectProfile(id uuid.UUID) error {
 	prof, ok := r.profiles[id]
 	if !ok {
@@ -163,208 +311,11 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 	sessId := uuid.New()
 
-	var stopSessions []uuid.UUID
-	enableSinkOutputs := map[uuid.UUID][]uuid.UUID{}
+	r.configureOutputs(sessId, prof)
 
-	fmt.Println("==== registry: configuring sink outputs")
+	r.disableActiveInputs(prof)
 
-	// enable sink outputs for this session
-	for _, inputProfile := range prof.Inputs {
-		for _, outputId := range inputProfile.OutputIds {
-			for _, snk := range r.sinks {
-				output, ok := snk.Outputs[outputId]
-				if !ok {
-					continue
-				}
-
-				stopSessions = append(stopSessions, output.SessionId)
-
-				enableSinkOutputs[snk.Id] = append(enableSinkOutputs[snk.Id], outputId)
-			}
-		}
-	}
-
-	for sinkId, outputIds := range enableSinkOutputs {
-		e := event.SetSinkActiveEvent{
-			Event:     event.Event{Type: event.SetSinkActive, DevId: sinkId},
-			SessionId: sessId,
-			OutputIds: outputIds,
-		}
-
-		r.sinks[sinkId].Process(e)
-		r.events <- e
-	}
-
-	//time.Sleep(1 * time.Second)
-	fmt.Println("==== registry: disabling active source inputs")
-
-	disableSourceInputs := map[uuid.UUID][]uuid.UUID{}
-
-	// stop active inputs broadcasting to interrupted sessions
-	for _, inputProfile := range prof.Inputs {
-		for _, src := range r.sources {
-			input, ok := src.Inputs[inputProfile.InputId]
-			if !ok {
-				continue
-			}
-
-			if input.State == source.InputStateActive && slices.Contains(stopSessions, input.SessionId) {
-				// this input is broadcasting to a now-idle output. stop it
-				disableSourceInputs[src.Id] = append(disableSourceInputs[src.Id], inputProfile.InputId)
-			}
-		}
-	}
-
-	for srcId, inputIds := range disableSourceInputs {
-		e := event.SetSourceIdleEvent{
-			Event:    event.Event{Type: event.SetSourceIdle, DevId: srcId},
-			InputIds: inputIds,
-		}
-
-		for _, inputId := range e.InputIds {
-			r.sources[srcId].Inputs[inputId].State = source.InputStateIdle
-			r.sources[srcId].Inputs[inputId].SessionId = uuid.Nil
-		}
-
-		r.events <- e
-	}
-
-	//time.Sleep(1 * time.Second)
-	fmt.Println("==== registry: enabling inputs")
-
-	//                     srcId  -->  inputIds  -->  sinkIds  -->  outputIds
-	enableSourceIO := map[uuid.UUID]map[uuid.UUID]map[uuid.UUID][]uuid.UUID{}
-
-	for _, inputProfile := range prof.Inputs {
-		for _, outputId := range inputProfile.OutputIds {
-			for _, src := range r.sources {
-				_, ok := src.Inputs[inputProfile.InputId]
-				if !ok {
-					continue
-				}
-
-				if _, ok := enableSourceIO[src.Id]; !ok {
-					enableSourceIO[src.Id] = map[uuid.UUID]map[uuid.UUID][]uuid.UUID{}
-				}
-
-				if _, ok := enableSourceIO[src.Id][inputProfile.InputId]; !ok {
-					enableSourceIO[src.Id][inputProfile.InputId] = map[uuid.UUID][]uuid.UUID{}
-				}
-
-				for _, snk := range r.sinks {
-					_, ok := snk.Outputs[outputId]
-					if !ok {
-						continue
-					}
-
-					if _, ok := enableSourceIO[src.Id][inputProfile.InputId][snk.Id]; !ok {
-						enableSourceIO[src.Id][inputProfile.InputId][snk.Id] = []uuid.UUID{}
-					}
-
-					enableSourceIO[src.Id][inputProfile.InputId][snk.Id] = append(enableSourceIO[src.Id][inputProfile.InputId][snk.Id], outputId)
-				}
-			}
-		}
-	}
-
-	//fmt.Println(lo.Values(lo.MapValues(r.sources, func(v Source, _ uuid.UUID) string {
-	//	return fmt.Sprintf("\nsource %s (%s): %s", v.OutputId(), v.Name(), lo.Values(lo.MapValues(v.Inputs(), func(v Input, _ uuid.UUID) string {
-	//		return fmt.Sprintf("\ninput %s (%s)", v.OutputId(), v.Name())
-	//	})))
-	//})))
-	//
-	//fmt.Println(lo.Values(lo.MapValues(r.sinks, func(v Sink, _ uuid.UUID) string {
-	//	return fmt.Sprintf("\nsink %s (%s):\n%s", v.OutputId(), v.Name(), lo.Values(lo.MapValues(v.Outputs(), func(v Output, _ uuid.UUID) string {
-	//		return fmt.Sprintf("\noutput %s (%s)", v.OutputId(), v.Name())
-	//	})))
-	//})))
-
-	for srcId, inputSinkOutputs := range enableSourceIO {
-
-		var inputs []event.SetSourceActiveEventInput
-
-		for inputId, sinkOutputs := range inputSinkOutputs {
-
-			var sinks []event.SetSourceActiveEventSink
-			for sinkId, outputIds := range sinkOutputs {
-
-				var outputs []event.SetSourceActiveEventOutput
-				for _, outputId := range outputIds {
-					output := r.sinks[sinkId].Outputs[outputId]
-
-					outputs = append(outputs, event.SetSourceActiveEventOutput{
-						Id:   outputId,
-						Leds: output.Leds,
-					})
-				}
-
-				sinks = append(sinks, event.SetSourceActiveEventSink{
-					Id:      sinkId,
-					Outputs: outputs,
-				})
-			}
-
-			_, ok := r.sources[srcId].Inputs[inputId]
-			if !ok {
-				continue
-			}
-
-			var cfg map[string]any
-			for _, inputProfile := range prof.Inputs {
-				if inputProfile.InputId == inputId {
-					cfg = r.sources[srcId].Inputs[inputId].Configs[inputProfile.CfgId].Cfg
-				}
-			}
-
-			inputs = append(inputs, event.SetSourceActiveEventInput{
-				Id:     inputId,
-				Sinks:  sinks,
-				Config: cfg,
-			})
-		}
-
-		e := event.SetSourceActiveEvent{
-			Event:     event.Event{Type: event.SetSourceActive, DevId: srcId},
-			SessionId: sessId,
-			Inputs:    inputs,
-		}
-
-		//for _, input := range e.Inputs {
-
-		for _, input := range e.Inputs {
-			in := r.sources[srcId].Inputs[input.Id]
-
-			in.State = source.InputStateActive
-			in.SessionId = e.SessionId
-			in.Sinks = lo.Map(input.Sinks, func(sink event.SetSourceActiveEventSink, _ int) source.SinkConfig {
-				return source.SinkConfig{
-					Id: sink.Id,
-					Outputs: lo.Map(sink.Outputs, func(output event.SetSourceActiveEventOutput, _ int) source.OutputConfig {
-						return source.OutputConfig(output)
-					}),
-				}
-			})
-
-			//
-			//var sinks []sink
-			//for _, Config := range input.Sinks {
-			//	s := sink{
-			//		OutputId: Config.OutputId,
-			//	}
-			//
-			//	for _, out := range Config.Outputs {
-			//		s.outputs = append(s.outputs, output{
-			//			OutputId:   out.OutputId,
-			//			leds: out.Leds,
-			//		})
-			//	}
-			//
-			//	sinks = append(sinks, s)
-			//}
-		}
-
-		r.events <- e
-	}
+	r.enableInputs(sessId, prof)
 
 	return nil
 }

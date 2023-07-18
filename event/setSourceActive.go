@@ -14,9 +14,8 @@ type SetSourceActiveEvent struct {
 }
 
 type SetSourceActiveEventInput struct {
-	Id     uuid.UUID                  `json:"id"`
-	Sinks  []SetSourceActiveEventSink `json:"sinks"`
-	Config map[string]any             `json:"config"`
+	Id    uuid.UUID                  `json:"id"`
+	Sinks []SetSourceActiveEventSink `json:"sinks"`
 }
 
 type SetSourceActiveEventSink struct {
@@ -25,8 +24,9 @@ type SetSourceActiveEventSink struct {
 }
 
 type SetSourceActiveEventOutput struct {
-	Id   uuid.UUID `json:"id"`
-	Leds int       `json:"leds"`
+	Id     uuid.UUID      `json:"id"`
+	Config map[string]any `json:"config"`
+	Leds   int            `json:"leds"`
 }
 
 func (e SetSourceActiveEvent) Type() Type {

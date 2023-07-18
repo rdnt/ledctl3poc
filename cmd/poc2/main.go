@@ -42,8 +42,8 @@ func main() {
 			color.RGBA{0xd6, 0x00, 0xa4, 255},
 			color.RGBA{0xff, 0x00, 0x4c, 255},
 		),
-		audiosrc.WithWindowSize(10),
-		audiosrc.WithBlackPoint(0),
+		audiosrc.WithWindowSize(40),
+		audiosrc.WithBlackPoint(0.2),
 	)
 	handle(err)
 

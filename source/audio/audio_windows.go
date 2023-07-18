@@ -263,7 +263,7 @@ func (a *AudioCapture) startCapture(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	latency = time.Duration(int(minimumPeriod) * 100)
+	latency = time.Duration(int(defaultPeriod) * 100)
 
 	wfx.NChannels = 2 // force stereo
 	wfx.WFormatTag = 1
@@ -354,11 +354,11 @@ loop:
 				isCapturing = false
 				break
 			}
-
 			err = acc.GetBuffer(
 				&data, &availableFrameSize, &flags,
 				&devicePosition, &qcpPosition,
 			)
+
 			if err != nil {
 				continue
 			}
@@ -380,6 +380,12 @@ loop:
 				buf[n] = *b
 			}
 
+			// Release the buffer as soon as we extract the audio samples
+			err = acc.ReleaseBuffer(availableFrameSize)
+			if err != nil {
+				return errors.WithMessage(err, "failed to release buffer")
+			}
+
 			offset += lim
 
 			samples := make([]float64, len(buf)/4)
@@ -388,18 +394,13 @@ loop:
 				samples = append(samples, v)
 			}
 
-			// Release the buffer as soon as we extract the audio samples
-			err = acc.ReleaseBuffer(availableFrameSize)
-			if err != nil {
-				return errors.WithMessage(err, "failed to release buffer")
-			}
-
 			// TODO: calculate impact of this call
 			var peak float32
 			err = ami.GetPeakValue(&peak)
 			if err != nil {
 				continue
 			}
+			//peak = 1
 
 			// Dispatch the received frame for processing. If the work queue
 			// is full, this will block until a previous frame is processed.

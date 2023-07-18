@@ -83,7 +83,7 @@ func New(registryId uuid.UUID) *Source {
 		//address:   address,
 		state:      types.StateIdle,
 		inputs:     make(map[uuid.UUID]Input),
-		events:     make(chan event.EventIface),
+		events:     make(chan event.EventIface, 10),
 		inputCfgs:  map[uuid.UUID]inputConfig{},
 		registryId: registryId,
 	}

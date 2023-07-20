@@ -77,7 +77,7 @@ type outputConfig struct {
 	Leds   int
 }
 
-func New(registryId uuid.UUID) *Source {
+func New(registryId uuid.UUID) (*Source, error) {
 	s := &Source{
 		id: uuid.New(),
 		//address:   address,
@@ -88,7 +88,7 @@ func New(registryId uuid.UUID) *Source {
 		registryId: registryId,
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Source) AddInput(i Input) {
@@ -281,13 +281,6 @@ func (s *Source) handleSetIdleEvent(_ event.SetSourceIdleEvent) {
 
 func (s *Source) Id() uuid.UUID {
 	return s.id
-}
-
-func (s *Source) Connect() {
-	s.events <- event.ConnectEvent{
-		Event: event.Event{Type: event.Connect, DevId: s.registryId},
-		Id:    s.id,
-	}
 }
 
 func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {

@@ -10,15 +10,20 @@ type Source struct {
 	Id   uuid.UUID
 	Name string
 
-	Inputs map[uuid.UUID]*Input
+	Configured bool
+	Inputs     map[uuid.UUID]*Input
 }
 
-func NewSource(id uuid.UUID, name string, inputs map[uuid.UUID]*Input) *Source {
+func New(id uuid.UUID) *Source {
 	return &Source{
-		Id:     id,
-		Name:   name,
-		Inputs: inputs,
+		Id:         id,
+		Configured: false,
 	}
+}
+
+func (s *Source) SetInputs(inputs map[uuid.UUID]*Input) {
+	s.Inputs = inputs
+	s.Configured = true
 }
 
 func (s *Source) String() string {

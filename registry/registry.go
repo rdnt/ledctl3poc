@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -48,14 +49,14 @@ type ProfileOutput struct {
 	InputConfigId uuid.UUID
 }
 
-func New() *Registry {
+func New() (*Registry, error) {
 	return &Registry{
 		id:       uuid.New(),
 		sources:  map[uuid.UUID]*source.Source{},
 		sinks:    map[uuid.UUID]*sink.Sink{},
 		profiles: map[uuid.UUID]Profile{},
 		events:   make(chan event.EventIface),
-	}
+	}, nil
 }
 
 func (r *Registry) Id() uuid.UUID {
@@ -71,13 +72,22 @@ var (
 	ErrConfigNotFound = errors.New("config not found")
 )
 
-func (r *Registry) AddSource(src *source.Source) error {
-	_, ok := r.sources[src.Id]
+func (r *Registry) RegisterDevice(id uuid.UUID) error {
+	r.events <- event.ListCapabilitiesEvent{
+		Event: event.Event{Type: event.ListCapabilities, DevId: id},
+	}
+
+	return nil
+}
+
+func (r *Registry) AddSource(id uuid.UUID) error {
+	_, ok := r.sources[id]
 	if ok {
 		return ErrDeviceExists
 	}
 
-	r.sources[src.Id] = src
+	src := source.New(id)
+	r.sources[id] = src
 
 	return nil
 }
@@ -199,7 +209,7 @@ func (r *Registry) configureOutputs(sessionId uuid.UUID, prof Profile) {
 }
 
 func (r *Registry) disableActiveInputs(prof Profile) {
-	fmt.Println("==== registry: disabling active source inputs")
+	fmt.Println("==== registry: disabling potentially active source inputs")
 
 	sourceEvents := map[uuid.UUID]event.SetSourceIdleEvent{}
 
@@ -313,7 +323,11 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 	r.configureOutputs(sessId, prof)
 
+	time.Sleep(1 * time.Second)
+
 	r.disableActiveInputs(prof)
+
+	time.Sleep(1 * time.Second)
 
 	r.enableInputs(sessId, prof)
 
@@ -329,9 +343,9 @@ func (r *Registry) ProcessEvent(e event.EventIface) {
 	defer r.mux.Unlock()
 
 	switch e := e.(type) {
-	case event.ConnectEvent:
-		fmt.Printf("-> registry %s: recv ConnectEvent\n", r.id)
-		r.handleConnectEvent(e)
+	//case event.ConnectEvent:
+	//	fmt.Printf("-> registry %s: recv ConnectEvent\n", r.id)
+	//	r.handleConnectEvent(e)
 	//case event.SetSourceIdleEvent:
 	//	fmt.Printf("-> source %s: recv SetSourceIdleEvent\n", s.id)
 	//	s.handleSetIdleEvent(e)
@@ -347,64 +361,56 @@ func (r *Registry) ProcessEvent(e event.EventIface) {
 	}
 }
 
-func (r *Registry) handleConnectEvent(e event.ConnectEvent) {
-	_, srcRegistered := r.sources[e.Id]
-	_, sinkRegistered := r.sinks[e.Id]
-
-	if !srcRegistered || !sinkRegistered {
-		fmt.Println("#### registry: unknown device", e.Id)
-
-		r.events <- event.ListCapabilitiesEvent{
-			Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
-		}
-
-		return
-	}
-}
+//func (r *Registry) handleConnectEvent(e event.ConnectEvent) {
+//	_, srcRegistered := r.sources[e.Id]
+//	_, sinkRegistered := r.sinks[e.Id]
+//
+//	if !srcRegistered || !sinkRegistered {
+//		fmt.Println("#### registry: unknown device", e.Id)
+//
+//		r.events <- event.ListCapabilitiesEvent{
+//			Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
+//		}
+//
+//		return
+//	}
+//}
 
 func (r *Registry) handleCapabilitiesEvent(e event.CapabilitiesEvent) {
 	if len(e.Inputs) > 0 {
-		_, srcRegistered := r.sources[e.Id]
-
-		if !srcRegistered {
-			inputs := lo.Map(e.Inputs, func(input event.CapabilitiesEventInput, _ int) *source.Input {
-				return source.NewInput(input.Id, "", input.ConfigSchema)
-			})
-
-			inputsMap := lo.SliceToMap(inputs, func(input *source.Input) (uuid.UUID, *source.Input) {
-				return input.Id, input
-			})
-
-			src := source.NewSource(e.Id, "", inputsMap)
-
-			err := r.AddSource(src)
-			if err != nil {
-				fmt.Println("error during add source", err)
-				return
-			}
+		src, ok := r.sources[e.Id]
+		if !ok {
+			src = source.New(e.Id)
+			r.sources[e.Id] = src
 		}
+
+		inputs := lo.Map(e.Inputs, func(input event.CapabilitiesEventInput, _ int) *source.Input {
+			return source.NewInput(input.Id, "", input.ConfigSchema)
+		})
+
+		inputsMap := lo.SliceToMap(inputs, func(input *source.Input) (uuid.UUID, *source.Input) {
+			return input.Id, input
+		})
+
+		src.SetInputs(inputsMap)
 	}
 
 	if len(e.Outputs) > 0 {
-		_, sinkRegistered := r.sinks[e.Id]
-
-		if !sinkRegistered {
-			outputs := lo.Map(e.Outputs, func(output event.CapabilitiesEventOutput, _ int) *sink.Output {
-				return sink.NewOutput(output.Id, "", output.Leds)
-			})
-
-			outputsMap := lo.SliceToMap(outputs, func(output *sink.Output) (uuid.UUID, *sink.Output) {
-				return output.Id, output
-			})
-
-			snk := sink.NewSink(e.Id, "", outputsMap)
-
-			err := r.AddSink(snk)
-			if err != nil {
-				fmt.Println("error during add sink", err)
-				return
-			}
+		snk, ok := r.sinks[e.Id]
+		if !ok {
+			snk = sink.New(e.Id)
+			r.sinks[e.Id] = snk
 		}
+
+		outputs := lo.Map(e.Outputs, func(output event.CapabilitiesEventOutput, _ int) *sink.Output {
+			return sink.NewOutput(output.Id, "", output.Leds)
+		})
+
+		outputsMap := lo.SliceToMap(outputs, func(output *sink.Output) (uuid.UUID, *sink.Output) {
+			return output.Id, output
+		})
+
+		snk.SetOutputs(outputsMap)
 	}
 }
 
@@ -445,3 +451,14 @@ func (r *Registry) InputConfigs(inputId uuid.UUID) map[uuid.UUID]source.InputCon
 
 	return nil
 }
+
+//func (r *Registry) Connect(id uuid.UUID) {
+//	//r.events <- event.ListCapabilitiesEvent{
+//	//	Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
+//	//}
+//
+//	//r.events <- event.ConnectEvent{
+//	//	Event: event.Event{Type: event.Connect, DevId: id},
+//	//	Id:    r.id,
+//	//}
+//}

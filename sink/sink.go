@@ -92,14 +92,8 @@ func (s *Sink) handleDataEvent(e event.DataEvent) {
 			//}
 			out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
 		}
+		// @@@ DEBUG
 		fmt.Print(out)
-	}
-}
-
-func (s *Sink) Connect() {
-	s.events <- event.ConnectEvent{
-		Event: event.Event{Type: event.Connect, DevId: s.registryId},
-		Id:    s.id,
 	}
 }
 

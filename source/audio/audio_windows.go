@@ -121,7 +121,7 @@ func (in *Input) AssistedSetup() (map[string]any, error) {
 			"#d600a4",
 			"#ff004c",
 		},
-		"windowSize": 20,
+		"windowSize": 40,
 		"blackPoint": 0.2,
 	}, nil
 }
@@ -159,7 +159,8 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 				colors = append(colors, clr)
 			}
 
-			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize))
+			// multiply windowSize by 4 to keep it more stable
+			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 4)
 
 			prev := make([]color.Color, out.Leds)
 			for i := 0; i < len(prev); i++ {
@@ -220,15 +221,22 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 
 	if peak < 1e-9 {
 		// skip calculations, set all frequencies to 0
-
 		segs := make(map[uuid.UUID][]types.UpdateEventOutput)
 
 		for _, out := range in.outputs {
 			colors := make([]color.Color, out.leds)
 			for i := 0; i < out.leds; i++ {
-				clr, _ := colorful.MakeColor(out.colors.GetInterpolatedColor(0))
+				c := out.colors.GetInterpolatedColor(0)
+				clr, _ := colorful.MakeColor(c)
+
+				// Extract HSV color info, we'll use the Value to adjust the
+				// brightness of the colors depending on frequency magnitude.
 				hue, sat, _ := clr.Hsv()
+
+				// Adjust black point for this color
 				val := adjustBlackPoint(0, out.blackPoint)
+
+				// Convert the resulting color to RGBA
 				hsv := colorful.Hsv(hue, sat, val)
 
 				colors[i] = hsv
@@ -259,20 +267,45 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 	coeffs := fft.Coefficients(nil, window.Hamming(samples))
 
 	// Only keep the real part of the fft, and also remove frequencies between
-	// 19.2~ and 24 khz. x / 2 * 0.8 --> x * 2 / 5
-	coeffs = coeffs[:len(coeffs)*2/5]
+	// 20 and 24 khz. we can't hear them... (20/24 -> 5 / 6)
+	coeffs = coeffs[:len(coeffs)*5/6]
 
 	// Get in logarithmic piecewise-interpolated projection of the frequencies
-	freqs := in.calculateFrequencies(coeffs)
+	freqs := make([]float64, len(coeffs))
+	var maxFreq float64
+
+	// Keep the first part of the FFT. Also calculate the maximum magnitude
+	// for this frame
+	for i, coeff := range coeffs {
+		val := cmplx.Abs(coeff)
+
+		freqs[i] = val
+
+		maxFreq = math.Max(maxFreq, val)
+	}
 
 	segs := make(map[uuid.UUID][]types.UpdateEventOutput)
 
 	for _, out := range in.outputs {
-		vals := make([]float64, 0, out.leds*4)
+		// Add an entry to the maxFreqAvg of this output
+		out.maxFreqAvg.Add(maxFreq)
+		maxFreq = out.maxFreqAvg.Value()
+
+		// Normalize frequencies between [0,1] based on maxFreq
+		for i, freq := range freqs {
+			freqs[i] = normalize(freq, 0, maxFreq)
+			freqs[i] = math.Min(freqs[i], 1)
+		}
+
+		// Perform piecewise linear interpolation between frequencies. Also scale
+		// frequencies logarithmically so that low ones are more pronounced.
+		f := piecewiselinear.Function{Y: freqs}
+		f.X = scaleLog(0, 1, len(f.Y))
+
 		colors := make([]color.Color, 0, out.leds)
 
 		for i := 0; i < out.leds; i++ {
-			magn := freqs.At(float64(i) / float64(out.leds-1))
+			magn := f.At(float64(i) / float64(out.leds-1))
 
 			c := out.colors.GetInterpolatedColor(magn)
 			clr, _ := colorful.MakeColor(c)
@@ -296,9 +329,6 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 			// Convert the resulting color to RGBA
 			hsv := colorful.Hsv(hue, sat, val)
 
-			r, g, b, a := hsv.RGBA()
-
-			vals = append(vals, float64(r), float64(g), float64(b), float64(a))
 			colors = append(colors, hsv)
 		}
 
@@ -351,39 +381,6 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 
 func adjustBlackPoint(v, min float64) float64 {
 	return v*(1-min) + min
-}
-
-func (in *Input) calculateFrequencies(coeffs []complex128) piecewiselinear.Function {
-	freqs := make([]float64, len(coeffs))
-	var maxFreq float64
-
-	// Keep the first part of the FFT. Also calculate the maximum magnitude
-	// for this frame
-	for i, coeff := range coeffs {
-		val := cmplx.Abs(coeff)
-
-		freqs[i] = val
-
-		maxFreq = math.Max(maxFreq, val)
-	}
-
-	// TODO: per-output
-	//// Add an entry to the maxFrequency average accumulator
-	//in.freqMax.Add(maxFreq)
-	//maxFreq = in.freqMax.Value()
-
-	// Normalize frequencies between [0,1] based on maxFreq
-	for i, freq := range freqs {
-		freqs[i] = normalize(freq, 0, maxFreq)
-		freqs[i] = math.Min(freqs[i], 1)
-	}
-
-	// Perform piecewise linear interpolation between frequencies. Also scale
-	// frequencies logarithmically so that low ones are more pronounced.
-	f := piecewiselinear.Function{Y: freqs}
-	f.X = scaleLog(0, 1, len(f.Y))
-
-	return f
 }
 
 // normalize scales a value from min,max to 0,1

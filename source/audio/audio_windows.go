@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"math/cmplx"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -30,22 +29,19 @@ import (
 	"ledctl3/pkg/gradient"
 )
 
-type AudioCapture struct {
-	mux sync.Mutex
-
-	colors   []color.Color
-	segments []Segment
-
-	// do not overwrite, as the receiver won't get new events
+type Capture struct {
+	// events are passed to a consumer. do not overwrite, as the receiver won't
+	// receive new events
 	events chan types.UpdateEvent
 
-	cancel      context.CancelFunc
-	childCancel context.CancelFunc
-	done        chan bool
+	shutdown      context.CancelFunc
+	cancelCapture context.CancelFunc
+	done          chan bool
+
+	// maxLedCount holds the maximum number of LEDs across all segments.
 	maxLedCount int
 
-	processing bool
-	frames     chan frame
+	frames chan frame
 
 	gradient   gradient.Gradient
 	windowSize int
@@ -70,7 +66,7 @@ type AudioCapture struct {
 	id      uuid.UUID
 }
 
-func (a *AudioCapture) AssistedSetup() (map[string]any, error) {
+func (a *Capture) AssistedSetup() (map[string]any, error) {
 	return map[string]any{
 		"colors": []string{
 			//"#ffaeff",
@@ -87,7 +83,7 @@ func (a *AudioCapture) AssistedSetup() (map[string]any, error) {
 	}, nil
 }
 
-func (a *AudioCapture) Id() uuid.UUID {
+func (a *Capture) Id() uuid.UUID {
 	return a.id
 }
 
@@ -110,29 +106,29 @@ type Statistics struct {
 	Latency time.Duration
 }
 
-func (a *AudioCapture) Statistics() Statistics {
+func (a *Capture) Statistics() Statistics {
 	return Statistics{}
 }
 
-func (a *AudioCapture) Start(cfg types.SinkConfig) error {
+func (a *Capture) Start(cfg types.SinkConfig) error {
 	a.sinkCfg = cfg
 
 	ctx, cancel := context.WithCancel(context.Background())
-	a.cancel = cancel
+	a.shutdown = cancel
 	a.done = make(chan bool)
 
 	fmt.Printf("## starting audio source with config: %#v\n", cfg)
 
-	segs := make([]Segment, 0)
-	for _, sinkCfg := range cfg.Sinks {
-		for _, output := range sinkCfg.Outputs {
-			segs = append(segs, Segment{
-				SinkId:   sinkCfg.Id,
-				OutputId: output.Id,
-				Leds:     output.Leds,
-			})
-		}
-	}
+	//segs := make([]Segment, 0)
+	//for _, sinkCfg := range cfg.Sinks {
+	//	for _, output := range sinkCfg.Outputs {
+	//		segs = append(segs, Segment{
+	//			SinkId:   sinkCfg.Id,
+	//			OutputId: output.Id,
+	//			Leds:     output.Leds,
+	//		})
+	//	}
+	//}
 
 	a.average = make(map[uuid.UUID]pixavg.Average, len(segs))
 
@@ -144,7 +140,7 @@ func (a *AudioCapture) Start(cfg types.SinkConfig) error {
 		a.average[seg.OutputId] = pixavg.New(a.windowSize, prev, 2)
 	}
 
-	_ = WithSegments(segs)(a)
+	//_ = WithSegments(segs)(a)
 	a.frames = make(chan frame)
 
 	go func() {
@@ -156,7 +152,7 @@ func (a *AudioCapture) Start(cfg types.SinkConfig) error {
 				return
 			default:
 				var childCtx context.Context
-				childCtx, a.childCancel = context.WithCancel(ctx)
+				childCtx, a.cancelCapture = context.WithCancel(ctx)
 
 				err := a.startCapture(childCtx)
 				if errors.Is(err, context.Canceled) {
@@ -184,24 +180,24 @@ func (a *AudioCapture) Start(cfg types.SinkConfig) error {
 	return nil
 }
 
-func (a *AudioCapture) Events() chan types.UpdateEvent {
+func (a *Capture) Events() chan types.UpdateEvent {
 	return a.events
 }
 
-func (a *AudioCapture) Stop() error {
-	if a.cancel == nil {
+func (a *Capture) Stop() error {
+	if a.shutdown == nil {
 		return nil
 	}
 
-	a.cancel()
-	a.cancel = nil
+	a.shutdown()
+	a.shutdown = nil
 
 	<-a.done
 
 	return nil
 }
 
-func (a *AudioCapture) startCapture(ctx context.Context) error {
+func (a *Capture) startCapture(ctx context.Context) error {
 	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	if err != nil {
 		return err
@@ -450,7 +446,7 @@ func readInt32(b []byte) int32 {
 
 // processFrame analyses the audio frame, extracts frequency information and
 // creates the necessary update event
-func (a *AudioCapture) processFrame(samples []float64, peak float64) error {
+func (a *Capture) processFrame(samples []float64, peak float64) error {
 	now := time.Now()
 
 	if peak < 1e-9 {
@@ -588,7 +584,7 @@ func adjustBlackPoint(v, min float64) float64 {
 	return v*(1-min) + min
 }
 
-func (a *AudioCapture) calculateFrequencies(coeffs []complex128) piecewiselinear.Function {
+func (a *Capture) calculateFrequencies(coeffs []complex128) piecewiselinear.Function {
 	freqs := make([]float64, len(coeffs))
 	var maxFreq float64
 
@@ -647,8 +643,8 @@ func reverse[S ~[]E, E any](s S) {
 	}
 }
 
-func New(opts ...Option) (a *AudioCapture, err error) {
-	a = new(AudioCapture)
+func New(opts ...Option) (a *Capture, err error) {
+	a = new(Capture)
 	a.id = uuid.New()
 
 	for _, opt := range opts {

@@ -5,7 +5,7 @@ import (
 	"image/color"
 )
 
-type Option func(v *AudioCapture) error
+type Option func(v *Capture) error
 
 type Options struct {
 	Leds     int
@@ -13,7 +13,7 @@ type Options struct {
 }
 
 func WithSegments(segs []Segment) Option {
-	return func(v *AudioCapture) error {
+	return func(v *Capture) error {
 		v.maxLedCount = 0
 
 		for _, seg := range segs {
@@ -29,7 +29,7 @@ func WithSegments(segs []Segment) Option {
 
 // WithColors accepts an array of hex colors in the form #RRGGBB
 func WithColors(colors ...color.Color) Option {
-	return func(v *AudioCapture) error {
+	return func(v *Capture) error {
 		if len(colors) < 2 {
 			return errors.New("minimum two colors required")
 		}
@@ -40,14 +40,14 @@ func WithColors(colors ...color.Color) Option {
 }
 
 func WithWindowSize(size int) Option {
-	return func(v *AudioCapture) error {
+	return func(v *Capture) error {
 		v.windowSize = size
 		return nil
 	}
 }
 
 func WithBlackPoint(blackPoint float64) Option {
-	return func(v *AudioCapture) error {
+	return func(v *Capture) error {
 		v.blackPoint = blackPoint
 		return nil
 	}

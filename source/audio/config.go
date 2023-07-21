@@ -24,11 +24,11 @@ func init() {
 	_ = json.Unmarshal(b, &schema)
 }
 
-func (a *AudioCapture) Schema() map[string]any {
+func (a *Capture) Schema() map[string]any {
 	return schema
 }
 
-func (a *AudioCapture) ApplyConfig(cfg map[string]any) error {
+func (a *Capture) ApplyConfig(cfg map[string]any) error {
 	//var config SchemaJson
 	//err := json.Unmarshal(b, &config)
 	//if err != nil {

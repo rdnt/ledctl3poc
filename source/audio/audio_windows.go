@@ -121,8 +121,8 @@ func (in *Input) AssistedSetup() (map[string]any, error) {
 			"#d600a4",
 			"#ff004c",
 		},
-		"windowSize": 40,
-		"blackPoint": 0.2,
+		"windowSize": 24,
+		"blackPoint": 0.1,
 	}, nil
 }
 
@@ -159,8 +159,8 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 				colors = append(colors, clr)
 			}
 
-			// multiply windowSize by 4 to keep it more stable
-			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 4)
+			// multiply windowSize by 8 to keep it more stable
+			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 8)
 
 			prev := make([]color.Color, out.Leds)
 			for i := 0; i < len(prev); i++ {

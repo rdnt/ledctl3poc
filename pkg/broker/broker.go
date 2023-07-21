@@ -2,7 +2,6 @@ package broker
 
 import (
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,7 +39,7 @@ func (o *Broker[C, E]) Publish(channel C, e E) {
 	defer o.lock.Unlock()
 
 	// TODO: remove simulated network delay
-	time.Sleep(10 * time.Millisecond)
+	//time.Sleep(10 * time.Millisecond)
 
 	for ch, subs := range o.subscriptions {
 		if ch != channel {

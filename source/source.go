@@ -78,14 +78,11 @@ func (s *Source) AddInput(i Input) {
 				})
 			}
 
-			// TODO: remove, used to stabilize visualizations for now
-			go func(e types.UpdateEvent) {
-				s.events <- event.DataEvent{
-					Event:     event.Event{Type: event.Data, DevId: e.SinkId},
-					SessionId: s.sessionId,
-					Outputs:   outputs,
-				}
-			}(e)
+			s.events <- event.DataEvent{
+				Event:     event.Event{Type: event.Data, DevId: e.SinkId},
+				SessionId: s.sessionId,
+				Outputs:   outputs,
+			}
 		}
 	}()
 }

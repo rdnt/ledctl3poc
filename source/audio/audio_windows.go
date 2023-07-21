@@ -121,7 +121,7 @@ func (in *Input) AssistedSetup() (map[string]any, error) {
 			"#d600a4",
 			"#ff004c",
 		},
-		"windowSize": 40,
+		"windowSize": 20,
 		"blackPoint": 0.2,
 	}, nil
 }
@@ -159,7 +159,7 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 				colors = append(colors, clr)
 			}
 
-			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 8)
+			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize))
 
 			prev := make([]color.Color, out.Leds)
 			for i := 0; i < len(prev); i++ {
@@ -196,7 +196,7 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 	return nil
 }
 
-func (in *Input) Events() chan types.UpdateEvent {
+func (in *Input) Events() <-chan types.UpdateEvent {
 	return in.events
 }
 
@@ -221,37 +221,35 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 	if peak < 1e-9 {
 		// skip calculations, set all frequencies to 0
 
-		//segs := make([]types.UpdateEventOutput, 0, len(in.segments))
-		//
-		//for _, seg := range in.segments {
-		//	colors := make([]color.Color, seg.Leds)
-		//	for i := 0; i < seg.Leds; i++ {
-		//		colors[i] = color.RGBA{}
-		//	}
-		//
-		//	in.average[seg.OutputId].Add(colors)
-		//	colors = in.average[seg.OutputId].Current()
-		//
-		//	//if seg.OutputId ==  {
-		//	//	out := ""
-		//	//	for _, c := range colors {
-		//	//		r, g, b, _ := c.RGBA()
-		//	//		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprintf(" ")
-		//	//	}
-		//	//	fmt.Println(out)
-		//	//}
-		//
-		//	segs = append(segs, types.UpdateEventOutput{
-		//		OutputId: seg.OutputId,
-		//		Pix:      colors,
-		//	})
-		//}
-		//
-		//in.events <- types.UpdateEvent{
-		//	SinkId:  in.segments[0].SinkId,
-		//	Outputs: segs,
-		//	Latency: time.Since(now),
-		//}
+		segs := make(map[uuid.UUID][]types.UpdateEventOutput)
+
+		for _, out := range in.outputs {
+			colors := make([]color.Color, out.leds)
+			for i := 0; i < out.leds; i++ {
+				clr, _ := colorful.MakeColor(out.colors.GetInterpolatedColor(0))
+				hue, sat, _ := clr.Hsv()
+				val := adjustBlackPoint(0, out.blackPoint)
+				hsv := colorful.Hsv(hue, sat, val)
+
+				colors[i] = hsv
+			}
+
+			out.avg.Add(colors)
+			colors = out.avg.Current()
+
+			segs[out.sinkId] = append(segs[out.sinkId], types.UpdateEventOutput{
+				OutputId: out.id,
+				Pix:      colors,
+			})
+		}
+
+		for sinkId, outs := range segs {
+			in.events <- types.UpdateEvent{
+				SinkId:  sinkId,
+				Outputs: outs,
+				Latency: time.Since(now),
+			}
+		}
 
 		return nil
 	}

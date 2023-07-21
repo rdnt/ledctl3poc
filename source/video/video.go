@@ -26,7 +26,7 @@ func (s *ScreenCapture) Start(cfg types.SinkConfig) error {
 	return nil
 }
 
-func (s *ScreenCapture) Events() chan types.UpdateEvent {
+func (s *ScreenCapture) Events() <-chan types.UpdateEvent {
 	return s.events
 }
 

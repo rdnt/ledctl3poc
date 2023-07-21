@@ -98,7 +98,7 @@ func (i *DebugInput) Start(cfg types.SinkConfig) error {
 	return nil
 }
 
-func (i *DebugInput) Events() chan types.UpdateEvent {
+func (i *DebugInput) Events() <-chan types.UpdateEvent {
 	return i.events
 }
 

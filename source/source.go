@@ -14,7 +14,7 @@ import (
 type Input interface {
 	Id() uuid.UUID
 	Start(cfg types.SinkConfig) error
-	Events() chan types.UpdateEvent
+	Events() <-chan types.UpdateEvent
 	Stop() error
 	Schema() map[string]any
 	//ApplyConfig(cfg map[string]any) error
@@ -55,7 +55,7 @@ func New(registryId uuid.UUID) (*Source, error) {
 		//address:   address,
 		state:      types.StateIdle,
 		inputs:     make(map[uuid.UUID]Input),
-		events:     make(chan event.EventIface, 10),
+		events:     make(chan event.EventIface),
 		inputCfgs:  map[uuid.UUID]inputConfig{},
 		registryId: registryId,
 	}
@@ -68,7 +68,7 @@ func (s *Source) AddInput(i Input) {
 	s.inputCfgs[i.Id()] = inputConfig{}
 
 	go func() {
-		// forward events from input to the network~
+		// forward events from input to the network
 		for e := range i.Events() {
 			var outputs []event.DataEventOutput
 			for _, output := range e.Outputs {
@@ -78,11 +78,14 @@ func (s *Source) AddInput(i Input) {
 				})
 			}
 
-			s.events <- event.DataEvent{
-				Event:     event.Event{Type: event.Data, DevId: e.SinkId},
-				SessionId: s.sessionId,
-				Outputs:   outputs,
-			}
+			// TODO: remove, used to stabilize visualizations for now
+			go func(e types.UpdateEvent) {
+				s.events <- event.DataEvent{
+					Event:     event.Event{Type: event.Data, DevId: e.SinkId},
+					SessionId: s.sessionId,
+					Outputs:   outputs,
+				}
+			}(e)
 		}
 	}()
 }

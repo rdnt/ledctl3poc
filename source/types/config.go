@@ -13,6 +13,7 @@ type SinkConfigSink struct {
 }
 
 type SinkConfigSinkOutput struct {
-	Id   uuid.UUID
-	Leds int
+	Id     uuid.UUID
+	Config map[string]any
+	Leds   int
 }

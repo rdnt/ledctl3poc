@@ -8,21 +8,15 @@ import (
 	"math"
 	"math/cmplx"
 	"time"
-	"unsafe"
 
-	"github.com/go-ole/go-ole"
 	"github.com/google/uuid"
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/samber/lo"
 
 	"ledctl3/pkg/audiocapture"
 	"ledctl3/pkg/pixavg"
 	"ledctl3/source/types"
 
-	wca_ami "ledctl3/source/audio/wca-ami"
-
 	"github.com/VividCortex/ewma"
-	"github.com/moutend/go-wca/pkg/wca"
 	"github.com/pkg/errors"
 	"github.com/sgreben/piecewiselinear"
 	"gonum.org/v1/gonum/dsp/fourier"
@@ -54,7 +48,9 @@ type Input struct {
 }
 
 type outputCaptureConfig struct {
-	id uuid.UUID
+	id     uuid.UUID
+	sinkId uuid.UUID
+	leds   int
 
 	// colors is the color gradient to use for this output
 	colors gradient.Gradient
@@ -70,11 +66,11 @@ type outputCaptureConfig struct {
 	// is affected by windowSize.
 	avg pixavg.Average
 
-	// freqMax is a moving average of the maximum magnitude observed between
+	// maxFreqAvg is a moving average of the maximum magnitude observed between
 	// different audio frames. It helps make smoother transitions between
 	// audio frames that have a frequently changing magnitude of the dominant
 	// frequency. The decay rate is affected by windowSize.
-	freqMax ewma.MovingAverage
+	maxFreqAvg ewma.MovingAverage
 }
 
 func New() (in *Input, err error) {
@@ -98,7 +94,7 @@ func New() (in *Input, err error) {
 
 	//in.average = make(map[int]sliceewma.MovingAverage, len(in.segments))
 
-	//in.freqMax = ewma.NewMovingAverage(float64(in.windowSize) * 8)
+	//in.maxFreqAvg = ewma.NewMovingAverage(float64(in.windowSize) * 8)
 
 	//in.average = make(map[uuid.UUID]pixavg.Average, len(in.segments))
 	//
@@ -134,20 +130,6 @@ func (in *Input) Id() uuid.UUID {
 	return in.id
 }
 
-type Segment struct {
-	SinkId   uuid.UUID
-	OutputId uuid.UUID
-	Leds     int
-}
-
-// frame represents an audio frame
-type frame struct {
-	// samples is a collection of PCM samples encoded as float64
-	samples []float64
-	// peak is the peak audio meter value for this frame
-	peak float64
-}
-
 type Statistics struct {
 	BitRate int // in hz
 	Latency time.Duration
@@ -158,17 +140,17 @@ func (in *Input) Statistics() Statistics {
 }
 
 func (in *Input) Start(cfg types.SinkConfig) error {
-	//in.sinkCfg = cfg
-
 	fmt.Printf("## starting audio source with config: %#v\n", cfg)
 
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
 	for _, sinkCfg := range cfg.Sinks {
 		for _, out := range sinkCfg.Outputs {
-			var colors []color.Color
+			windowSize := out.Config["windowSize"].(int)
+			blackPoint := out.Config["blackPoint"].(float64)
 
-			for _, hex := range cfg["colors"].([]string) {
+			var colors []color.Color
+			for _, hex := range out.Config["colors"].([]string) {
 				clr, err := colorful.Hex(hex)
 				if err != nil {
 					return err
@@ -177,49 +159,35 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 				colors = append(colors, clr)
 			}
 
-			in.gradient, err = gradient.New(in.colors...)
+			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 8)
+
+			prev := make([]color.Color, out.Leds)
+			for i := 0; i < len(prev); i++ {
+				prev[i] = color.RGBA{}
+			}
+			avg := pixavg.New(windowSize, prev, 2)
+
+			grad, err := gradient.New(colors...)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			in.outputs[out.Id] = outputCaptureConfig{
-				id:         out.Id,
-				colors:     nil,
-				windowSize: 0,
-				blackPoint: 0,
-				avg:        nil,
-				freqMax:    nil,
+				id:     out.Id,
+				sinkId: sinkCfg.Id,
+				leds:   out.Leds,
+				colors: grad,
+				//windowSize: windowSize,
+				blackPoint: blackPoint,
+				avg:        avg,
+				maxFreqAvg: maxFreqAvg,
 			}
 		}
-	}
-
-	outputs := lo.Reduce(cfg.Sinks, func(agg []types.SinkConfigSinkOutput, item types.SinkConfigSink, _ int) []types.SinkConfigSinkOutput {
-		return append(agg, item.Outputs...)
-	}, []types.SinkConfigSinkOutput{})
-	//segs := make([]Segment, 0)
-	//for _, sinkCfg := range cfg.Sinks {
-	//	for _, output := range sinkCfg.Outputs {
-	//		segs = append(segs, Segment{
-	//			SinkId:   sinkCfg.Id,
-	//			OutputId: output.Id,
-	//			Leds:     output.Leds,
-	//		})
-	//	}
-	//}
-
-	in.average = make(map[uuid.UUID]pixavg.Average, len(outputs))
-
-	for _, out := range outputs {
-		prev := make([]color.Color, out.Leds)
-		for i := 0; i < len(prev); i++ {
-			prev[i] = color.RGBA{}
-		}
-		in.average[out.Id] = pixavg.New(in.windowSize, prev, 2)
 	}
 
 	err := in.ac.Start()
 	if errors.Is(err, context.Canceled) {
-		return
+		return err
 	} else if err != nil {
 		log.Println(err)
 		time.Sleep(1 * time.Second)
@@ -233,263 +201,16 @@ func (in *Input) Events() chan types.UpdateEvent {
 }
 
 func (in *Input) Stop() error {
-	if in.cancel == nil {
-		return nil
-	}
-
-	in.cancel()
-	in.cancel = nil
-
-	<-in.done
-
-	return nil
-}
-
-func (in *Input) startCapture(ctx context.Context) error {
-	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
-	if err != nil {
-		return err
-	}
-	defer ole.CoUninitialize()
-
-	var mmde *wca.IMMDeviceEnumerator
-	err = wca.CoCreateInstance(
-		wca.CLSID_MMDeviceEnumerator, 0, wca.CLSCTX_ALL,
-		wca.IID_IMMDeviceEnumerator, &mmde,
-	)
-	if err != nil {
-		return err
-	}
-	defer mmde.Release()
-
-	var mmd *wca.IMMDevice
-	err = mmde.GetDefaultAudioEndpoint(wca.ERender, wca.EConsole, &mmd)
-	if err != nil {
-		return err
-	}
-	defer mmd.Release()
-
-	var ps *wca.IPropertyStore
-	err = mmd.OpenPropertyStore(wca.STGM_READ, &ps)
-	if err != nil {
-		return err
-	}
-	defer ps.Release()
-
-	var ac *wca.IAudioClient
-	err = mmd.Activate(wca.IID_IAudioClient, wca.CLSCTX_ALL, nil, &ac)
-	if err != nil {
-		return err
-	}
-	defer ac.Release()
-
-	var ami *wca_ami.IAudioMeterInformation
-	err = mmd.Activate(
-		wca.IID_IAudioMeterInformation, wca.CLSCTX_ALL, nil, &ami,
-	)
-	if err != nil {
-		return err
-	}
-	defer ami.Release()
-
-	var wfx *wca.WAVEFORMATEX
-	err = ac.GetMixFormat(&wfx)
-	if err != nil {
-		return err
-	}
-	defer ole.CoTaskMemFree(uintptr(unsafe.Pointer(wfx)))
-
-	var defaultPeriod wca.REFERENCE_TIME
-	var minimumPeriod wca.REFERENCE_TIME
-	var latency time.Duration
-
-	err = ac.GetDevicePeriod(&defaultPeriod, &minimumPeriod)
-	if err != nil {
-		return err
-	}
-	latency = time.Duration(int(defaultPeriod) * 100)
-
-	wfx.NChannels = 2 // force stereo
-	wfx.WFormatTag = 1
-	wfx.WBitsPerSample = 32
-	wfx.NBlockAlign = (wfx.WBitsPerSample / 8) * wfx.NChannels
-	wfx.NAvgBytesPerSec = wfx.NSamplesPerSec * uint32(wfx.NBlockAlign)
-	wfx.CbSize = 0
-
-	in.stats.Latency = latency
-	in.stats.BitRate = int(wfx.NSamplesPerSec)
-
-	err = ac.Initialize(
-		wca.AUDCLNT_SHAREMODE_SHARED,
-		wca.AUDCLNT_STREAMFLAGS_EVENTCALLBACK|wca.AUDCLNT_STREAMFLAGS_LOOPBACK,
-		defaultPeriod, 0, wfx, nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	audioReadyEvent := wca.CreateEventExA(
-		0, 0, 0, wca.EVENT_MODIFY_STATE|wca.SYNCHRONIZE,
-	)
-	defer wca.CloseHandle(audioReadyEvent)
-
-	err = ac.SetEventHandle(audioReadyEvent)
-	if err != nil {
-		return err
-	}
-
-	var bufferFrameSize uint32
-	err = ac.GetBufferSize(&bufferFrameSize)
-	if err != nil {
-		return err
-	}
-
-	var acc *wca.IAudioCaptureClient
-	err = ac.GetService(wca.IID_IAudioCaptureClient, &acc)
-	if err != nil {
-		return err
-	}
-	defer acc.Release()
-
-	fmt.Printf("Format: PCM %d bit signed integer\n", wfx.WBitsPerSample)
-	fmt.Printf("Rate: %d Hz\n", wfx.NSamplesPerSec)
-	fmt.Printf("Channels: %d\n", wfx.NChannels)
-
-	fmt.Println("Default period: ", defaultPeriod)
-	fmt.Println("Minimum period: ", minimumPeriod)
-	fmt.Println("Latency: ", latency)
-
-	fmt.Printf("Allocated buffer size: %d\n", bufferFrameSize)
-
-	err = ac.Start()
-	if err != nil {
-		return err
-	}
-
-	var offset int
-	var b *byte
-	var data *byte
-	var availableFrameSize uint32
-	var flags uint32
-	var devicePosition uint64
-	var qcpPosition uint64
-
-	errorChan := make(chan error, 1)
-
-	var isCapturing = true
-
-loop:
-	for {
-		if !isCapturing {
-			close(errorChan)
-			break
-		}
-		go func() {
-			errorChan <- watchEvent(ctx, audioReadyEvent)
-		}()
-
-		select {
-		case <-ctx.Done():
-			isCapturing = false
-			<-errorChan
-			break loop
-		case err := <-errorChan:
-			if err != nil {
-				isCapturing = false
-				break
-			}
-			err = acc.GetBuffer(
-				&data, &availableFrameSize, &flags,
-				&devicePosition, &qcpPosition,
-			)
-
-			if err != nil {
-				continue
-			}
-
-			if availableFrameSize == 0 {
-				continue
-			}
-
-			start := unsafe.Pointer(data)
-			if start == nil {
-				continue
-			}
-
-			lim := int(availableFrameSize) * int(wfx.NBlockAlign)
-			buf := make([]byte, lim)
-
-			for n := 0; n < lim; n++ {
-				b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-				buf[n] = *b
-			}
-
-			// Release the buffer as soon as we extract the audio samples
-			err = acc.ReleaseBuffer(availableFrameSize)
-			if err != nil {
-				return errors.WithMessage(err, "failed to release buffer")
-			}
-
-			offset += lim
-
-			samples := make([]float64, len(buf)/4)
-			for i := 0; i < len(buf); i += 4 {
-				v := float64(readInt32(buf[i : i+4]))
-				samples = append(samples, v)
-			}
-
-			// TODO: calculate impact of this call
-			var peak float32
-			err = ami.GetPeakValue(&peak)
-			if err != nil {
-				continue
-			}
-			//peak = 1
-
-			// Dispatch the received frame for processing. If the work queue
-			// is full, this will block until in previous frame is processed.
-			in.frames <- frame{
-				samples: samples,
-				peak:    float64(peak),
-			}
-		}
-	}
-
-	err = ac.Stop()
-	if err != nil {
-		return errors.Wrap(err, "failed to stop audio client")
-	}
+	//if in.cancel == nil {
+	//	return nil
+	//}
+	//
+	//in.cancel()
+	//in.cancel = nil
+	//
+	//<-in.done
 
 	return nil
-}
-
-func watchEvent(ctx context.Context, event uintptr) (err error) {
-	errorChan := make(chan error, 1)
-	go func() {
-		errorChan <- eventEmitter(event)
-	}()
-	select {
-	case err = <-errorChan:
-		close(errorChan)
-		return
-	case <-ctx.Done():
-		err = ctx.Err()
-		return
-	}
-}
-
-func eventEmitter(event uintptr) (err error) {
-	dw := wca.WaitForSingleObject(event, wca.INFINITE)
-	if dw != 0 {
-		return fmt.Errorf("failed to watch event")
-	}
-	return nil
-}
-
-// readInt32 reads a signed integer from a byte slice. only a slice with len(4)
-// should be passed. equivalent to int32(binary.LittleEndian.Uint32(b))
-func readInt32(b []byte) int32 {
-	return int32(uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24)
 }
 
 // processFrame analyses the audio frame, extracts frequency information and
@@ -500,37 +221,37 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 	if peak < 1e-9 {
 		// skip calculations, set all frequencies to 0
 
-		segs := make([]types.UpdateEventOutput, 0, len(in.segments))
-
-		for _, seg := range in.segments {
-			colors := make([]color.Color, seg.Leds)
-			for i := 0; i < seg.Leds; i++ {
-				colors[i] = color.RGBA{}
-			}
-
-			in.average[seg.OutputId].Add(colors)
-			colors = in.average[seg.OutputId].Current()
-
-			//if seg.OutputId ==  {
-			//	out := ""
-			//	for _, c := range colors {
-			//		r, g, b, _ := c.RGBA()
-			//		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprintf(" ")
-			//	}
-			//	fmt.Println(out)
-			//}
-
-			segs = append(segs, types.UpdateEventOutput{
-				OutputId: seg.OutputId,
-				Pix:      colors,
-			})
-		}
-
-		in.events <- types.UpdateEvent{
-			SinkId:  in.segments[0].SinkId,
-			Outputs: segs,
-			Latency: time.Since(now),
-		}
+		//segs := make([]types.UpdateEventOutput, 0, len(in.segments))
+		//
+		//for _, seg := range in.segments {
+		//	colors := make([]color.Color, seg.Leds)
+		//	for i := 0; i < seg.Leds; i++ {
+		//		colors[i] = color.RGBA{}
+		//	}
+		//
+		//	in.average[seg.OutputId].Add(colors)
+		//	colors = in.average[seg.OutputId].Current()
+		//
+		//	//if seg.OutputId ==  {
+		//	//	out := ""
+		//	//	for _, c := range colors {
+		//	//		r, g, b, _ := c.RGBA()
+		//	//		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprintf(" ")
+		//	//	}
+		//	//	fmt.Println(out)
+		//	//}
+		//
+		//	segs = append(segs, types.UpdateEventOutput{
+		//		OutputId: seg.OutputId,
+		//		Pix:      colors,
+		//	})
+		//}
+		//
+		//in.events <- types.UpdateEvent{
+		//	SinkId:  in.segments[0].SinkId,
+		//	Outputs: segs,
+		//	Latency: time.Since(now),
+		//}
 
 		return nil
 	}
@@ -546,16 +267,16 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 	// Get in logarithmic piecewise-interpolated projection of the frequencies
 	freqs := in.calculateFrequencies(coeffs)
 
-	segs := make([]types.UpdateEventOutput, 0, len(in.segments))
+	segs := make(map[uuid.UUID][]types.UpdateEventOutput)
 
-	for _, seg := range in.segments {
-		vals := make([]float64, 0, seg.Leds*4)
-		colors := make([]color.Color, 0, seg.Leds)
+	for _, out := range in.outputs {
+		vals := make([]float64, 0, out.leds*4)
+		colors := make([]color.Color, 0, out.leds)
 
-		for i := 0; i < seg.Leds; i++ {
-			magn := freqs.At(float64(i) / float64(seg.Leds-1))
+		for i := 0; i < out.leds; i++ {
+			magn := freqs.At(float64(i) / float64(out.leds-1))
 
-			c := in.gradient.GetInterpolatedColor(magn)
+			c := out.colors.GetInterpolatedColor(magn)
 			clr, _ := colorful.MakeColor(c)
 
 			// Extract HSV color info, we'll use the Value to adjust the
@@ -572,7 +293,7 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 			val = math.Min(1, val) // prevent overflow
 
 			// Adjust black point
-			val = adjustBlackPoint(val, in.blackPoint)
+			val = adjustBlackPoint(val, out.blackPoint)
 
 			// Convert the resulting color to RGBA
 			hsv := colorful.Hsv(hue, sat, val)
@@ -584,8 +305,8 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 		}
 
 		// Add the color data to the moving average accumulator for this segment
-		in.average[seg.OutputId].Add(colors)
-		colors = in.average[seg.OutputId].Current()
+		out.avg.Add(colors)
+		colors = out.avg.Current()
 
 		// Create the pix slice from the color data
 		//pix := make([]uint8, len(colors))
@@ -613,16 +334,18 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 		//fmt.Println(out)
 		////}
 
-		segs = append(segs, types.UpdateEventOutput{
-			OutputId: seg.OutputId,
+		segs[out.sinkId] = append(segs[out.sinkId], types.UpdateEventOutput{
+			OutputId: out.id,
 			Pix:      colors,
 		})
 	}
 
-	in.events <- types.UpdateEvent{
-		SinkId:  in.segments[0].SinkId,
-		Outputs: segs,
-		Latency: time.Since(now),
+	for sinkId, outs := range segs {
+		in.events <- types.UpdateEvent{
+			SinkId:  sinkId,
+			Outputs: outs,
+			Latency: time.Since(now),
+		}
 	}
 
 	return nil
@@ -646,9 +369,10 @@ func (in *Input) calculateFrequencies(coeffs []complex128) piecewiselinear.Funct
 		maxFreq = math.Max(maxFreq, val)
 	}
 
-	// Add an entry to the maxFrequency average accumulator
-	in.freqMax.Add(maxFreq)
-	maxFreq = in.freqMax.Value()
+	// TODO: per-output
+	//// Add an entry to the maxFrequency average accumulator
+	//in.freqMax.Add(maxFreq)
+	//maxFreq = in.freqMax.Value()
 
 	// Normalize frequencies between [0,1] based on maxFreq
 	for i, freq := range freqs {
@@ -683,10 +407,4 @@ func scaleLog(min, max float64, nPoints int) []float64 {
 		X[i] = v
 	}
 	return X
-}
-
-func reverse[S ~[]E, E any](s S) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
 }

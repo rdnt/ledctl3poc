@@ -92,40 +92,40 @@ func (r *Registry) AddSource(id uuid.UUID) error {
 	return nil
 }
 
-func (r *Registry) ConfigureInput(inputId uuid.UUID, cfg map[string]any) error {
-	for _, src := range r.sources {
-		for _, input := range src.Inputs {
-			if input.Id == inputId {
-				e := event.SetInputConfigEvent{
-					Event:   event.Event{Type: event.SetInputConfig, DevId: src.Id},
-					InputId: inputId,
-					Config:  cfg,
-				}
-
-				input, ok := r.sources[src.Id].Inputs[e.InputId]
-				if !ok {
-					return fmt.Errorf("input %s not found", e.InputId)
-				}
-
-				conf, err := input.AddConfig("", e.Config)
-				if err != nil {
-					return fmt.Errorf("apply input Config: %w", err)
-				}
-
-				err = input.ApplyConfig(conf.Id)
-				if err != nil {
-					return fmt.Errorf("apply input Config: %w", err)
-				}
-
-				r.events <- e
-
-				return nil
-			}
-		}
-	}
-
-	return errors.New("input not found")
-}
+//func (r *Registry) ConfigureInput(inputId uuid.UUID, cfg map[string]any) error {
+//	for _, src := range r.sources {
+//		for _, input := range src.Inputs {
+//			if input.Id == inputId {
+//				e := event.SetInputConfigEvent{
+//					Event:   event.Event{Type: event.SetInputConfig, DevId: src.Id},
+//					InputId: inputId,
+//					Config:  cfg,
+//				}
+//
+//				input, ok := r.sources[src.Id].Inputs[e.InputId]
+//				if !ok {
+//					return fmt.Errorf("input %s not found", e.InputId)
+//				}
+//
+//				conf, err := input.AddConfig("", e.Config)
+//				if err != nil {
+//					return fmt.Errorf("apply input Config: %w", err)
+//				}
+//
+//				err = input.ApplyConfig(conf.Id)
+//				if err != nil {
+//					return fmt.Errorf("apply input Config: %w", err)
+//				}
+//
+//				r.events <- e
+//
+//				return nil
+//			}
+//		}
+//	}
+//
+//	return errors.New("input not found")
+//}
 
 func (r *Registry) AssistedSetup(inputId uuid.UUID) error {
 	for _, src := range r.sources {
@@ -267,7 +267,7 @@ func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
 		//					Outputs: lo.Map(snk.Outputs, func(out ProfileOutput, _ int) event.SetSourceActiveEventOutput {
 		//						return event.SetSourceActiveEventOutput{
 		//							Id:     out.OutputId,
-		//							Config: r.sources[src.SourceId].Inputs[in.InputId].Configs[out.InputConfigId].Cfg,
+		//							Config: r.sources[src.SourceId].Inputs[in.InputId].Configs[out.InputConfigId].Config,
 		//							Leds:   r.sinks[snk.SinkId].Outputs[out.OutputId].Leds,
 		//						}
 		//					}),

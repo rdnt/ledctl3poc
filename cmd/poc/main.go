@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"image/color"
 	"os"
 	"os/signal"
 	"time"
@@ -45,17 +44,7 @@ func main() {
 		}
 	}()
 
-	inputdev1a, err := audiosrc.New(
-		audiosrc.WithColors(
-			color.RGBA{0x4a, 0x15, 0x24, 255},
-			color.RGBA{0x06, 0x53, 0x94, 255},
-			color.RGBA{0x00, 0xb5, 0x85, 255},
-			color.RGBA{0xd6, 0x00, 0xa4, 255},
-			color.RGBA{0xff, 0x00, 0x4c, 255},
-		),
-		audiosrc.WithWindowSize(24),
-		audiosrc.WithBlackPoint(0.2),
-	)
+	inputdev1a, err := audiosrc.New()
 	handle(err)
 
 	inputdev1b := videosrc.New()

@@ -17,7 +17,7 @@ type Input interface {
 	Events() chan types.UpdateEvent
 	Stop() error
 	Schema() map[string]any
-	ApplyConfig(cfg map[string]any) error
+	//ApplyConfig(cfg map[string]any) error
 	AssistedSetup() (map[string]any, error)
 }
 
@@ -109,9 +109,9 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 	case event.ListCapabilitiesEvent:
 		fmt.Printf("-> source %s: recv ListCapabilitiesEvent\n", s.id)
 		s.handleListCapabilitiesEvent(e)
-	case event.SetInputConfigEvent:
-		fmt.Printf("-> source %s: recv SetInputConfigEvent\n", s.id)
-		s.handleSetInputConfigEvent(e)
+	//case event.SetInputConfigEvent:
+	//	fmt.Printf("-> source %s: recv SetInputConfigEvent\n", s.id)
+	//	s.handleSetInputConfigEvent(e)
 	case event.AssistedSetupEvent:
 		fmt.Printf("-> source %s: recv AssistedSetupEvent\n", s.id)
 		s.handleAssistedSetupEvent(e)
@@ -155,8 +155,9 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				var outputs []types.SinkConfigSinkOutput
 				for _, outputCfg := range sinkCfg.Outputs {
 					outputs = append(outputs, types.SinkConfigSinkOutput{
-						Id:   outputCfg.Id,
-						Leds: outputCfg.Leds,
+						Id:     outputCfg.Id,
+						Config: outputCfg.Config,
+						Leds:   outputCfg.Leds,
 					})
 				}
 
@@ -270,19 +271,19 @@ func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 	}
 }
 
-func (s *Source) handleSetInputConfigEvent(e event.SetInputConfigEvent) {
-	input, ok := s.inputs[e.InputId]
-	if !ok {
-		fmt.Print("input not found")
-		return
-	}
-
-	err := input.ApplyConfig(e.Config)
-	if err != nil {
-		fmt.Println("failed to apply input config", err)
-		return
-	}
-}
+//func (s *Source) handleSetInputConfigEvent(e event.SetInputConfigEvent) {
+//	input, ok := s.inputs[e.InputId]
+//	if !ok {
+//		fmt.Print("input not found")
+//		return
+//	}
+//
+//	err := input.ApplyConfig(e.Config)
+//	if err != nil {
+//		fmt.Println("failed to apply input config", err)
+//		return
+//	}
+//}
 
 func (s *Source) handleAssistedSetupEvent(e event.AssistedSetupEvent) {
 	input, ok := s.inputs[e.InputId]

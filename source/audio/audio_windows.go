@@ -16,7 +16,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 
 	"ledctl3/pkg/pixavg"
-	"ledctl3/source"
+	"ledctl3/source/types"
 
 	wca_ami "ledctl3/source/audio/wca-ami"
 
@@ -37,7 +37,7 @@ type AudioCapture struct {
 	segments []Segment
 
 	// do not overwrite, as the receiver won't get new events
-	events chan source.UpdateEvent
+	events chan types.UpdateEvent
 
 	cancel      context.CancelFunc
 	childCancel context.CancelFunc
@@ -66,7 +66,7 @@ type AudioCapture struct {
 	// the range 0-1
 	blackPoint float64
 
-	sinkCfg source.SinkConfig
+	sinkCfg types.SinkConfig
 	id      uuid.UUID
 }
 
@@ -114,7 +114,7 @@ func (a *AudioCapture) Statistics() Statistics {
 	return Statistics{}
 }
 
-func (a *AudioCapture) Start(cfg source.SinkConfig) error {
+func (a *AudioCapture) Start(cfg types.SinkConfig) error {
 	a.sinkCfg = cfg
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -184,7 +184,7 @@ func (a *AudioCapture) Start(cfg source.SinkConfig) error {
 	return nil
 }
 
-func (a *AudioCapture) Events() chan source.UpdateEvent {
+func (a *AudioCapture) Events() chan types.UpdateEvent {
 	return a.events
 }
 
@@ -456,7 +456,7 @@ func (a *AudioCapture) processFrame(samples []float64, peak float64) error {
 	if peak < 1e-9 {
 		// skip calculations, set all frequencies to 0
 
-		segs := make([]source.UpdateOutput, 0, len(a.segments))
+		segs := make([]types.UpdateEventOutput, 0, len(a.segments))
 
 		for _, seg := range a.segments {
 			colors := make([]color.Color, seg.Leds)
@@ -476,13 +476,13 @@ func (a *AudioCapture) processFrame(samples []float64, peak float64) error {
 			//	fmt.Println(out)
 			//}
 
-			segs = append(segs, source.UpdateOutput{
+			segs = append(segs, types.UpdateEventOutput{
 				OutputId: seg.OutputId,
 				Pix:      colors,
 			})
 		}
 
-		a.events <- source.UpdateEvent{
+		a.events <- types.UpdateEvent{
 			SinkId:  a.segments[0].SinkId,
 			Outputs: segs,
 			Latency: time.Since(now),
@@ -502,7 +502,7 @@ func (a *AudioCapture) processFrame(samples []float64, peak float64) error {
 	// Get a logarithmic piecewise-interpolated projection of the frequencies
 	freqs := a.calculateFrequencies(coeffs)
 
-	segs := make([]source.UpdateOutput, 0, len(a.segments))
+	segs := make([]types.UpdateEventOutput, 0, len(a.segments))
 
 	for _, seg := range a.segments {
 		vals := make([]float64, 0, seg.Leds*4)
@@ -569,13 +569,13 @@ func (a *AudioCapture) processFrame(samples []float64, peak float64) error {
 		//fmt.Println(out)
 		////}
 
-		segs = append(segs, source.UpdateOutput{
+		segs = append(segs, types.UpdateEventOutput{
 			OutputId: seg.OutputId,
 			Pix:      colors,
 		})
 	}
 
-	a.events <- source.UpdateEvent{
+	a.events <- types.UpdateEvent{
 		SinkId:  a.segments[0].SinkId,
 		Outputs: segs,
 		Latency: time.Since(now),
@@ -663,7 +663,7 @@ func New(opts ...Option) (a *AudioCapture, err error) {
 		return nil, err
 	}
 
-	a.events = make(chan source.UpdateEvent, len(a.segments))
+	a.events = make(chan types.UpdateEvent, len(a.segments))
 
 	//a.average = make(map[int]sliceewma.MovingAverage, len(a.segments))
 

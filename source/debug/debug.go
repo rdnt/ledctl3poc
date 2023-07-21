@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/source"
+	"ledctl3/source/types"
 )
 
 type DebugInput struct {
 	id     uuid.UUID
-	events chan source.UpdateEvent
+	events chan types.UpdateEvent
 
 	//pixs   map[uuid.UUID][]color.Color
 }
@@ -32,7 +32,7 @@ func (i *DebugInput) ApplyConfig(cfg map[string]any) error {
 func New() *DebugInput {
 	i := &DebugInput{
 		id:     uuid.New(),
-		events: make(chan source.UpdateEvent),
+		events: make(chan types.UpdateEvent),
 		//pixs:   make(map[uuid.UUID][]color.Color),
 	}
 
@@ -58,13 +58,13 @@ func (i *DebugInput) Id() uuid.UUID {
 	return i.id
 }
 
-func (i *DebugInput) Start(cfg source.SinkConfig) error {
+func (i *DebugInput) Start(cfg types.SinkConfig) error {
 	for _, sinkCfg := range cfg.Sinks {
 
 		sinkCfg := sinkCfg
 		go func() {
 			for {
-				outputs := make([]source.UpdateOutput, 0)
+				outputs := make([]types.UpdateEventOutput, 0)
 				for _, output := range sinkCfg.Outputs {
 					pix := make([]color.Color, output.Leds)
 
@@ -76,13 +76,13 @@ func (i *DebugInput) Start(cfg source.SinkConfig) error {
 
 					//i.pixs[output.OutputId] = pix
 
-					outputs = append(outputs, source.UpdateOutput{
+					outputs = append(outputs, types.UpdateEventOutput{
 						OutputId: output.Id,
 						Pix:      pix,
 					})
 				}
 
-				i.events <- source.UpdateEvent{
+				i.events <- types.UpdateEvent{
 					Outputs: outputs,
 					SinkId:  sinkCfg.Id,
 					Latency: 500 * time.Millisecond,
@@ -98,7 +98,7 @@ func (i *DebugInput) Start(cfg source.SinkConfig) error {
 	return nil
 }
 
-func (i *DebugInput) Events() chan source.UpdateEvent {
+func (i *DebugInput) Events() chan types.UpdateEvent {
 	return i.events
 }
 

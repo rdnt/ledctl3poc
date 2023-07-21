@@ -2,9 +2,7 @@ package source
 
 import (
 	"fmt"
-	"image/color"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -15,38 +13,12 @@ import (
 
 type Input interface {
 	Id() uuid.UUID
-	Start(cfg SinkConfig) error
-	Events() chan UpdateEvent
+	Start(cfg types.SinkConfig) error
+	Events() chan types.UpdateEvent
 	Stop() error
 	Schema() map[string]any
 	ApplyConfig(cfg map[string]any) error
 	AssistedSetup() (map[string]any, error)
-}
-
-type SinkConfig struct {
-	Framerate int
-	Sinks     []SinkConfigSinks
-}
-
-type SinkConfigSinks struct {
-	Id      uuid.UUID
-	Outputs []OutputConfig
-}
-
-type OutputConfig struct {
-	Id   uuid.UUID
-	Leds int
-}
-
-type UpdateEvent struct {
-	SinkId  uuid.UUID
-	Outputs []UpdateOutput
-	Latency time.Duration
-}
-
-type UpdateOutput struct {
-	OutputId uuid.UUID
-	Pix      []color.Color
 }
 
 type Source struct {
@@ -176,19 +148,19 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 			s.inputCfgs[input.Id] = cfg
 		}
 
-		var cfg SinkConfig
+		var cfg types.SinkConfig
 		for inputId := range s.inputCfgs {
 			for _, sinkCfg := range s.inputCfgs[inputId].sinkCfgs {
 
-				var outputs []OutputConfig
+				var outputs []types.SinkConfigSinkOutput
 				for _, outputCfg := range sinkCfg.Outputs {
-					outputs = append(outputs, OutputConfig{
+					outputs = append(outputs, types.SinkConfigSinkOutput{
 						Id:   outputCfg.Id,
 						Leds: outputCfg.Leds,
 					})
 				}
 
-				cfg.Sinks = append(cfg.Sinks, SinkConfigSinks{
+				cfg.Sinks = append(cfg.Sinks, types.SinkConfigSink{
 					Id:      sinkCfg.Id,
 					Outputs: outputs,
 				})

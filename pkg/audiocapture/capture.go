@@ -14,9 +14,9 @@ import (
 	wcaami "ledctl3/source/audio/wca-ami"
 )
 
-// Capture is an audio capture device. It is not safe for concurrent use.
+// Capturer is an audio capture device. It is NOT safe for concurrent use.
 // Use the Frames() method to receive a channel with captured audio frames.
-type Capture struct {
+type Capturer struct {
 	cancel        context.CancelFunc
 	cancelCapture context.CancelFunc
 	done          chan bool
@@ -25,19 +25,19 @@ type Capture struct {
 
 // Frame represents an audio frame
 type Frame struct {
-	// samples is a collection of PCM samples encoded as float64
-	samples []float64
-	// peak is the peak audio meter value for this Frame (0-1)
-	peak float64
+	// Samples is a collection of PCM samples encoded as float64
+	Samples []float64
+	// Peak is the peak audio meter value for this frame (0-1)
+	Peak float64
 }
 
-func New() *Capture {
-	return &Capture{
+func New() *Capturer {
+	return &Capturer{
 		frames: make(chan Frame),
 	}
 }
 
-func (c *Capture) Start() error {
+func (c *Capturer) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	c.done = make(chan bool)
@@ -57,25 +57,25 @@ func (c *Capture) Start() error {
 	return nil
 }
 
-func (c *Capture) Stop() error {
+func (c *Capturer) Stop() error {
 	c.cancel()
 	<-c.done
 
 	return nil
 }
 
-func (c *Capture) Restart() error {
+func (c *Capturer) Restart() error {
 	c.cancel()
 	<-c.done
 
 	return c.Start()
 }
 
-func (c *Capture) Frames() <-chan Frame {
+func (c *Capturer) Frames() <-chan Frame {
 	return c.frames
 }
 
-func (c *Capture) startCapture(ctx context.Context) error {
+func (c *Capturer) startCapture(ctx context.Context) error {
 	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	if err != nil {
 		return err
@@ -253,7 +253,7 @@ loop:
 				buf[n] = *b
 			}
 
-			// Release the buffer as soon as we extract the audio samples
+			// Release the buffer as soon as we extract the audio Samples
 			err = acc.ReleaseBuffer(availableFrameSize)
 			if err != nil {
 				return errors.WithMessage(err, "failed to release buffer")
@@ -273,13 +273,13 @@ loop:
 			if err != nil {
 				continue
 			}
-			//peak = 1
+			//Peak = 1
 
 			// Dispatch the received frame for processing. If the work queue
 			// is full, this will block until c previous frame is processed.
 			c.frames <- Frame{
-				samples: samples,
-				peak:    float64(peak),
+				Samples: samples,
+				Peak:    float64(peak),
 			}
 		}
 	}

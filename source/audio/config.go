@@ -24,11 +24,11 @@ func init() {
 	_ = json.Unmarshal(b, &schema)
 }
 
-func (a *Capture) Schema() map[string]any {
+func (in *Input) Schema() map[string]any {
 	return schema
 }
 
-func (a *Capture) ApplyConfig(cfg map[string]any) error {
+func (in *Input) ApplyConfig(cfg map[string]any) error {
 	//var config SchemaJson
 	//err := json.Unmarshal(b, &config)
 	//if err != nil {
@@ -55,50 +55,50 @@ func (a *Capture) ApplyConfig(cfg map[string]any) error {
 
 	err := WithColors(
 		colors...,
-	)(a)
+	)(in)
 	if err != nil {
 		return err
 	}
-	err = WithWindowSize(cfg["windowSize"].(int))(a)
+	err = WithWindowSize(cfg["windowSize"].(int))(in)
 	if err != nil {
 		fmt.Println("windowsize error")
 		return err
 	}
-	//err = WithBlackPoint(cfg["blackPoint"].(float64))(a)
+	//err = WithBlackPoint(cfg["blackPoint"].(float64))(in)
 	//if err != nil {
 	//	fmt.Println("blackpoint error")
 	//	return err
 	//}
 
-	a.gradient, err = gradient.New(a.colors...)
+	in.gradient, err = gradient.New(in.colors...)
 	if err != nil {
 		fmt.Println("gradient error")
 		return err
 	}
 
-	//a.events = make(chan source.UpdateEvent, len(a.segments))
+	//in.events = make(chan source.UpdateEvent, len(in.segments))
 
 	//v.average = make(map[int]sliceewma.MovingAverage, len(v.segments))
 
-	a.freqMax = ewma.NewMovingAverage(float64(a.windowSize) * 8)
+	in.freqMax = ewma.NewMovingAverage(float64(in.windowSize) * 8)
 
-	a.average = make(map[uuid.UUID]pixavg.Average, len(a.segments))
+	in.average = make(map[uuid.UUID]pixavg.Average, len(in.segments))
 
-	for _, seg := range a.segments {
+	for _, seg := range in.segments {
 		prev := make([]color.Color, seg.Leds)
 		for i := 0; i < len(prev); i++ {
 			prev[i] = color.RGBA{}
 		}
-		a.average[seg.OutputId] = pixavg.New(a.windowSize, prev, 2)
+		in.average[seg.OutputId] = pixavg.New(in.windowSize, prev, 2)
 	}
 
-	err = a.Stop()
+	err = in.Stop()
 	if err != nil {
 		fmt.Println("stop error")
 		return err
 	}
 
-	err = a.Start(a.sinkCfg)
+	err = in.Start(in.sinkCfg)
 	if err != nil {
 		fmt.Println("start error")
 		return err

@@ -13,7 +13,9 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/google/uuid"
 	"github.com/lucasb-eyer/go-colorful"
+	"github.com/samber/lo"
 
+	"ledctl3/pkg/audiocapture"
 	"ledctl3/pkg/pixavg"
 	"ledctl3/source/types"
 
@@ -29,44 +31,89 @@ import (
 	"ledctl3/pkg/gradient"
 )
 
-type Capture struct {
+type Input struct {
+	id uuid.UUID
+
+	// ac is the audio capture device that captures desktop audio
+	// and pipes samles captured during a specific time window
+	ac *audiocapture.Capturer
+
 	// events are passed to a consumer. do not overwrite, as the receiver won't
 	// receive new events
 	events chan types.UpdateEvent
 
-	shutdown      context.CancelFunc
-	cancelCapture context.CancelFunc
-	done          chan bool
-
 	// maxLedCount holds the maximum number of LEDs across all segments.
+	// It is updater every time we start a new audio capture session.
 	maxLedCount int
 
-	frames chan frame
-
-	gradient   gradient.Gradient
-	windowSize int
-
+	// stats holds timing and other useful info for the capture process
 	stats Statistics
 
-	// average holds a pixavg.Average for each segment. The decay rate
+	// outputs holds output-specific capture configurations
+	outputs map[uuid.UUID]outputCaptureConfig
+}
+
+type outputCaptureConfig struct {
+	id uuid.UUID
+
+	// colors is the color gradient to use for this output
+	colors gradient.Gradient
+
+	// windowSize is the number of frames to average over
+	windowSize int
+
+	// blackPoint represents the normalization black point as a float value in
+	// the range 0-1
+	blackPoint float64
+
+	// avg holds a moving array-based average for this output. The decay rate
 	// is affected by windowSize.
-	average map[uuid.UUID]pixavg.Average
+	avg pixavg.Average
 
 	// freqMax is a moving average of the maximum magnitude observed between
 	// different audio frames. It helps make smoother transitions between
 	// audio frames that have a frequently changing magnitude of the dominant
 	// frequency. The decay rate is affected by windowSize.
 	freqMax ewma.MovingAverage
-
-	// blackPoint represents the normalization black point as a float value in
-	// the range 0-1
-	blackPoint float64
-
-	sinkCfg types.SinkConfig
-	id      uuid.UUID
 }
 
-func (a *Capture) AssistedSetup() (map[string]any, error) {
+func New() (in *Input, err error) {
+	in = new(Input)
+	in.id = uuid.New()
+	in.ac = audiocapture.New()
+
+	go func() {
+		for {
+			select {
+			case fr := <-in.ac.Frames():
+				err := in.processFrame(fr.Samples, fr.Peak)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	}()
+
+	in.events = make(chan types.UpdateEvent)
+
+	//in.average = make(map[int]sliceewma.MovingAverage, len(in.segments))
+
+	//in.freqMax = ewma.NewMovingAverage(float64(in.windowSize) * 8)
+
+	//in.average = make(map[uuid.UUID]pixavg.Average, len(in.segments))
+	//
+	//for _, seg := range in.segments {
+	//	prev := make([]color.Color, seg.Leds)
+	//	for i := 0; i < len(prev); i++ {
+	//		prev[i] = color.RGBA{}
+	//	}
+	//	in.average[seg.OutputId] = pixavg.New(in.windowSize, prev, 2)
+	//}
+
+	return in, nil
+}
+
+func (in *Input) AssistedSetup() (map[string]any, error) {
 	return map[string]any{
 		"colors": []string{
 			//"#ffaeff",
@@ -83,8 +130,8 @@ func (a *Capture) AssistedSetup() (map[string]any, error) {
 	}, nil
 }
 
-func (a *Capture) Id() uuid.UUID {
-	return a.id
+func (in *Input) Id() uuid.UUID {
+	return in.id
 }
 
 type Segment struct {
@@ -106,19 +153,49 @@ type Statistics struct {
 	Latency time.Duration
 }
 
-func (a *Capture) Statistics() Statistics {
+func (in *Input) Statistics() Statistics {
 	return Statistics{}
 }
 
-func (a *Capture) Start(cfg types.SinkConfig) error {
-	a.sinkCfg = cfg
-
-	ctx, cancel := context.WithCancel(context.Background())
-	a.shutdown = cancel
-	a.done = make(chan bool)
+func (in *Input) Start(cfg types.SinkConfig) error {
+	//in.sinkCfg = cfg
 
 	fmt.Printf("## starting audio source with config: %#v\n", cfg)
 
+	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
+
+	for _, sinkCfg := range cfg.Sinks {
+		for _, out := range sinkCfg.Outputs {
+			var colors []color.Color
+
+			for _, hex := range cfg["colors"].([]string) {
+				clr, err := colorful.Hex(hex)
+				if err != nil {
+					return err
+				}
+
+				colors = append(colors, clr)
+			}
+
+			in.gradient, err = gradient.New(in.colors...)
+			if err != nil {
+				return nil, err
+			}
+
+			in.outputs[out.Id] = outputCaptureConfig{
+				id:         out.Id,
+				colors:     nil,
+				windowSize: 0,
+				blackPoint: 0,
+				avg:        nil,
+				freqMax:    nil,
+			}
+		}
+	}
+
+	outputs := lo.Reduce(cfg.Sinks, func(agg []types.SinkConfigSinkOutput, item types.SinkConfigSink, _ int) []types.SinkConfigSinkOutput {
+		return append(agg, item.Outputs...)
+	}, []types.SinkConfigSinkOutput{})
 	//segs := make([]Segment, 0)
 	//for _, sinkCfg := range cfg.Sinks {
 	//	for _, output := range sinkCfg.Outputs {
@@ -130,74 +207,45 @@ func (a *Capture) Start(cfg types.SinkConfig) error {
 	//	}
 	//}
 
-	a.average = make(map[uuid.UUID]pixavg.Average, len(segs))
+	in.average = make(map[uuid.UUID]pixavg.Average, len(outputs))
 
-	for _, seg := range segs {
-		prev := make([]color.Color, seg.Leds)
+	for _, out := range outputs {
+		prev := make([]color.Color, out.Leds)
 		for i := 0; i < len(prev); i++ {
 			prev[i] = color.RGBA{}
 		}
-		a.average[seg.OutputId] = pixavg.New(a.windowSize, prev, 2)
+		in.average[out.Id] = pixavg.New(in.windowSize, prev, 2)
 	}
 
-	//_ = WithSegments(segs)(a)
-	a.frames = make(chan frame)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Print("========================= startCapture stopped\n")
-				a.done <- true
-				return
-			default:
-				var childCtx context.Context
-				childCtx, a.cancelCapture = context.WithCancel(ctx)
-
-				err := a.startCapture(childCtx)
-				if errors.Is(err, context.Canceled) {
-					return
-				} else if err != nil {
-					log.Println(err)
-					time.Sleep(1 * time.Second)
-				}
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			select {
-			case frame := <-a.frames:
-				err := a.processFrame(frame.samples, frame.peak)
-				if err != nil {
-					log.Println(err)
-				}
-			}
-		}
-	}()
+	err := in.ac.Start()
+	if errors.Is(err, context.Canceled) {
+		return
+	} else if err != nil {
+		log.Println(err)
+		time.Sleep(1 * time.Second)
+	}
 
 	return nil
 }
 
-func (a *Capture) Events() chan types.UpdateEvent {
-	return a.events
+func (in *Input) Events() chan types.UpdateEvent {
+	return in.events
 }
 
-func (a *Capture) Stop() error {
-	if a.shutdown == nil {
+func (in *Input) Stop() error {
+	if in.cancel == nil {
 		return nil
 	}
 
-	a.shutdown()
-	a.shutdown = nil
+	in.cancel()
+	in.cancel = nil
 
-	<-a.done
+	<-in.done
 
 	return nil
 }
 
-func (a *Capture) startCapture(ctx context.Context) error {
+func (in *Input) startCapture(ctx context.Context) error {
 	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	if err != nil {
 		return err
@@ -268,8 +316,8 @@ func (a *Capture) startCapture(ctx context.Context) error {
 	wfx.NAvgBytesPerSec = wfx.NSamplesPerSec * uint32(wfx.NBlockAlign)
 	wfx.CbSize = 0
 
-	a.stats.Latency = latency
-	a.stats.BitRate = int(wfx.NSamplesPerSec)
+	in.stats.Latency = latency
+	in.stats.BitRate = int(wfx.NSamplesPerSec)
 
 	err = ac.Initialize(
 		wca.AUDCLNT_SHAREMODE_SHARED,
@@ -399,8 +447,8 @@ loop:
 			//peak = 1
 
 			// Dispatch the received frame for processing. If the work queue
-			// is full, this will block until a previous frame is processed.
-			a.frames <- frame{
+			// is full, this will block until in previous frame is processed.
+			in.frames <- frame{
 				samples: samples,
 				peak:    float64(peak),
 			}
@@ -446,22 +494,22 @@ func readInt32(b []byte) int32 {
 
 // processFrame analyses the audio frame, extracts frequency information and
 // creates the necessary update event
-func (a *Capture) processFrame(samples []float64, peak float64) error {
+func (in *Input) processFrame(samples []float64, peak float64) error {
 	now := time.Now()
 
 	if peak < 1e-9 {
 		// skip calculations, set all frequencies to 0
 
-		segs := make([]types.UpdateEventOutput, 0, len(a.segments))
+		segs := make([]types.UpdateEventOutput, 0, len(in.segments))
 
-		for _, seg := range a.segments {
+		for _, seg := range in.segments {
 			colors := make([]color.Color, seg.Leds)
 			for i := 0; i < seg.Leds; i++ {
 				colors[i] = color.RGBA{}
 			}
 
-			a.average[seg.OutputId].Add(colors)
-			colors = a.average[seg.OutputId].Current()
+			in.average[seg.OutputId].Add(colors)
+			colors = in.average[seg.OutputId].Current()
 
 			//if seg.OutputId ==  {
 			//	out := ""
@@ -478,8 +526,8 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 			})
 		}
 
-		a.events <- types.UpdateEvent{
-			SinkId:  a.segments[0].SinkId,
+		in.events <- types.UpdateEvent{
+			SinkId:  in.segments[0].SinkId,
 			Outputs: segs,
 			Latency: time.Since(now),
 		}
@@ -487,7 +535,7 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 		return nil
 	}
 
-	// Extract frequency magnitudes using a fast fourier transform
+	// Extract frequency magnitudes using in fast fourier transform
 	fft := fourier.NewFFT(len(samples))
 	coeffs := fft.Coefficients(nil, window.Hamming(samples))
 
@@ -495,19 +543,19 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 	// 19.2~ and 24 khz. x / 2 * 0.8 --> x * 2 / 5
 	coeffs = coeffs[:len(coeffs)*2/5]
 
-	// Get a logarithmic piecewise-interpolated projection of the frequencies
-	freqs := a.calculateFrequencies(coeffs)
+	// Get in logarithmic piecewise-interpolated projection of the frequencies
+	freqs := in.calculateFrequencies(coeffs)
 
-	segs := make([]types.UpdateEventOutput, 0, len(a.segments))
+	segs := make([]types.UpdateEventOutput, 0, len(in.segments))
 
-	for _, seg := range a.segments {
+	for _, seg := range in.segments {
 		vals := make([]float64, 0, seg.Leds*4)
 		colors := make([]color.Color, 0, seg.Leds)
 
 		for i := 0; i < seg.Leds; i++ {
 			magn := freqs.At(float64(i) / float64(seg.Leds-1))
 
-			c := a.gradient.GetInterpolatedColor(magn)
+			c := in.gradient.GetInterpolatedColor(magn)
 			clr, _ := colorful.MakeColor(c)
 
 			// Extract HSV color info, we'll use the Value to adjust the
@@ -524,7 +572,7 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 			val = math.Min(1, val) // prevent overflow
 
 			// Adjust black point
-			val = adjustBlackPoint(val, a.blackPoint)
+			val = adjustBlackPoint(val, in.blackPoint)
 
 			// Convert the resulting color to RGBA
 			hsv := colorful.Hsv(hue, sat, val)
@@ -536,8 +584,8 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 		}
 
 		// Add the color data to the moving average accumulator for this segment
-		a.average[seg.OutputId].Add(colors)
-		colors = a.average[seg.OutputId].Current()
+		in.average[seg.OutputId].Add(colors)
+		colors = in.average[seg.OutputId].Current()
 
 		// Create the pix slice from the color data
 		//pix := make([]uint8, len(colors))
@@ -548,9 +596,9 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 		//pix := make([]color.Color, len(colors)*4)
 		//
 		//for _, c := range colors {
-		//	r, g, b, a := c.RGBA()
+		//	r, g, b, in := c.RGBA()
 		//	pix = append(pix,
-		//		uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8),
+		//		uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(in>>8),
 		//	)
 		//}
 
@@ -571,8 +619,8 @@ func (a *Capture) processFrame(samples []float64, peak float64) error {
 		})
 	}
 
-	a.events <- types.UpdateEvent{
-		SinkId:  a.segments[0].SinkId,
+	in.events <- types.UpdateEvent{
+		SinkId:  in.segments[0].SinkId,
 		Outputs: segs,
 		Latency: time.Since(now),
 	}
@@ -584,7 +632,7 @@ func adjustBlackPoint(v, min float64) float64 {
 	return v*(1-min) + min
 }
 
-func (a *Capture) calculateFrequencies(coeffs []complex128) piecewiselinear.Function {
+func (in *Input) calculateFrequencies(coeffs []complex128) piecewiselinear.Function {
 	freqs := make([]float64, len(coeffs))
 	var maxFreq float64
 
@@ -599,8 +647,8 @@ func (a *Capture) calculateFrequencies(coeffs []complex128) piecewiselinear.Func
 	}
 
 	// Add an entry to the maxFrequency average accumulator
-	a.freqMax.Add(maxFreq)
-	maxFreq = a.freqMax.Value()
+	in.freqMax.Add(maxFreq)
+	maxFreq = in.freqMax.Value()
 
 	// Normalize frequencies between [0,1] based on maxFreq
 	for i, freq := range freqs {
@@ -641,39 +689,4 @@ func reverse[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
-}
-
-func New(opts ...Option) (a *Capture, err error) {
-	a = new(Capture)
-	a.id = uuid.New()
-
-	for _, opt := range opts {
-		err := opt(a)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	a.gradient, err = gradient.New(a.colors...)
-	if err != nil {
-		return nil, err
-	}
-
-	a.events = make(chan types.UpdateEvent, len(a.segments))
-
-	//a.average = make(map[int]sliceewma.MovingAverage, len(a.segments))
-
-	a.freqMax = ewma.NewMovingAverage(float64(a.windowSize) * 8)
-
-	a.average = make(map[uuid.UUID]pixavg.Average, len(a.segments))
-
-	for _, seg := range a.segments {
-		prev := make([]color.Color, seg.Leds)
-		for i := 0; i < len(prev); i++ {
-			prev[i] = color.RGBA{}
-		}
-		a.average[seg.OutputId] = pixavg.New(a.windowSize, prev, 2)
-	}
-
-	return a, nil
 }

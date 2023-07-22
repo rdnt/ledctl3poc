@@ -5,10 +5,10 @@ go 1.20
 require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/go-ole/go-ole v1.2.6
+	github.com/google/uuid v1.2.0
 	github.com/gookit/color v1.5.3
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816
-	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/moutend/go-wca v0.3.0
 	github.com/pkg/errors v0.9.1
@@ -22,7 +22,6 @@ require (
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/google/uuid v1.2.0 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect

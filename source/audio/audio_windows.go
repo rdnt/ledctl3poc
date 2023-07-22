@@ -1,8 +1,6 @@
 package audio
 
 import (
-	"context"
-	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -17,7 +15,6 @@ import (
 	"ledctl3/source/types"
 
 	"github.com/VividCortex/ewma"
-	"github.com/pkg/errors"
 	"github.com/sgreben/piecewiselinear"
 	"gonum.org/v1/gonum/dsp/fourier"
 	"gonum.org/v1/gonum/dsp/window"
@@ -25,23 +22,18 @@ import (
 	"ledctl3/pkg/gradient"
 )
 
+const noiseCutoff = 1e-9
+
 type Input struct {
 	id uuid.UUID
 
 	// ac is the audio capture device that captures desktop audio
-	// and pipes samles captured during a specific time window
+	// and pipes samples captured during a specific time window
 	ac *audiocapture.Capturer
 
 	// events are passed to a consumer. do not overwrite, as the receiver won't
 	// receive new events
 	events chan types.UpdateEvent
-
-	// maxLedCount holds the maximum number of LEDs across all segments.
-	// It is updater every time we start a new audio capture session.
-	maxLedCount int
-
-	// stats holds timing and other useful info for the capture process
-	stats Statistics
 
 	// outputs holds output-specific capture configurations
 	outputs map[uuid.UUID]outputCaptureConfig
@@ -51,8 +43,6 @@ type outputCaptureConfig struct {
 	id     uuid.UUID
 	sinkId uuid.UUID
 	leds   int
-
-	// colors is the color gradient to use for this output
 	colors gradient.Gradient
 
 	// windowSize is the number of frames to average over
@@ -64,19 +54,22 @@ type outputCaptureConfig struct {
 
 	// avg holds a moving array-based average for this output. The decay rate
 	// is affected by windowSize.
-	avg pixavg.Average
+	avg pixavg.MovingAverage
 
-	// maxFreqAvg is a moving average of the maximum magnitude observed between
+	// maxMagnAvg is a moving average of the maximum magnitude observed between
 	// different audio frames. It helps make smoother transitions between
 	// audio frames that have a frequently changing magnitude of the dominant
 	// frequency. The decay rate is affected by windowSize.
-	maxFreqAvg ewma.MovingAverage
+	maxMagnAvg ewma.MovingAverage
 }
 
-func New() (in *Input, err error) {
-	in = new(Input)
-	in.id = uuid.New()
-	in.ac = audiocapture.New()
+func New() (*Input, error) {
+	in := &Input{
+		id:      uuid.New(),
+		ac:      audiocapture.New(),
+		events:  make(chan types.UpdateEvent),
+		outputs: make(map[uuid.UUID]outputCaptureConfig),
+	}
 
 	go func() {
 		for {
@@ -90,31 +83,12 @@ func New() (in *Input, err error) {
 		}
 	}()
 
-	in.events = make(chan types.UpdateEvent)
-
-	//in.average = make(map[int]sliceewma.MovingAverage, len(in.segments))
-
-	//in.maxFreqAvg = ewma.NewMovingAverage(float64(in.windowSize) * 8)
-
-	//in.average = make(map[uuid.UUID]pixavg.Average, len(in.segments))
-	//
-	//for _, seg := range in.segments {
-	//	prev := make([]color.Color, seg.Leds)
-	//	for i := 0; i < len(prev); i++ {
-	//		prev[i] = color.RGBA{}
-	//	}
-	//	in.average[seg.OutputId] = pixavg.New(in.windowSize, prev, 2)
-	//}
-
 	return in, nil
 }
 
 func (in *Input) AssistedSetup() (map[string]any, error) {
 	return map[string]any{
 		"colors": []string{
-			//"#ffaeff",
-			//"#9bbcff",
-			//"#94fbd6",
 			"#4a1524",
 			"#065394",
 			"#00b585",
@@ -130,18 +104,7 @@ func (in *Input) Id() uuid.UUID {
 	return in.id
 }
 
-type Statistics struct {
-	BitRate int // in hz
-	Latency time.Duration
-}
-
-func (in *Input) Statistics() Statistics {
-	return Statistics{}
-}
-
 func (in *Input) Start(cfg types.SinkConfig) error {
-	fmt.Printf("## starting audio source with config: %#v\n", cfg)
-
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
 	for _, sinkCfg := range cfg.Sinks {
@@ -174,24 +137,20 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 			}
 
 			in.outputs[out.Id] = outputCaptureConfig{
-				id:     out.Id,
-				sinkId: sinkCfg.Id,
-				leds:   out.Leds,
-				colors: grad,
-				//windowSize: windowSize,
+				id:         out.Id,
+				sinkId:     sinkCfg.Id,
+				leds:       out.Leds,
+				colors:     grad,
 				blackPoint: blackPoint,
 				avg:        avg,
-				maxFreqAvg: maxFreqAvg,
+				maxMagnAvg: maxFreqAvg,
 			}
 		}
 	}
 
 	err := in.ac.Start()
-	if errors.Is(err, context.Canceled) {
+	if err != nil {
 		return err
-	} else if err != nil {
-		log.Println(err)
-		time.Sleep(1 * time.Second)
 	}
 
 	return nil
@@ -202,56 +161,42 @@ func (in *Input) Events() <-chan types.UpdateEvent {
 }
 
 func (in *Input) Stop() error {
-	//if in.cancel == nil {
-	//	return nil
-	//}
-	//
-	//in.cancel()
-	//in.cancel = nil
-	//
-	//<-in.done
+	close(in.events)
 
-	return nil
+	return in.ac.Stop()
 }
 
-// processFrame analyses the audio frame, extracts frequency information and
-// creates the necessary update event
+// processFrame analyzes the audio frame, extracts frequency information and
+// publishes an update event per-sink
 func (in *Input) processFrame(samples []float64, peak float64) error {
 	now := time.Now()
 
-	if peak < 1e-9 {
-		// skip calculations, set all frequencies to 0
-		segs := make(map[uuid.UUID][]types.UpdateEventOutput)
+	if peak < noiseCutoff {
+		outs := make(map[uuid.UUID][]types.UpdateEventOutput)
 
 		for _, out := range in.outputs {
+			c := out.colors.GetInterpolatedColor(0)
+			clr, _ := colorful.MakeColor(c)
+			hue, sat, _ := clr.Hsv()
+
 			colors := make([]color.Color, out.leds)
+
 			for i := 0; i < out.leds; i++ {
-				c := out.colors.GetInterpolatedColor(0)
-				clr, _ := colorful.MakeColor(c)
-
-				// Extract HSV color info, we'll use the Value to adjust the
-				// brightness of the colors depending on frequency magnitude.
-				hue, sat, _ := clr.Hsv()
-
-				// Adjust black point for this color
 				val := adjustBlackPoint(0, out.blackPoint)
 
-				// Convert the resulting color to RGBA
-				hsv := colorful.Hsv(hue, sat, val)
-
-				colors[i] = hsv
+				colors[i] = colorful.Hsv(hue, sat, val)
 			}
 
 			out.avg.Add(colors)
 			colors = out.avg.Current()
 
-			segs[out.sinkId] = append(segs[out.sinkId], types.UpdateEventOutput{
+			outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
 				OutputId: out.id,
 				Pix:      colors,
 			})
 		}
 
-		for sinkId, outs := range segs {
+		for sinkId, outs := range outs {
 			in.events <- types.UpdateEvent{
 				SinkId:  sinkId,
 				Outputs: outs,
@@ -262,113 +207,71 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 		return nil
 	}
 
-	// Extract frequency magnitudes using in fast fourier transform
+	// extract frequency information
 	fft := fourier.NewFFT(len(samples))
 	coeffs := fft.Coefficients(nil, window.Hamming(samples))
 
-	// Only keep the real part of the fft, and also remove frequencies between
-	// 20 and 24 khz. we can't hear them... (20/24 -> 5 / 6)
-	coeffs = coeffs[:len(coeffs)*5/6]
+	// only keep the real part of the fft, and remove frequencies between
+	// 20 and 24 khz
+	coeffs = coeffs[:len(coeffs)/2*20/24]
 
-	// Get in logarithmic piecewise-interpolated projection of the frequencies
 	freqs := make([]float64, len(coeffs))
-	var maxFreq float64
+	var maxMagn float64
 
-	// Keep the first part of the FFT. Also calculate the maximum magnitude
-	// for this frame
+	// derive the frequency magnitude per bucket, and find maximum magnitude
 	for i, coeff := range coeffs {
 		val := cmplx.Abs(coeff)
-
 		freqs[i] = val
-
-		maxFreq = math.Max(maxFreq, val)
+		maxMagn = math.Max(maxMagn, val)
 	}
 
-	segs := make(map[uuid.UUID][]types.UpdateEventOutput)
+	outs := make(map[uuid.UUID][]types.UpdateEventOutput)
 
 	for _, out := range in.outputs {
-		// Add an entry to the maxFreqAvg of this output
-		out.maxFreqAvg.Add(maxFreq)
-		maxFreq = out.maxFreqAvg.Value()
+		out.maxMagnAvg.Add(maxMagn)
+		maxMagn = out.maxMagnAvg.Value()
 
-		// Normalize frequencies between [0,1] based on maxFreq
+		// normalize magnitudes to 0-1
 		for i, freq := range freqs {
-			freqs[i] = normalize(freq, 0, maxFreq)
+			freqs[i] = normalize(freq, 0, maxMagn)
 			freqs[i] = math.Min(freqs[i], 1)
 		}
 
-		// Perform piecewise linear interpolation between frequencies. Also scale
-		// frequencies logarithmically so that low ones are more pronounced.
+		// perform piecewise linear interpolation between frequencies.
 		f := piecewiselinear.Function{Y: freqs}
 		f.X = scaleLog(0, 1, len(f.Y))
 
-		colors := make([]color.Color, 0, out.leds)
-
+		colors := make([]color.Color, out.leds)
 		for i := 0; i < out.leds; i++ {
 			magn := f.At(float64(i) / float64(out.leds-1))
 
 			c := out.colors.GetInterpolatedColor(magn)
 			clr, _ := colorful.MakeColor(c)
 
-			// Extract HSV color info, we'll use the Value to adjust the
-			// brightness of the colors depending on frequency magnitude.
 			hue, sat, val := clr.Hsv()
 
-			// Easing effect easeOutCirc, ref: https://easings.net/#easeOutCirc
-			// Should help exaggerate low values in magnitude e.g. high
-			// frequency notes
-			val = math.Sqrt(1 - math.Pow(magn-1, 2))
+			// should help exaggerate low magnitudes e.g. high frequency notes
+			val = easeOutCirc(magn)
 
-			// adjust val partially based on peak magnitude
+			// adjust val partially based on peak
 			val = val * (1 + peak)
-			val = math.Min(1, val) // prevent overflow
+			val = math.Min(1, val)
 
-			// Adjust black point
 			val = adjustBlackPoint(val, out.blackPoint)
 
-			// Convert the resulting color to RGBA
-			hsv := colorful.Hsv(hue, sat, val)
-
-			colors = append(colors, hsv)
+			colors[i] = colorful.Hsv(hue, sat, val)
 		}
 
-		// Add the color data to the moving average accumulator for this segment
 		out.avg.Add(colors)
 		colors = out.avg.Current()
 
-		// Create the pix slice from the color data
-		//pix := make([]uint8, len(colors))
-		//for j := 0; j < len(vals); j++ {
-		//	pix[j] = uint8(uint16(vals[j]) >> 8)
-		//}
-
-		//pix := make([]color.Color, len(colors)*4)
-		//
-		//for _, c := range colors {
-		//	r, g, b, in := c.RGBA()
-		//	pix = append(pix,
-		//		uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(in>>8),
-		//	)
-		//}
-
-		// DEBUG
-		//if seg.OutputId == 0 {
-		// TODO: COMMENT OUT
-		//out := ""
-		//for _, c := range colors {
-		//	r, g, b, _ := c.RGBA()
-		//	out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprintf(" ")
-		//}
-		//fmt.Println(out)
-		////}
-
-		segs[out.sinkId] = append(segs[out.sinkId], types.UpdateEventOutput{
+		outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
 			OutputId: out.id,
 			Pix:      colors,
 		})
 	}
 
-	for sinkId, outs := range segs {
+	for sinkId, outs := range outs {
 		in.events <- types.UpdateEvent{
 			SinkId:  sinkId,
 			Outputs: outs,
@@ -379,6 +282,13 @@ func (in *Input) processFrame(samples []float64, peak float64) error {
 	return nil
 }
 
+// easeOutCirc ref: https://easings.net/#easeOutCirc
+func easeOutCirc(x float64) float64 {
+	return math.Sqrt(1 - math.Pow(x-1, 2))
+}
+
+// adjustBlackPoint scales the (HSV) value of the color based on the passed
+// minimum value
 func adjustBlackPoint(v, min float64) float64 {
 	return v*(1-min) + min
 }
@@ -392,6 +302,8 @@ func normalize(val, min, max float64) float64 {
 	return (val - min) / (max - min)
 }
 
+// scaleLog is used to scale frequencies logarithmically so that low ones are
+// more pronounced
 func scaleLog(min, max float64, nPoints int) []float64 {
 	X := make([]float64, nPoints)
 	min, max = math.Min(max, min), math.Max(max, min)

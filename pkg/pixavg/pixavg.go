@@ -2,7 +2,7 @@ package pixavg
 
 import "image/color"
 
-type Average interface {
+type MovingAverage interface {
 	Add(values []color.Color)
 	Current() []color.Color
 }
@@ -13,7 +13,7 @@ type exponentialMovingAverage struct {
 	constant         float64
 }
 
-func New(size int, start []color.Color, smoothing float64) Average {
+func New(size int, start []color.Color, smoothing float64) MovingAverage {
 	constant := smoothing / (1 + float64(size))
 
 	return &exponentialMovingAverage{

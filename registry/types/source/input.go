@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 	"github.com/xeipuuv/gojsonschema"
 )
 

@@ -3,7 +3,7 @@ package event
 import (
 	"image/color"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 type DataEvent struct {

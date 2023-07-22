@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/registry"
 )

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 	"github.com/samber/lo"
 
 	"ledctl3/event"
@@ -450,6 +450,20 @@ func (r *Registry) InputConfigs(inputId uuid.UUID) map[uuid.UUID]source.InputCon
 	}
 
 	return nil
+}
+
+func (r *Registry) UpdateInputConfig(inputId, inputCfgId uuid.UUID, name string, cfg map[string]any) {
+	for _, src := range r.sources {
+		if input, ok := src.Inputs[inputId]; ok {
+			input.Config = input.Configs[inputCfgId]
+
+			input.Config.Name = name
+			input.Config.Cfg = cfg
+
+			input.Configs[inputCfgId] = input.Config
+			break
+		}
+	}
 }
 
 //func (r *Registry) Connect(id uuid.UUID) {

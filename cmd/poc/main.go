@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 	"github.com/samber/lo"
 
 	"ledctl3/event"
@@ -187,6 +187,17 @@ func main() {
 	time.Sleep(1 * time.Second)
 
 	cfgs := lo.Values(reg.InputConfigs(inputdev1b.Id()))
+
+	if len(cfgs) == 0 {
+		panic("no config")
+	}
+
+	cfg := cfgs[0].Cfg
+	dis := cfg["displays"].([]map[string]any)
+	dis[0]["reverse"] = true
+	cfg["displays"] = dis
+
+	reg.UpdateInputConfig(inputdev1b.Id(), cfgs[0].Id, "custom", cfg)
 
 	prof1 := reg.AddProfile("profile1", []registry.ProfileSource{
 		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},

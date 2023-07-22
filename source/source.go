@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	"ledctl3/source/types"

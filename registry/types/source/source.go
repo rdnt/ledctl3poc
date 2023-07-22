@@ -3,7 +3,7 @@ package source
 import (
 	"fmt"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 type Source struct {

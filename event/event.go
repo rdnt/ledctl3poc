@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 type Type string

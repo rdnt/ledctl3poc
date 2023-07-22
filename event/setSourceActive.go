@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 // SetSourceActiveEvent instructs a source to become active for the specified inputs (keys on the sinks map)

@@ -8,7 +8,7 @@ import (
 	"math/cmplx"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 	"github.com/lucasb-eyer/go-colorful"
 
 	"ledctl3/pkg/audiocapture"

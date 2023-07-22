@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/source/types/event"
 

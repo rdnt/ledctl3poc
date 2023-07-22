@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/source/types"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	regevent "ledctl3/event"

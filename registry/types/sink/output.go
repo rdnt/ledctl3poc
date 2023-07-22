@@ -3,7 +3,7 @@ package sink
 import (
 	"fmt"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 type Output struct {

@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 )
 
 type UpdateEvent struct {

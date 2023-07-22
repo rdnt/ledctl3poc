@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"

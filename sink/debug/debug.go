@@ -1,7 +1,7 @@
 package debug
 
 import (
-	"github.com/google/uuid"
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/sink"
 )

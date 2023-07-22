@@ -1,6 +1,6 @@
 package types
 
-import "github.com/google/uuid"
+import "ledctl3/pkg/uuid"
 
 type SinkConfig struct {
 	Framerate int

@@ -5,9 +5,10 @@ import (
 	"image/color"
 	"sync"
 
-	"github.com/google/uuid"
 	gcolor "github.com/gookit/color"
 	"github.com/samber/lo"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 

@@ -167,6 +167,11 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				})
 			}
 
+			// TODO: not the best solution to skip unrelated inputs
+			if len(cfg.Sinks) == 0 {
+				continue
+			}
+
 			cfg.Framerate = 60
 
 			_ = s.inputs[inputId].Start(cfg)

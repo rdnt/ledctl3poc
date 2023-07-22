@@ -38,9 +38,6 @@ func (o *Broker[C, E]) Publish(channel C, e E) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	// TODO: remove simulated network delay
-	//time.Sleep(10 * time.Millisecond)
-
 	for ch, subs := range o.subscriptions {
 		if ch != channel {
 			continue
@@ -48,7 +45,11 @@ func (o *Broker[C, E]) Publish(channel C, e E) {
 
 		for _, h := range subs {
 			if h != nil {
-				go h(e)
+				go func(h func(E)) {
+					// TODO: remove simulated network delay
+					//time.Sleep(10 * time.Millisecond)
+					h(e)
+				}(h)
 			}
 		}
 	}

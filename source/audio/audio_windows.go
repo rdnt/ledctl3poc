@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -95,7 +96,7 @@ func (in *Input) AssistedSetup() (map[string]any, error) {
 			"#d600a4",
 			"#ff004c",
 		},
-		"windowSize": 24,
+		"windowSize": 32,
 		"blackPoint": 0.1,
 	}, nil
 }
@@ -105,6 +106,8 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.SinkConfig) error {
+	fmt.Printf("## starting audio source with config: %#v\n", cfg)
+
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
 	for _, sinkCfg := range cfg.Sinks {
@@ -123,7 +126,7 @@ func (in *Input) Start(cfg types.SinkConfig) error {
 			}
 
 			// multiply windowSize by 8 to keep it more stable
-			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 8)
+			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 4)
 
 			prev := make([]color.Color, out.Leds)
 			for i := 0; i < len(prev); i++ {

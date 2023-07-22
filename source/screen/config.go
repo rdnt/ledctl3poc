@@ -1,4 +1,4 @@
-package video
+package screen
 
 import (
 	_ "embed"
@@ -16,18 +16,18 @@ func init() {
 	_ = json.Unmarshal(b, &schema)
 }
 
-func (s *ScreenCapture) Schema() map[string]any {
+func (in *Input) Schema() map[string]any {
 	return schema
 }
 
-func (s *ScreenCapture) ApplyConfig(cfg map[string]any) error {
+func (in *Input) ApplyConfig(cfg map[string]any) error {
 	//var config SchemaJson
 	//err := json.Unmarshal(b, &config)
 	//if err != nil {
 	//	return err
 	//}
 
-	fmt.Printf("applying config: %#s\n", cfg)
+	fmt.Printf("applying config: %#in\n", cfg)
 
 	return nil
 }

@@ -20,7 +20,7 @@ import (
 	audiosrc "ledctl3/source/audio"
 	inputdev "ledctl3/source/debug"
 	"ledctl3/source/pkg/sourcemdns"
-	videosrc "ledctl3/source/video"
+	screensrc "ledctl3/source/screen"
 )
 
 func main() {
@@ -47,7 +47,8 @@ func main() {
 	inputdev1a, err := audiosrc.New()
 	handle(err)
 
-	inputdev1b := videosrc.New()
+	inputdev1b, err := screensrc.New()
+	handle(err)
 
 	src1dev, err := sourcedev.New(reg.Id())
 	handle(err)
@@ -180,12 +181,12 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	err = reg.AssistedSetup(inputdev1a.Id())
+	err = reg.AssistedSetup(inputdev1b.Id())
 	handle(err)
 
 	time.Sleep(1 * time.Second)
 
-	cfgs := lo.Values(reg.InputConfigs(inputdev1a.Id()))
+	cfgs := lo.Values(reg.InputConfigs(inputdev1b.Id()))
 
 	prof1 := reg.AddProfile("profile1", []registry.ProfileSource{
 		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
@@ -194,7 +195,7 @@ func main() {
 			SourceId: src1dev.Id(),
 			Inputs: []registry.ProfileInput{
 				{
-					InputId: inputdev1a.Id(),
+					InputId: inputdev1b.Id(),
 					Sinks: []registry.ProfileSink{
 						{
 							SinkId: sink2dev.Id(),

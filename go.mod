@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.5.3
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/moutend/go-wca v0.3.0
 	github.com/pkg/errors v0.9.1
@@ -33,3 +34,5 @@ require (
 	golang.org/x/tools v0.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816 => ./pkg/screencapture_kirides

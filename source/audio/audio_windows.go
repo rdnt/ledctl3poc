@@ -8,8 +8,9 @@ import (
 	"math/cmplx"
 	"time"
 
-	"ledctl3/pkg/uuid"
 	"github.com/lucasb-eyer/go-colorful"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/pkg/audiocapture"
 	"ledctl3/pkg/pixavg"
@@ -105,7 +106,7 @@ func (in *Input) Id() uuid.UUID {
 	return in.id
 }
 
-func (in *Input) Start(cfg types.SinkConfig) error {
+func (in *Input) Start(cfg types.InputConfig) error {
 	fmt.Printf("## starting audio source with config: %#v\n", cfg)
 
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)

@@ -58,42 +58,38 @@ func (i *DebugInput) Id() uuid.UUID {
 	return i.id
 }
 
-func (i *DebugInput) Start(cfg types.SinkConfig) error {
-	for _, sinkCfg := range cfg.Sinks {
+func (i *DebugInput) Start(cfg types.InputConfig) error {
+	go func() {
+		for {
+			outputs := make([]types.UpdateEventOutput, 0)
+			for _, output := range cfg.Outputs {
+				pix := make([]color.Color, output.Leds)
 
-		sinkCfg := sinkCfg
-		go func() {
-			for {
-				outputs := make([]types.UpdateEventOutput, 0)
-				for _, output := range sinkCfg.Outputs {
-					pix := make([]color.Color, output.Leds)
-
-					for i := 0; i < output.Leds; i++ {
-						pix[i] = color.RGBA{R: 0, G: 0, B: 0}
-					}
-
-					pix[rand.Intn(output.Leds)] = color.RGBA{R: 255, G: 255, B: 255}
-
-					//i.pixs[output.OutputId] = pix
-
-					outputs = append(outputs, types.UpdateEventOutput{
-						OutputId: output.Id,
-						Pix:      pix,
-					})
+				for i := 0; i < output.Leds; i++ {
+					pix[i] = color.RGBA{R: 0, G: 0, B: 0}
 				}
+
+				pix[rand.Intn(output.Leds)] = color.RGBA{R: 255, G: 255, B: 255}
+
+				//i.pixs[output.OutputId] = pix
+
+				outputs = append(outputs, types.UpdateEventOutput{
+					OutputId: output.Id,
+					Pix:      pix,
+				})
 
 				i.events <- types.UpdateEvent{
 					Outputs: outputs,
-					SinkId:  sinkCfg.Id,
+					SinkId:  output.SinkId,
 					Latency: 500 * time.Millisecond,
 				}
-
-				time.Sleep(16 * time.Millisecond)
-				//fmt.Println("---------------------------------------------")
-
 			}
-		}()
-	}
+
+			time.Sleep(16 * time.Millisecond)
+			//fmt.Println("---------------------------------------------")
+
+		}
+	}()
 
 	return nil
 }

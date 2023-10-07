@@ -14,8 +14,11 @@ import (
 )
 
 type Input struct {
-	id      uuid.UUID
-	events  chan types.UpdateEvent
+	id       uuid.UUID
+	events   chan types.UpdateEvent
+	repo     types2.DisplayRepository
+	repoInit bool
+
 	display types2.Display
 	outputs map[uuid.UUID]outputCaptureConfig
 }
@@ -48,25 +51,25 @@ func (in *Input) Id() uuid.UUID {
 	return in.id
 }
 
-func (in *Input) Start(cfg types.SinkConfig) error {
+func (in *Input) Start(cfg types.InputConfig) error {
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
 	width := in.display.Width()
 	height := in.display.Width()
 
-	for _, sinkCfg := range cfg.Sinks {
-		for _, out := range sinkCfg.Outputs {
-			reverse, _ := out.Config["reverse"].(bool)
+	//for _, sinkCfg := range cfg.Outputs {
+	for _, out := range cfg.Outputs {
+		reverse, _ := out.Config["reverse"].(bool)
 
-			in.outputs[out.Id] = outputCaptureConfig{
-				id:      out.Id,
-				sinkId:  sinkCfg.Id,
-				leds:    out.Leds,
-				reverse: reverse,
-				scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
-			}
+		in.outputs[out.Id] = outputCaptureConfig{
+			id:      out.Id,
+			sinkId:  out.SinkId,
+			leds:    out.Leds,
+			reverse: reverse,
+			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
 		}
 	}
+	//}
 
 	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
 

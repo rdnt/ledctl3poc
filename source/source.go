@@ -6,15 +6,26 @@ import (
 
 	"github.com/samber/lo"
 
+	"ledctl3/pkg/screencapture/dxgi"
 	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	"ledctl3/source/types"
 )
 
+var repo
+
+func init() {
+		dr, err := dxgi.New()
+		if err != nil {
+			return nil, err
+		}
+
+}
+
 type Input interface {
 	Id() uuid.UUID
-	Start(cfg types.SinkConfig) error
+	Start(cfg types.InputConfig) error
 	Events() <-chan types.UpdateEvent
 	Stop() error
 	Schema() map[string]any
@@ -149,7 +160,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 			s.inputCfgs[input.Id] = cfg
 		}
 
-		var cfg types.SinkConfig
+		var cfg types.InputConfig
 		for inputId := range s.inputCfgs {
 			// TODO: not the best solution to skip unrelated inputs
 			if len(s.inputCfgs[inputId].sinkCfgs) == 0 {
@@ -157,20 +168,14 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 			}
 
 			for _, sinkCfg := range s.inputCfgs[inputId].sinkCfgs {
-
-				var outputs []types.SinkConfigSinkOutput
 				for _, outputCfg := range sinkCfg.Outputs {
-					outputs = append(outputs, types.SinkConfigSinkOutput{
+					cfg.Outputs = append(cfg.Outputs, types.OutputConfig{
 						Id:     outputCfg.Id,
+						SinkId: sinkCfg.Id,
 						Config: outputCfg.Config,
 						Leds:   outputCfg.Leds,
 					})
 				}
-
-				cfg.Sinks = append(cfg.Sinks, types.SinkConfigSink{
-					Id:      sinkCfg.Id,
-					Outputs: outputs,
-				})
 			}
 
 			cfg.Framerate = 60

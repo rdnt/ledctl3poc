@@ -2,18 +2,14 @@ package types
 
 import "ledctl3/pkg/uuid"
 
-type SinkConfig struct {
+type InputConfig struct {
 	Framerate int
-	Sinks     []SinkConfigSink
+	Outputs   []OutputConfig
 }
 
-type SinkConfigSink struct {
-	Id      uuid.UUID
-	Outputs []SinkConfigSinkOutput
-}
-
-type SinkConfigSinkOutput struct {
+type OutputConfig struct {
 	Id     uuid.UUID
+	SinkId uuid.UUID
 	Config map[string]any
 	Leds   int
 }

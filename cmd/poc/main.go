@@ -6,8 +6,9 @@ import (
 	"os/signal"
 	"time"
 
-	"ledctl3/pkg/uuid"
 	"github.com/samber/lo"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	"ledctl3/pkg/broker"
@@ -47,8 +48,7 @@ func main() {
 	inputdev1a, err := audiosrc.New()
 	handle(err)
 
-	inputdev1b, err := screensrc.New()
-	handle(err)
+	inputdev1b := inputdev.New()
 
 	src1dev, err := sourcedev.New(reg.Id())
 	handle(err)
@@ -67,8 +67,14 @@ func main() {
 		}
 	}()
 
-	inputdev2a := inputdev.New()
-	inputdev2b := inputdev.New()
+	screenProv, err := screensrc.New()
+	handle(err)
+
+	ins, err := screenProv.Inputs()
+	handle(err)
+
+	//inputdev2a := inputdev.New()
+	//inputdev2b := inputdev.New()
 
 	src2dev, err := sourcedev.New(reg.Id())
 	handle(err)
@@ -78,8 +84,11 @@ func main() {
 	err = srv2.Start()
 	handle(err)
 
-	src2dev.AddInput(inputdev2a)
-	src2dev.AddInput(inputdev2b)
+	for _, d := range ins {
+		src2dev.AddInput(d)
+	}
+	//src2dev.AddInput(inputdev2a)
+	//src2dev.AddInput(inputdev2b)
 	socket.Subscribe(src2dev.Id(), src2dev.ProcessEvent)
 	go func() {
 		for e := range src2dev.Events() {
@@ -130,7 +139,7 @@ func main() {
 	//input1a := source.NewInput(inputdev1a.OutputId(), "input1a")
 	//input1b := source.NewInput(inputdev1b.OutputId(), "input1b")
 	//
-	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.Input{
+	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.InputProvider{
 	//	input1a.OutputId(): input1a, input1b.OutputId(): input1b,
 	//})
 	//
@@ -141,7 +150,7 @@ func main() {
 	//input2a := source.NewInput(inputdev2a.OutputId(), "input2a")
 	//input2b := source.NewInput(inputdev2b.OutputId(), "input2b")
 	//
-	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.Input{
+	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.InputProvider{
 	//	input2a.OutputId(): input2a, input2b.OutputId(): input2b,
 	//})
 	//
@@ -181,32 +190,29 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	err = reg.AssistedSetup(inputdev1b.Id())
+	err = reg.AssistedSetup(ins[0].Id())
 	handle(err)
 
 	time.Sleep(1 * time.Second)
 
-	cfgs := lo.Values(reg.InputConfigs(inputdev1b.Id()))
+	cfgs := lo.Values(reg.InputConfigs(ins[0].Id()))
 
 	if len(cfgs) == 0 {
 		panic("no config")
 	}
 
-	cfg := cfgs[0].Cfg
-	dis := cfg["displays"].([]map[string]any)
-	dis[0]["reverse"] = true
-	cfg["displays"] = dis
+	cfgs[0].Cfg["reverse"] = true
 
-	reg.UpdateInputConfig(inputdev1b.Id(), cfgs[0].Id, "custom", cfg)
+	reg.UpdateInputConfig(ins[0].Id(), cfgs[0].Id, "custom", cfgs[0].Cfg)
 
 	prof1 := reg.AddProfile("profile1", []registry.ProfileSource{
 		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
 		//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
 		{
-			SourceId: src1dev.Id(),
+			SourceId: src2dev.Id(),
 			Inputs: []registry.ProfileInput{
 				{
-					InputId: inputdev1b.Id(),
+					InputId: ins[0].Id(),
 					Sinks: []registry.ProfileSink{
 						{
 							SinkId: sink2dev.Id(),

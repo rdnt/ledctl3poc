@@ -3,48 +3,43 @@ package screen
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
+
+	"golang.org/x/image/draw"
 
 	"ledctl3/pkg/uuid"
 
-	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"
 	"ledctl3/source/types"
 )
 
 type Input struct {
-	id          uuid.UUID
-	events      chan types.UpdateEvent
-	displayRepo types2.DisplayRepository
-	outputs     map[uuid.UUID]outputCaptureConfig
+	id      uuid.UUID
+	events  chan types.UpdateEvent
+	display types2.Display
+	outputs map[uuid.UUID]outputCaptureConfig
+}
+
+func (in *Input) Events() <-chan types.UpdateEvent {
+	return in.events
 }
 
 type outputCaptureConfig struct {
-	id     uuid.UUID
-	sinkId uuid.UUID
-	leds   int
+	id      uuid.UUID
+	sinkId  uuid.UUID
+	leds    int
+	reverse bool
+	scaler  draw.Scaler
 }
 
 func (in *Input) AssistedSetup() (map[string]any, error) {
-	var err error
-	displays, err := in.displayRepo.All()
-	if err != nil {
-		return nil, err
+	cfg := map[string]any{
+		"width":     in.display.Width(),
+		"height":    in.display.Height(),
+		"left":      in.display.X(),
+		"top":       in.display.Y(),
+		"framerate": 60,
 	}
-
-	var ds []map[string]any
-	for _, d := range displays {
-		ds = append(ds, map[string]any{
-			"width":     d.Width(),
-			"height":    d.Height(),
-			"left":      d.X(),
-			"top":       d.Y(),
-			"framerate": 60, // TODO: framerate
-		})
-	}
-
-	cfg := map[string]any{"displays": ds}
 
 	return cfg, nil
 }
@@ -54,20 +49,28 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.SinkConfig) error {
-	fmt.Printf("## starting video source with config: %#v\n", cfg)
-
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
+
+	width := in.display.Width()
+	height := in.display.Width()
 
 	for _, sinkCfg := range cfg.Sinks {
 		for _, out := range sinkCfg.Outputs {
+			reverse, _ := out.Config["reverse"].(bool)
 
 			in.outputs[out.Id] = outputCaptureConfig{
-				id:     out.Id,
-				sinkId: sinkCfg.Id,
-				leds:   out.Leds,
+				id:      out.Id,
+				sinkId:  sinkCfg.Id,
+				leds:    out.Leds,
+				reverse: reverse,
+				scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
 			}
 		}
 	}
+
+	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
+
+	in.startCapture()
 
 	//err := in.displays.Start()
 	//if err != nil {
@@ -81,11 +84,15 @@ func (in *Input) startCapture() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var err error
-	displays, err := in.displayRepo.All()
-	if err != nil {
-		return err
-	}
+	go func() {
+		frames := in.display.Capture(ctx, 60) // TODO: framerate
+
+		for frame := range frames {
+			fmt.Println(in.display.Resolution())
+
+			go in.processFrame(in.display, frame)
+		}
+	}()
 
 	//displayConfigs, err := in.matchDisplays(in.displays)
 	//if err != nil {
@@ -116,27 +123,27 @@ func (in *Input) startCapture() error {
 	//	}
 	//}
 
-	var wg sync.WaitGroup
-	wg.Add(len(displays))
-
-	for _, d := range displays {
-		//cfg := displayConfigs[d.Id()]
-
-		go func(d types2.Display) {
-			defer wg.Done()
-			frames := d.Capture(ctx, 60) // TODO: framerate
-
-			for frame := range frames {
-				fmt.Println(d.Resolution())
-
-				go in.processFrame(d, frame)
-			}
-
-			cancel()
-		}(d)
-	}
-
-	wg.Wait()
+	//var wg sync.WaitGroup
+	//wg.Add(len(displays))
+	//
+	//for _, d := range displays {
+	//	//cfg := displayConfigs[d.Id()]
+	//
+	//	go func(d types2.Display) {
+	//		defer wg.Done()
+	//		frames := d.Capture(ctx, 60) // TODO: framerate
+	//
+	//		for frame := range frames {
+	//			fmt.Println(d.Resolution())
+	//
+	//			go in.processFrame(d, frame)
+	//		}
+	//
+	//		cancel()
+	//	}(d)
+	//}
+	//
+	//wg.Wait()
 
 	return nil
 }
@@ -201,23 +208,6 @@ func (in *Input) processFrame(d types2.Display, pix []byte) {
 	}
 }
 
-func (in *Input) Events() <-chan types.UpdateEvent {
-	return in.events
-}
-
 func (in *Input) Stop() error {
 	return nil
-}
-
-func New() (*Input, error) {
-	dr, err := dxgi.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return &Input{
-		id:          uuid.New(),
-		events:      make(chan types.UpdateEvent),
-		displayRepo: dr,
-	}, nil
 }

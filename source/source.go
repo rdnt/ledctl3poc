@@ -117,7 +117,7 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 		fmt.Printf("-> source %s: recv AssistedSetupEvent\n", s.id)
 		s.handleAssistedSetupEvent(e)
 	default:
-		fmt.Println("unknown event", e)
+		fmt.Println("unknrown event", e)
 	}
 }
 
@@ -151,6 +151,11 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 
 		var cfg types.SinkConfig
 		for inputId := range s.inputCfgs {
+			// TODO: not the best solution to skip unrelated inputs
+			if len(s.inputCfgs[inputId].sinkCfgs) == 0 {
+				continue
+			}
+
 			for _, sinkCfg := range s.inputCfgs[inputId].sinkCfgs {
 
 				var outputs []types.SinkConfigSinkOutput
@@ -166,11 +171,6 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 					Id:      sinkCfg.Id,
 					Outputs: outputs,
 				})
-			}
-
-			// TODO: not the best solution to skip unrelated inputs
-			if len(cfg.Sinks) == 0 {
-				continue
 			}
 
 			cfg.Framerate = 60

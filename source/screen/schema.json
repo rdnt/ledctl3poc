@@ -1,48 +1,37 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
+  "description": "display",
   "properties": {
-    "displays": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "description": "display",
-        "properties": {
-          "width": {
-            "type": "integer",
-            "default": 1920,
-            "minimum": 1
-          },
-          "height": {
-            "type": "integer",
-            "default": 1080,
-            "minimum": 1
-          },
-          "left": {
-            "type": "integer",
-            "default": 0
-          },
-          "top": {
-            "type": "integer",
-            "default": 0
-          },
-          "framerate": {
-            "type": "integer",
-            "default": 60,
-            "minimum": 1
-          }
-        },
-        "required": [
-          "width",
-          "height",
-          "left",
-          "top",
-          "framerate"
-        ]
-      }
+    "width": {
+      "type": "integer",
+      "default": 1920,
+      "minimum": 1
+    },
+    "height": {
+      "type": "integer",
+      "default": 1080,
+      "minimum": 1
+    },
+    "left": {
+      "type": "integer",
+      "default": 0
+    },
+    "top": {
+      "type": "integer",
+      "default": 0
+    },
+    "framerate": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 1
     }
   },
   "required": [
-    "displays"
+    "width",
+    "height",
+    "left",
+    "top",
+    "framerate"
   ]
 }

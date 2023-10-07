@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-//go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p video --tags json -o schema.gen.go schema.json
+//go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p screen --tags json -o schema.gen.go schema.json
 
 //go:embed schema.json
 var b []byte

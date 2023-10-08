@@ -111,44 +111,42 @@ func (in *Input) Start(cfg types.InputConfig) error {
 
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
-	for _, sinkCfg := range cfg.Sinks {
-		for _, out := range sinkCfg.Outputs {
-			windowSize := out.Config["windowSize"].(int)
-			blackPoint := out.Config["blackPoint"].(float64)
+	for _, out := range cfg.Outputs {
+		windowSize := out.Config["windowSize"].(int)
+		blackPoint := out.Config["blackPoint"].(float64)
 
-			var colors []color.Color
-			for _, hex := range out.Config["colors"].([]string) {
-				clr, err := colorful.Hex(hex)
-				if err != nil {
-					return err
-				}
-
-				colors = append(colors, clr)
-			}
-
-			// multiply windowSize by 8 to keep it more stable
-			maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 4)
-
-			prev := make([]color.Color, out.Leds)
-			for i := 0; i < len(prev); i++ {
-				prev[i] = color.RGBA{}
-			}
-			avg := pixavg.New(windowSize, prev, 2)
-
-			grad, err := gradient.New(colors...)
+		var colors []color.Color
+		for _, hex := range out.Config["colors"].([]string) {
+			clr, err := colorful.Hex(hex)
 			if err != nil {
 				return err
 			}
 
-			in.outputs[out.Id] = outputCaptureConfig{
-				id:         out.Id,
-				sinkId:     sinkCfg.Id,
-				leds:       out.Leds,
-				colors:     grad,
-				blackPoint: blackPoint,
-				avg:        avg,
-				maxMagnAvg: maxFreqAvg,
-			}
+			colors = append(colors, clr)
+		}
+
+		// multiply windowSize by 8 to keep it more stable
+		maxFreqAvg := ewma.NewMovingAverage(float64(windowSize) * 4)
+
+		prev := make([]color.Color, out.Leds)
+		for i := 0; i < len(prev); i++ {
+			prev[i] = color.RGBA{}
+		}
+		avg := pixavg.New(windowSize, prev, 2)
+
+		grad, err := gradient.New(colors...)
+		if err != nil {
+			return err
+		}
+
+		in.outputs[out.Id] = outputCaptureConfig{
+			id:         out.Id,
+			sinkId:     out.SinkId,
+			leds:       out.Leds,
+			colors:     grad,
+			blackPoint: blackPoint,
+			avg:        avg,
+			maxMagnAvg: maxFreqAvg,
 		}
 	}
 

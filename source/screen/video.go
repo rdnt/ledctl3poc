@@ -14,13 +14,15 @@ import (
 )
 
 type Input struct {
-	id       uuid.UUID
-	events   chan types.UpdateEvent
-	repo     types2.DisplayRepository
-	repoInit bool
+	id     int
+	uuid   uuid.UUID
+	events chan types.UpdateEvent
+	repo   types2.DisplayRepository
 
-	display types2.Display
-	outputs map[uuid.UUID]outputCaptureConfig
+	repoInit bool
+	display  types2.Display
+	outputs  map[uuid.UUID]outputCaptureConfig
+	cancel   context.CancelFunc
 }
 
 func (in *Input) Events() <-chan types.UpdateEvent {
@@ -48,7 +50,7 @@ func (in *Input) AssistedSetup() (map[string]any, error) {
 }
 
 func (in *Input) Id() uuid.UUID {
-	return in.id
+	return in.uuid
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
@@ -217,5 +219,6 @@ func (in *Input) processFrame(d types2.Display, pix []byte) {
 }
 
 func (in *Input) Stop() error {
+	in.cancel()
 	return nil
 }

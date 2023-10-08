@@ -67,11 +67,8 @@ func main() {
 		}
 	}()
 
-	screenProv, err := screensrc.New()
-	handle(err)
-
-	ins, err := screenProv.Inputs()
-	handle(err)
+	//ins, err := screenProv.Inputs()
+	//handle(err)
 
 	//inputdev2a := inputdev.New()
 	//inputdev2b := inputdev.New()
@@ -84,9 +81,12 @@ func main() {
 	err = srv2.Start()
 	handle(err)
 
-	for _, d := range ins {
-		src2dev.AddInput(d)
-	}
+	//for _, d := range ins {
+	//	src2dev.AddInput(d)
+	//}
+	screenProv, err := screensrc.New(src2dev)
+	handle(err)
+	screenProv.Start()
 	//src2dev.AddInput(inputdev2a)
 	//src2dev.AddInput(inputdev2b)
 	socket.Subscribe(src2dev.Id(), src2dev.ProcessEvent)
@@ -139,7 +139,7 @@ func main() {
 	//input1a := source.NewInput(inputdev1a.OutputId(), "input1a")
 	//input1b := source.NewInput(inputdev1b.OutputId(), "input1b")
 	//
-	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.InputProvider{
+	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.Capturer{
 	//	input1a.OutputId(): input1a, input1b.OutputId(): input1b,
 	//})
 	//
@@ -150,7 +150,7 @@ func main() {
 	//input2a := source.NewInput(inputdev2a.OutputId(), "input2a")
 	//input2b := source.NewInput(inputdev2b.OutputId(), "input2b")
 	//
-	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.InputProvider{
+	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.Capturer{
 	//	input2a.OutputId(): input2a, input2b.OutputId(): input2b,
 	//})
 	//
@@ -188,7 +188,10 @@ func main() {
 
 	//////////////////////////
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
+
+	ins, err := screenProv.Inputs()
+	handle(err)
 
 	err = reg.AssistedSetup(ins[0].Id())
 	handle(err)

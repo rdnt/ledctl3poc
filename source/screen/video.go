@@ -87,6 +87,8 @@ func (in *Input) startCapture() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	done := make(chan bool)
+
 	go func() {
 		frames := in.display.Capture(ctx, 60) // TODO: framerate
 
@@ -95,6 +97,9 @@ func (in *Input) startCapture() error {
 
 			go in.processFrame(in.display, frame)
 		}
+
+		cancel()
+		done <- true
 	}()
 
 	//displayConfigs, err := in.matchDisplays(in.displays)

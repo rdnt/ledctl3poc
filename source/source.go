@@ -6,22 +6,11 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/pkg/screencapture/dxgi"
 	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	"ledctl3/source/types"
 )
-
-var repo
-
-func init() {
-		dr, err := dxgi.New()
-		if err != nil {
-			return nil, err
-		}
-
-}
 
 type Input interface {
 	Id() uuid.UUID

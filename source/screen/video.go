@@ -14,15 +14,16 @@ import (
 )
 
 type Input struct {
+	capturer *Capturer
+
 	id     int
 	uuid   uuid.UUID
 	events chan types.UpdateEvent
-	repo   types2.DisplayRepository
 
-	repoInit bool
-	display  types2.Display
-	outputs  map[uuid.UUID]outputCaptureConfig
-	cancel   context.CancelFunc
+	display   types2.Display
+	outputs   map[uuid.UUID]outputCaptureConfig
+	capturing bool
+	cancel    context.CancelFunc
 }
 
 func (in *Input) Events() <-chan types.UpdateEvent {
@@ -54,6 +55,10 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
+	return in.capturer.startInput(in, cfg)
+}
+
+func (in *Input) StartOLD(cfg types.InputConfig) error {
 	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
 
 	width := in.display.Width()
@@ -85,80 +90,104 @@ func (in *Input) Start(cfg types.InputConfig) error {
 	return nil
 }
 
-func (in *Input) startCapture() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	done := make(chan bool)
-
-	go func() {
-		frames := in.display.Capture(ctx, 60) // TODO: framerate
-
-		for frame := range frames {
-			fmt.Println(in.display.Resolution())
-
-			go in.processFrame(in.display, frame)
-		}
-
-		cancel()
-		done <- true
-	}()
-
-	//displayConfigs, err := in.matchDisplays(in.displays)
-	//if err != nil {
-	//	return err
-	//}
+func (in *Input) startCapture() {
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer in.capturer.captureCancel()
 	//
-	//in.scalers = make(map[int]draw.Scaler)
-
-	//for _, cfg := range displayConfigs {
-	//	for _, seg := range cfg.Segments {
-	//		rect := image.Rect(seg.From.X, seg.From.Y, seg.To.X, seg.To.Y)
+	//in.capturer.captureWg.Add(1)
 	//
-	//		// TODO: only allow cube (Dx == Dy) if segment is only 1 led
+	//done := make(chan bool)
 	//
-	//		var width, height int
+	//go func() {
+	//	frames := in.display.Capture(ctx, 60) // TODO: framerate
 	//
-	//		if rect.Dx() > rect.Dy() {
-	//			// horizontal
-	//			width = seg.Leds
-	//			height = 2
-	//		} else {
-	//			// vertical
-	//			width = 2
-	//			height = seg.Leds
-	//		}
+	//	for frame := range frames {
+	//		fmt.Println(in.display.Resolution())
 	//
-	//		in.scalers[seg.Id] = draw.BiLinear.NewScaler(width, height, cfg.Width, cfg.Height)
+	//		go in.processFrame(in.display, frame)
 	//	}
-	//}
+	//
+	//	cancel()
+	//	done <- true
+	//}()
 
-	//var wg sync.WaitGroup
-	//wg.Add(len(displays))
-	//
-	//for _, d := range displays {
-	//	//cfg := displayConfigs[d.Id()]
-	//
-	//	go func(d types2.Display) {
-	//		defer wg.Done()
-	//		frames := d.Capture(ctx, 60) // TODO: framerate
-	//
-	//		for frame := range frames {
-	//			fmt.Println(d.Resolution())
-	//
-	//			go in.processFrame(d, frame)
-	//		}
-	//
-	//		cancel()
-	//	}(d)
-	//}
-	//
-	//wg.Wait()
-
-	return nil
+	return
 }
 
-func (in *Input) processFrame(d types2.Display, pix []byte) {
+//func (in *Input) startCapture() error {
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//
+//	done := make(chan bool)
+//
+//	go func() {
+//		frames := in.display.Capture(ctx, 60) // TODO: framerate
+//
+//		for frame := range frames {
+//			fmt.Println(in.display.Resolution())
+//
+//			go in.processFrame(in.display, frame)
+//		}
+//
+//		cancel()
+//		done <- true
+//	}()
+//
+//	//displayConfigs, err := in.matchDisplays(in.displays)
+//	//if err != nil {
+//	//	return err
+//	//}
+//	//
+//	//in.scalers = make(map[int]draw.Scaler)
+//
+//	//for _, cfg := range displayConfigs {
+//	//	for _, seg := range cfg.Segments {
+//	//		rect := image.Rect(seg.From.X, seg.From.Y, seg.To.X, seg.To.Y)
+//	//
+//	//		// TODO: only allow cube (Dx == Dy) if segment is only 1 led
+//	//
+//	//		var width, height int
+//	//
+//	//		if rect.Dx() > rect.Dy() {
+//	//			// horizontal
+//	//			width = seg.Leds
+//	//			height = 2
+//	//		} else {
+//	//			// vertical
+//	//			width = 2
+//	//			height = seg.Leds
+//	//		}
+//	//
+//	//		in.scalers[seg.Id] = draw.BiLinear.NewScaler(width, height, cfg.Width, cfg.Height)
+//	//	}
+//	//}
+//
+//	//var wg sync.WaitGroup
+//	//wg.Add(len(displays))
+//	//
+//	//for _, d := range displays {
+//	//	//cfg := displayConfigs[d.Id()]
+//	//
+//	//	go func(d types2.Display) {
+//	//		defer wg.Done()
+//	//		frames := d.Capture(ctx, 60) // TODO: framerate
+//	//
+//	//		for frame := range frames {
+//	//			fmt.Println(d.Resolution())
+//	//
+//	//			go in.processFrame(d, frame)
+//	//		}
+//	//
+//	//		cancel()
+//	//	}(d)
+//	//}
+//	//
+//	//wg.Wait()
+//
+//	return nil
+//}
+
+func (in *Input) processFrame(pix []byte) {
 	now := time.Now()
 
 	//src := &image.RGBA{
@@ -219,6 +248,6 @@ func (in *Input) processFrame(d types2.Display, pix []byte) {
 }
 
 func (in *Input) Stop() error {
-	in.cancel()
+	//in.cancel()
 	return nil
 }

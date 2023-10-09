@@ -1,7 +1,7 @@
 package screen
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -20,10 +20,10 @@ type Input struct {
 	uuid   uuid.UUID
 	events chan types.UpdateEvent
 
-	display   types2.Display
-	outputs   map[uuid.UUID]outputCaptureConfig
-	capturing bool
-	cancel    context.CancelFunc
+	display types2.Display
+	outputs map[uuid.UUID]outputCaptureConfig
+	started bool
+	cfg     types.InputConfig
 }
 
 func (in *Input) Events() <-chan types.UpdateEvent {
@@ -55,6 +55,10 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
+	if in.started {
+		return errors.New("already started")
+	}
+
 	return in.capturer.startInput(in, cfg)
 }
 
@@ -80,38 +84,12 @@ func (in *Input) StartOLD(cfg types.InputConfig) error {
 
 	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
 
-	in.startCapture()
-
 	//err := in.displays.Start()
 	//if err != nil {
 	//	return err
 	//}
 
 	return nil
-}
-
-func (in *Input) startCapture() {
-	//ctx, cancel := context.WithCancel(context.Background())
-	//defer in.capturer.captureCancel()
-	//
-	//in.capturer.captureWg.Add(1)
-	//
-	//done := make(chan bool)
-	//
-	//go func() {
-	//	frames := in.display.Capture(ctx, 60) // TODO: framerate
-	//
-	//	for frame := range frames {
-	//		fmt.Println(in.display.Resolution())
-	//
-	//		go in.processFrame(in.display, frame)
-	//	}
-	//
-	//	cancel()
-	//	done <- true
-	//}()
-
-	return
 }
 
 //func (in *Input) startCapture() error {

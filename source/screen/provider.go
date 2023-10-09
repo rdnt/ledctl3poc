@@ -21,11 +21,13 @@ type Source interface {
 }
 
 type Capturer struct {
-	src    Source
-	repo   types2.DisplayRepository
-	inputs map[uuid.UUID]*Input
-	//captureCancel context.CancelFunc
-	captureWg *sync.WaitGroup
+	src           Source
+	repo          types2.DisplayRepository
+	inputs        map[uuid.UUID]*Input
+	capturing     bool
+	captureCtx    context.Context
+	captureCancel context.CancelFunc
+	captureWg     *sync.WaitGroup
 }
 
 func New(src Source) (*Capturer, error) {
@@ -46,14 +48,12 @@ func New(src Source) (*Capturer, error) {
 
 func (c *Capturer) Start() {
 	go func() {
-		//for {
 		err := c.run()
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		time.Sleep(1 * time.Second)
-		//}
 	}()
 }
 
@@ -86,72 +86,63 @@ func (c *Capturer) run() error {
 	return nil
 }
 
-func (c *Capturer) startInput(in *Input, cfg types.InputConfig) error {
-	// stop all active inputs
-	for _, in2 := range c.inputs {
-		if in2.cancel != nil {
-			in2.cancel()
-		}
+func (c *Capturer) reset() {
+	println("=== reset")
+	c.capturing = false
 
-		c.captureWg.Wait()
-	}
+	// TODO: re-query inputs from repo
+	// TODO: try to re-pair old uuids with new inputs, based on resolution, numeric IDs etc.
 
-	in.capturing = true
-
-	// start all active inputs
-	for _, in2 := range c.inputs {
-		if !in2.capturing {
+	for _, in := range c.inputs {
+		if !in.started {
 			continue
 		}
 
-		c.captureWg.Add(1)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		in2.cancel = cancel
-
-		in2 := in2
-		go func() {
-			defer c.captureWg.Done()
-
-			frames := in2.display.Capture(ctx, cfg.Framerate)
-
-			for frame := range frames {
-				//fmt.Println(in.display.Resolution())
-				fmt.Print(".")
-
-				go in2.processFrame(frame)
-			}
-
-			cancel()
-		}()
+		c.captureInput(in)
 	}
+}
+
+func (c *Capturer) startInput(in *Input, cfg types.InputConfig) error {
+	println("=== startInput")
+
+	in.started = true
+	in.cfg = cfg
+
+	c.captureInput(in)
 
 	return nil
 }
 
-//func (c *Capturer) startCaptureOLD() {
-//	ctx, cancel := context.WithCancel(context.Background())
-//	c.captureCancel = cancel
-//
-//	c.captureWg.Add(len(c.inputs))
-//	for _, in := range c.inputs {
-//		go func(in *Input) {
-//			defer c.captureWg.Done()
-//
-//			frames := in.display.Capture(ctx, 60) // TODO: framerate
-//
-//			for frame := range frames {
-//				fmt.Print(".")
-//
-//				go in.processFrame(in.display, frame)
-//			}
-//
-//			c.captureCancel()
-//		}(in)
-//	}
-//
-//	c.captureWg.Wait()
-//}
+func (c *Capturer) captureInput(in *Input) {
+	println("=== captureInput")
+
+	c.captureWg.Add(1)
+
+	if !c.capturing {
+		c.capturing = true
+		c.captureCtx, c.captureCancel = context.WithCancel(context.Background())
+
+		go func() {
+			c.captureWg.Wait()
+			c.reset()
+		}()
+	}
+
+	go func() {
+		defer c.captureWg.Done()
+
+		frames := in.display.Capture(c.captureCtx, in.cfg.Framerate)
+
+		for frame := range frames {
+			//fmt.Println(in.display.Resolution())
+			fmt.Println(in.display)
+
+			go in.processFrame(frame)
+		}
+
+		c.captureCancel()
+	}()
+}
 
 func (c *Capturer) Inputs() ([]*Input, error) {
 	return lo.Values(c.inputs), nil

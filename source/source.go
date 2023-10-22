@@ -1,7 +1,10 @@
 package source
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/samber/lo"
@@ -32,6 +35,31 @@ type Source struct {
 	events     chan event.EventIface
 	inputCfgs  map[uuid.UUID]inputConfig
 	registryId uuid.UUID
+}
+
+func (s *Source) SetState(v any) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile("state.json", b, 0644)
+}
+
+func (s *Source) GetState(v any) error {
+	b, err := os.ReadFile("state.json")
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(b, &v)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type inputConfig struct {

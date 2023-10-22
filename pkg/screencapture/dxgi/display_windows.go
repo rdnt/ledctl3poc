@@ -130,8 +130,6 @@ func (d *display) reset() error {
 		_, err := win.SetThreadDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2)
 		if err != nil {
 			fmt.Printf("Could not set thread DPI awareness to PerMonitorAwareV2. %v\n", err)
-		} else {
-			fmt.Printf("Enabled PerMonitorAwareV2 DPI awareness.\n")
 		}
 	}
 

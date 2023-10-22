@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -192,6 +193,8 @@ func main() {
 
 	ins, err := screenProv.Inputs()
 	handle(err)
+
+	fmt.Println("Assisted setup:", ins[0])
 
 	err = reg.AssistedSetup(ins[0].Id())
 	handle(err)

@@ -16,7 +16,6 @@ import (
 type Input struct {
 	capturer *Capturer
 
-	id     int
 	uuid   uuid.UUID
 	events chan types.UpdateEvent
 

@@ -247,10 +247,25 @@ func main() {
 	//fmt.Println(reg)
 	//fmt.Print("========================== \n\n\n")
 
-	err = reg.SelectProfile(prof1.Id)
+	err = reg.SelectProfile(prof1.Id, true)
 	handle(err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
+
+	err = reg.SelectProfile(prof1.Id, false)
+	handle(err)
+
+	time.Sleep(5 * time.Second)
+
+	err = reg.SelectProfile(prof1.Id, true)
+	handle(err)
+
+	time.Sleep(5 * time.Second)
+
+	err = reg.SelectProfile(prof1.Id, false)
+	handle(err)
+
+	time.Sleep(5 * time.Second)
 
 	//err = reg.ConfigureInput(inputdev1a.OutputId(), map[string]any{
 	//	"colors": []string{

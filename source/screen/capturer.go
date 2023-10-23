@@ -78,12 +78,12 @@ func displayAssociationId(ds []types2.Display) string {
 func (c *Capturer) run() error {
 	println("=== run")
 
-	for _, in := range c.inputs {
-		//c.src.RemoveInput(uid)
-		_ = in.display.Close()
-		in.display = nil
-		//delete(c.inputs, uid)
-	}
+	//for _, in := range c.inputs {
+	//	//c.src.RemoveInput(uid)
+	//	_ = in.display.Close()
+	//	in.display = nil
+	//	//delete(c.inputs, uid)
+	//}
 
 	displays, err := c.repo.All()
 	if err != nil {
@@ -136,6 +136,10 @@ func (c *Capturer) run() error {
 			events:   make(chan types.UpdateEvent),
 			display:  d,
 			outputs:  nil,
+			cfg: types.InputConfig{
+				Framerate: 1,
+				Outputs:   nil,
+			},
 		}
 
 		fmt.Println("Added input", in.uuid, "for display", d.Id())
@@ -147,7 +151,26 @@ func (c *Capturer) run() error {
 	c.captureCtx, c.captureCancel = context.WithCancel(context.Background())
 
 	for _, in := range c.inputs {
-		c.captureInput(in)
+		c.captureWg.Add(1)
+		in := in
+		go func() {
+			defer c.captureWg.Done()
+
+			frames := in.display.Capture(c.captureCtx, in.cfg.Framerate)
+
+			for frame := range frames {
+				if !in.started {
+					fmt.Print(in.display.Id(), "- ")
+				} else {
+					fmt.Print(in.display.Id(), "  ")
+				}
+
+				go in.processFrame(frame)
+			}
+
+			// capture was cancelled or errored. restart with possibly new config
+			c.captureCancel()
+		}()
 	}
 
 	c.captureWg.Wait()
@@ -171,43 +194,45 @@ func (c *Capturer) run() error {
 //	}
 //}
 
-func (c *Capturer) startInput(in *Input, cfg types.InputConfig) error {
-	println("=== startInput")
+//func (c *Capturer) startInput(in *Input, cfg types.InputConfig) error {
+//	//println("=== startInput")
+//	//
+//	//in.cfg = cfg
+//	//
+//	//ctx, cancel := context.WithCancel(context.Background())
+//	//in.cancel = cancel
+//	//in.ctx = ctx
+//	//// TODO: ramp up framerate
+//	//in.cancel()
+//	////c.captureInput(in)
+//	////c.captureCancel()
+//	//
+//	//return nil
+//}
 
-	in.cfg = cfg
-
-	// TODO: ramp up framerate
-	//c.captureInput(in)
-	c.captureCancel()
-
-	return nil
-}
-
-func (c *Capturer) captureInput(in *Input) {
-	println("=== captureInput")
-
-	c.captureWg.Add(1)
-
-	go func() {
-		defer c.captureWg.Done()
-
-		framerate := 1
-		if in.cfg.Framerate > 0 {
-			framerate = in.cfg.Framerate
-		}
-		frames := in.display.Capture(c.captureCtx, framerate)
-
-		for frame := range frames {
-			//fmt.Print(in.uuid, " ")
-			fmt.Print(in.display.Id(), " ")
-			//fmt.Println(in.display)
-
-			go in.processFrame(frame)
-		}
-
-		c.captureCancel()
-	}()
-}
+//func (c *Capturer) captureInput(in *Input) {
+//	println("=== captureInput")
+//
+//	go func() {
+//		defer c.captureWg.Done()
+//
+//		//framerate := 1
+//		//if in.cfg.Framerate > 0 {
+//		//	framerate = in.cfg.Framerate
+//		//}
+//		frames := in.display.Capture(c.captureCtx, 1)
+//
+//		for frame := range frames {
+//			//fmt.Print(in.uuid, " ")
+//			fmt.Print(in.display.Id(), " ")
+//			//fmt.Println(in.display)
+//
+//			go in.processFrame(frame)
+//		}
+//
+//		c.captureCancel()
+//	}()
+//}
 
 func (c *Capturer) Inputs() ([]*Input, error) {
 	return lo.Values(c.inputs), nil

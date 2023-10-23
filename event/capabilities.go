@@ -24,8 +24,8 @@ type InputType string
 
 const (
 	InputTypeDefault       InputType = "default"
-	InputTypeMonitor       InputType = "monitor"
-	InputTypeAudioCapturer InputType = "audioCapturer"
+	InputTypeScreenCapture InputType = "screen_capture"
+	InputTypeAudioCapture  InputType = "audio_capture"
 )
 
 func (e CapabilitiesEvent) Type() Type {

@@ -195,7 +195,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				}
 			}
 
-			cfg.Framerate = 60
+			cfg.Framerate = 5
 
 			_ = s.inputs[inputId].Start(cfg)
 		}
@@ -271,12 +271,12 @@ func (s *Source) handleSetIdleEvent(_ event.SetSourceIdleEvent) {
 		s.state = types.StateIdle
 		s.sessionId = uuid.Nil
 
-		//for _, src := range s.inputs {
-		//	err := src.Stop()
-		//	if err != nil {
-		//		fmt.Println("failed to stop source", err)
-		//	}
-		//}
+		for _, in := range s.inputs {
+			err := in.Stop()
+			if err != nil {
+				fmt.Println("failed to stop source", err)
+			}
+		}
 	}
 }
 

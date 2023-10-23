@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"ledctl3/pkg/uuid"
 	"github.com/samber/lo"
+
+	"ledctl3/pkg/uuid"
 
 	"ledctl3/event"
 	"ledctl3/registry/types/sink"
@@ -313,7 +314,7 @@ func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
 	}
 }
 
-func (r *Registry) SelectProfile(id uuid.UUID) error {
+func (r *Registry) SelectProfile(id uuid.UUID, enable bool) error {
 	prof, ok := r.profiles[id]
 	if !ok {
 		return ErrConfigNotFound
@@ -321,7 +322,9 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 	sessId := uuid.New()
 
-	r.configureOutputs(sessId, prof)
+	if enable {
+		r.configureOutputs(sessId, prof)
+	}
 
 	time.Sleep(1 * time.Second)
 
@@ -329,7 +332,9 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 
 	time.Sleep(1 * time.Second)
 
-	r.enableInputs(sessId, prof)
+	if enable {
+		r.enableInputs(sessId, prof)
+	}
 
 	return nil
 }

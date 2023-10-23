@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -48,9 +47,8 @@ func loopFrames() {
 			panic(err)
 		}
 
-		ctx := context.Background()
 		for _, d := range ds {
-			fr := d.Capture(ctx, 1)
+			fr := d.Capture()
 			for range fr {
 				fmt.Println(time.Since(now))
 				now = time.Now()

@@ -1,8 +1,6 @@
 package screen
 
 import (
-	"errors"
-	"fmt"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -54,42 +52,62 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
-	if in.started {
-		return errors.New("already started")
-	}
+	// reconfigure input and restart capture
+	in.started = true
+	in.cfg = cfg
+	in.capturer.captureCancel()
 
-	return in.capturer.startInput(in, cfg)
-}
-
-func (in *Input) StartOLD(cfg types.InputConfig) error {
-	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
-
-	width := in.display.Width()
-	height := in.display.Width()
-
-	//for _, sinkCfg := range cfg.Outputs {
-	for _, out := range cfg.Outputs {
-		reverse, _ := out.Config["reverse"].(bool)
-
-		in.outputs[out.Id] = outputCaptureConfig{
-			id:      out.Id,
-			sinkId:  out.SinkId,
-			leds:    out.Leds,
-			reverse: reverse,
-			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
-		}
-	}
+	//in.display.Close()
+	//in.display.Capture(in.capturer.captureCtx, cfg.Framerate)
+	//if in.started {
+	//	in.cancel()
+	//	<-in.done
+	//	return errors.New("already started")
 	//}
-
-	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
-
-	//err := in.displays.Start()
-	//if err != nil {
-	//	return err
-	//}
-
+	//
+	//return in.capturer.startInput(in, cfg)
 	return nil
 }
+
+func (in *Input) Stop() error {
+	in.started = false
+	in.cfg = types.InputConfig{
+		Framerate: 1,
+		Outputs:   nil,
+	}
+	in.capturer.captureCancel()
+	return nil
+}
+
+//func (in *Input) StartDEPRECATED(cfg types.InputConfig) error {
+//	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
+//
+//	width := in.display.Width()
+//	height := in.display.Width()
+//
+//	//for _, sinkCfg := range cfg.Outputs {
+//	for _, out := range cfg.Outputs {
+//		reverse, _ := out.Config["reverse"].(bool)
+//
+//		in.outputs[out.Id] = outputCaptureConfig{
+//			id:      out.Id,
+//			sinkId:  out.SinkId,
+//			leds:    out.Leds,
+//			reverse: reverse,
+//			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
+//		}
+//	}
+//	//}
+//
+//	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
+//
+//	//err := in.displays.Start()
+//	//if err != nil {
+//	//	return err
+//	//}
+//
+//	return nil
+//}
 
 //func (in *Input) startCapture() error {
 //	ctx, cancel := context.WithCancel(context.Background())
@@ -222,9 +240,4 @@ func (in *Input) processFrame(pix []byte) {
 		//Segments: segs,
 		Latency: time.Since(now),
 	}
-}
-
-func (in *Input) Stop() error {
-	//in.cancel()
-	return nil
 }

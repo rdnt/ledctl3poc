@@ -16,7 +16,7 @@ require (
 	github.com/sgreben/piecewiselinear v1.1.1
 	github.com/stretchr/testify v1.8.4
 	github.com/xeipuuv/gojsonschema v1.2.0
-	golang.org/x/image v0.6.0
+	golang.org/x/image v0.10.0
 	gonum.org/v1/gonum v0.13.0
 )
 

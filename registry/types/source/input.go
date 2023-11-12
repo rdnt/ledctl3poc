@@ -3,9 +3,8 @@ package source
 import (
 	"errors"
 	"fmt"
-
-	"ledctl3/pkg/uuid"
 	"github.com/xeipuuv/gojsonschema"
+	"ledctl3/pkg/uuid"
 )
 
 type Input struct {

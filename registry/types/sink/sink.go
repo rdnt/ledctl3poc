@@ -2,6 +2,7 @@ package sink
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 
 	"ledctl3/pkg/uuid"
@@ -10,15 +11,9 @@ import (
 	regevent "ledctl3/event"
 )
 
-type Calibration struct {
-	R float64
-	G float64
-	B float64
-	A float64
-}
-
 type Sink struct {
 	Id   uuid.UUID
+	Addr net.Addr
 	Name string
 
 	Configured bool
@@ -38,6 +33,13 @@ func (s *Sink) Leds() int {
 	}
 
 	return leds
+}
+
+type Calibration struct {
+	R float64
+	G float64
+	B float64
+	A float64
 }
 
 func (s *Sink) Calibration() map[int]Calibration {

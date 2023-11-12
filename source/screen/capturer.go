@@ -78,16 +78,21 @@ func displayAssociationId(ds []types2.Display) string {
 func (c *Capturer) run() error {
 	println("=== run")
 
-	//for _, in := range c.inputs {
-	//	//c.src.RemoveInput(uid)
-	//	_ = in.display.Close()
-	//	in.display = nil
-	//	//delete(c.inputs, uid)
-	//}
+	for id, in := range c.inputs {
+		c.src.RemoveInput(id)
+		_ = in.display.Close()
+		in.display = nil
+		delete(c.inputs, id)
+	}
 
 	displays, err := c.repo.All()
 	if err != nil {
 		return err
+	}
+
+	if len(displays) == 0 {
+		fmt.Println("No displays")
+		return nil
 	}
 
 	s := State{}
@@ -149,6 +154,8 @@ func (c *Capturer) run() error {
 	}
 
 	c.captureCtx, c.captureCancel = context.WithCancel(context.Background())
+
+	fmt.Println("restarting capture with displays", c.inputs)
 
 	for _, in := range c.inputs {
 		c.captureWg.Add(1)

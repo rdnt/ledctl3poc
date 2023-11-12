@@ -1,9 +1,5 @@
 package event
 
-import (
-	"ledctl3/pkg/uuid"
-)
-
 type Type string
 
 const (
@@ -14,8 +10,7 @@ const (
 
 type EventIface interface {
 	Type() Type
-	DeviceId() uuid.UUID
-	//DeviceId() uuid.UUID
+	//Addr() uuid.UUID
 }
 
 const (
@@ -32,17 +27,12 @@ const (
 )
 
 type Event struct {
-	Type  Type      `json:"event"`
-	DevId uuid.UUID `json:"deviceId"`
-}
-
-func (e Event) DeviceId() uuid.UUID {
-	return e.DevId
+	Type Type `json:"event"`
 }
 
 //type Type interface {
 //	Type() event.Type
-//	DeviceId() uuid.UUID
+//	Addr() uuid.UUID
 //}
 //
 //type typ struct {

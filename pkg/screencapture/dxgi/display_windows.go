@@ -79,7 +79,7 @@ func (d *display) Capture(ctx context.Context, framerate int) chan []byte {
 				} else if err != nil {
 					fmt.Println(d.id, "non-nil error", err)
 
-					err := d.reset()
+					err := d.Close()
 					if err != nil {
 						fmt.Println(d.id, "failed to reset from capture")
 					}

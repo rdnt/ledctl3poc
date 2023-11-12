@@ -9,10 +9,8 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/pkg/uuid"
-
 	"ledctl3/event"
-	"ledctl3/pkg/broker"
+	"ledctl3/pkg/fsbroker"
 	"ledctl3/registry"
 	resolver "ledctl3/registry/pkg"
 	sinkdev "ledctl3/sink"
@@ -28,7 +26,10 @@ import (
 func main() {
 	time.Sleep(1 * time.Second)
 
-	socket := broker.New[uuid.UUID, event.EventIface]()
+	//socket := broker.New[uuid.UUID, event.EventIface]()
+
+	socket := fsbroker.New[event.EventIface]()
+	socket.Start()
 
 	reg, err := registry.New()
 	handle(err)
@@ -41,8 +42,8 @@ func main() {
 
 	socket.Subscribe(reg.Id(), reg.ProcessEvent)
 	go func() {
-		for e := range reg.Events() {
-			socket.Publish(e.DeviceId(), e)
+		for e := range reg.Messages() {
+			socket.Publish(e.Address(), e)
 		}
 	}()
 
@@ -63,8 +64,8 @@ func main() {
 	src1dev.AddInput(inputdev1b)
 	socket.Subscribe(src1dev.Id(), src1dev.ProcessEvent)
 	go func() {
-		for e := range src1dev.Events() {
-			socket.Publish(e.DeviceId(), e)
+		for e := range src1dev.Messages() {
+			socket.Publish(e.Address(), e)
 		}
 	}()
 
@@ -92,8 +93,8 @@ func main() {
 	//src2dev.AddInput(inputdev2b)
 	socket.Subscribe(src2dev.Id(), src2dev.ProcessEvent)
 	go func() {
-		for e := range src2dev.Events() {
-			socket.Publish(e.DeviceId(), e)
+		for e := range src2dev.Messages() {
+			socket.Publish(e.Address(), e)
 		}
 	}()
 
@@ -108,7 +109,7 @@ func main() {
 	socket.Subscribe(sink1dev.Id(), sink1dev.ProcessEvent)
 	go func() {
 		for e := range sink1dev.Events() {
-			socket.Publish(e.DeviceId(), e)
+			socket.Publish(e.Address(), e)
 		}
 	}()
 
@@ -126,7 +127,7 @@ func main() {
 	socket.Subscribe(sink2dev.Id(), sink2dev.ProcessEvent)
 	go func() {
 		for e := range sink2dev.Events() {
-			socket.Publish(e.DeviceId(), e)
+			socket.Publish(e.Address(), e)
 		}
 	}()
 
@@ -292,6 +293,7 @@ func main() {
 }
 
 func handle(err error) {
+	return
 	if err != nil {
 		panic(err)
 	}

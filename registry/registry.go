@@ -3,6 +3,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -15,13 +16,24 @@ import (
 	"ledctl3/registry/types/source"
 )
 
+type Store interface {
+	Profiles() (map[uuid.UUID]Profile, error)
+	SetProfiles(profiles map[uuid.UUID]Profile) error
+}
+
 type Registry struct {
+	store    Store
 	id       uuid.UUID
 	mux      sync.Mutex
 	sources  map[uuid.UUID]*source.Source
 	sinks    map[uuid.UUID]*sink.Sink
 	profiles map[uuid.UUID]Profile
-	events   chan event.EventIface
+	messages chan Message
+}
+
+type Message struct {
+	Addr    net.Addr
+	Payload event.EventIface
 }
 
 type Profile struct {
@@ -50,14 +62,25 @@ type ProfileOutput struct {
 	InputConfigId uuid.UUID
 }
 
-func New() (*Registry, error) {
-	return &Registry{
+func New(store Store) (*Registry, error) {
+	r := &Registry{
 		id:       uuid.New(),
+		store:    store,
 		sources:  map[uuid.UUID]*source.Source{},
 		sinks:    map[uuid.UUID]*sink.Sink{},
 		profiles: map[uuid.UUID]Profile{},
-		events:   make(chan event.EventIface),
-	}, nil
+		messages: make(chan Message),
+	}
+
+	profs, err := store.Profiles()
+	if err != nil {
+		fmt.Println("get profiles: ", err)
+		//return nil, fmt.Errorf("get profiles: %w", err)
+	} else {
+		r.profiles = profs
+	}
+
+	return r, nil
 }
 
 func (r *Registry) Id() uuid.UUID {
@@ -73,21 +96,29 @@ var (
 	ErrConfigNotFound = errors.New("config not found")
 )
 
-func (r *Registry) RegisterDevice(id uuid.UUID) error {
-	r.events <- event.ListCapabilitiesEvent{
-		Event: event.Event{Type: event.ListCapabilities, DevId: id},
+func (r *Registry) RegisterDevice(id uuid.UUID, addr net.Addr) error {
+	err := r.AddSource(id, addr)
+	if err != nil {
+		return fmt.Errorf("add source: %w", err)
+	}
+
+	r.messages <- Message{
+		Addr: addr,
+		Payload: event.ListCapabilitiesEvent{
+			Event: event.Event{Type: event.ListCapabilities},
+		},
 	}
 
 	return nil
 }
 
-func (r *Registry) AddSource(id uuid.UUID) error {
+func (r *Registry) AddSource(id uuid.UUID, addr net.Addr) error {
 	_, ok := r.sources[id]
 	if ok {
 		return ErrDeviceExists
 	}
 
-	src := source.New(id)
+	src := source.New(id, addr)
 	r.sources[id] = src
 
 	return nil
@@ -98,7 +129,7 @@ func (r *Registry) AddSource(id uuid.UUID) error {
 //		for _, input := range src.Inputs {
 //			if input.Id == inputId {
 //				e := event.SetInputConfigEvent{
-//					Event:   event.Event{Type: event.SetInputConfig, DevId: src.Id},
+//					Message:   event.Message{Type: event.SetInputConfig, Addr: src.Id},
 //					InputId: inputId,
 //					Config:  cfg,
 //				}
@@ -118,7 +149,7 @@ func (r *Registry) AddSource(id uuid.UUID) error {
 //					return fmt.Errorf("apply input Config: %w", err)
 //				}
 //
-//				r.events <- e
+//				r.messages <- e
 //
 //				return nil
 //			}
@@ -132,12 +163,13 @@ func (r *Registry) AssistedSetup(inputId uuid.UUID) error {
 	for _, src := range r.sources {
 		for _, input := range src.Inputs {
 			if input.Id == inputId {
-				e := event.AssistedSetupEvent{
-					Event:   event.Event{Type: event.AssistedSetup, DevId: src.Id},
-					InputId: inputId,
+				r.messages <- Message{
+					Addr: src.Addr,
+					Payload: event.AssistedSetupEvent{
+						Event:   event.Event{Type: event.AssistedSetup},
+						InputId: inputId,
+					},
 				}
-
-				r.events <- e
 
 				return nil
 			}
@@ -166,7 +198,7 @@ func (r *Registry) Sinks() map[uuid.UUID]*sink.Sink {
 	return r.sinks
 }
 
-func (r *Registry) AddProfile(name string, sources []ProfileSource) Profile {
+func (r *Registry) AddProfile(name string, sources []ProfileSource) (Profile, error) {
 	prof := Profile{
 		Id:      uuid.New(),
 		Name:    name,
@@ -174,7 +206,13 @@ func (r *Registry) AddProfile(name string, sources []ProfileSource) Profile {
 	}
 
 	r.profiles[prof.Id] = prof
-	return prof
+
+	err := r.store.SetProfiles(r.profiles)
+	if err != nil {
+		return Profile{}, err
+	}
+
+	return prof, nil
 }
 
 func (r *Registry) configureOutputs(sessionId uuid.UUID, prof Profile) {
@@ -189,7 +227,7 @@ func (r *Registry) configureOutputs(sessionId uuid.UUID, prof Profile) {
 				evt, ok := sinkEvents[snk.SinkId]
 				if !ok {
 					evt = event.SetSinkActiveEvent{
-						Event:     event.Event{Type: event.SetSinkActive, DevId: snk.SinkId},
+						Event:     event.Event{Type: event.SetSinkActive},
 						SessionId: sessionId,
 						OutputIds: []uuid.UUID{},
 					}
@@ -204,8 +242,12 @@ func (r *Registry) configureOutputs(sessionId uuid.UUID, prof Profile) {
 		}
 	}
 
-	for _, e := range sinkEvents {
-		r.events <- e
+	for sinkId, e := range sinkEvents {
+		snk := r.sinks[sinkId]
+		r.messages <- Message{
+			Addr:    snk.Addr,
+			Payload: e,
+		}
 	}
 }
 
@@ -219,7 +261,7 @@ func (r *Registry) disableActiveInputs(prof Profile) {
 		evt, ok := sourceEvents[src.SourceId]
 		if !ok {
 			evt = event.SetSourceIdleEvent{
-				Event:  event.Event{Type: event.SetSinkActive, DevId: src.SourceId},
+				Event:  event.Event{Type: event.SetSinkActive},
 				Inputs: []event.SetSourceIdleEventInput{},
 			}
 		}
@@ -247,8 +289,12 @@ func (r *Registry) disableActiveInputs(prof Profile) {
 	//	r.sources[srcId].Inputs[inputId].SessionId = uuid.Nil
 	//}
 
-	for _, e := range sourceEvents {
-		r.events <- e
+	for srcId, e := range sourceEvents {
+		src := r.sinks[srcId]
+		r.messages <- Message{
+			Addr:    src.Addr,
+			Payload: e,
+		}
 	}
 }
 
@@ -257,7 +303,7 @@ func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
 
 	for _, src := range prof.Sources {
 		//e := event.SetSourceActiveEvent{
-		//	Event:     event.Event{Type: event.SetSourceActive, DevId: src.SourceId},
+		//	Message:     event.Message{Type: event.SetSourceActive, Addr: src.SourceId},
 		//	SessionId: sessionId,
 		//	Inputs: lo.Map(src.Inputs, func(in ProfileInput, _ int) event.SetSourceActiveEventInput {
 		//		return event.SetSourceActiveEventInput{
@@ -279,7 +325,7 @@ func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
 		//}
 
 		e := event.SetSourceActiveEvent{
-			Event:     event.Event{Type: event.SetSourceActive, DevId: src.SourceId},
+			Event:     event.Event{Type: event.SetSourceActive},
 			SessionId: sessionId,
 			Inputs:    []event.SetSourceActiveEventInput{},
 		}
@@ -310,7 +356,11 @@ func (r *Registry) enableInputs(sessionId uuid.UUID, prof Profile) {
 			e.Inputs = append(e.Inputs, inputCfg)
 		}
 
-		r.events <- e
+		src := r.sinks[src.SourceId]
+		r.messages <- Message{
+			Addr:    src.Addr,
+			Payload: e,
+		}
 	}
 }
 
@@ -339,26 +389,26 @@ func (r *Registry) SelectProfile(id uuid.UUID, enable bool) error {
 	return nil
 }
 
-func (r *Registry) Events() <-chan event.EventIface {
-	return r.events
+func (r *Registry) Messages() <-chan Message {
+	return r.messages
 }
 
-func (r *Registry) ProcessEvent(e event.EventIface) {
+func (r *Registry) ProcessEvent(addr net.Addr, e event.EventIface) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
 	switch e := e.(type) {
-	//case event.ConnectEvent:
-	//	fmt.Printf("-> registry %s: recv ConnectEvent\n", r.id)
-	//	r.handleConnectEvent(e)
+	case event.ConnectEvent:
+		fmt.Printf("%s -> registry: recv ConnectEvent\n", addr)
+		r.handleConnectEvent(addr, e)
 	//case event.SetSourceIdleEvent:
 	//	fmt.Printf("-> source %s: recv SetSourceIdleEvent\n", s.id)
 	//	s.handleSetIdleEvent(e)
 	case event.CapabilitiesEvent:
-		fmt.Printf("-> registry %s: recv CapabilitiesEvent\n", r.id)
+		fmt.Printf("%s -> registry: recv CapabilitiesEvent\n", addr)
 		r.handleCapabilitiesEvent(e)
 	case event.AssistedSetupConfigEvent:
-		fmt.Printf("-> registry %s: recv AssistedSetupConfigEvent\n", r.id)
+		fmt.Printf("%s -> registry %s: recv AssistedSetupConfigEvent\n", addr)
 		r.handleAssistedSetupConfigEvent(e)
 
 	default:
@@ -366,26 +416,29 @@ func (r *Registry) ProcessEvent(e event.EventIface) {
 	}
 }
 
-//func (r *Registry) handleConnectEvent(e event.ConnectEvent) {
-//	_, srcRegistered := r.sources[e.Id]
-//	_, sinkRegistered := r.sinks[e.Id]
-//
-//	if !srcRegistered || !sinkRegistered {
-//		fmt.Println("#### registry: unknown device", e.Id)
-//
-//		r.events <- event.ListCapabilitiesEvent{
-//			Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
-//		}
-//
-//		return
-//	}
-//}
+func (r *Registry) handleConnectEvent(addr net.Addr, e event.ConnectEvent) {
+	_, srcRegistered := r.sources[e.Id]
+	_, sinkRegistered := r.sinks[e.Id]
+
+	if !srcRegistered || !sinkRegistered {
+		fmt.Println("#### registry: unknown device", e.Id)
+
+		r.messages <- Message{
+			Addr: addr,
+			Payload: event.ListCapabilitiesEvent{
+				Event: event.Event{Type: event.ListCapabilities},
+			},
+		}
+
+		return
+	}
+}
 
 func (r *Registry) handleCapabilitiesEvent(e event.CapabilitiesEvent) {
 	if len(e.Inputs) > 0 {
 		src, ok := r.sources[e.Id]
 		if !ok {
-			src = source.New(e.Id)
+			src = source.New(e.Id, nil)
 			r.sources[e.Id] = src
 		}
 
@@ -472,12 +525,12 @@ func (r *Registry) UpdateInputConfig(inputId, inputCfgId uuid.UUID, name string,
 }
 
 //func (r *Registry) Connect(id uuid.UUID) {
-//	//r.events <- event.ListCapabilitiesEvent{
-//	//	Event: event.Event{Type: event.ListCapabilities, DevId: e.Id},
+//	//r.messages <- event.ListCapabilitiesEvent{
+//	//	Message: event.Message{Type: event.ListCapabilities, Addr: e.Id},
 //	//}
 //
-//	//r.events <- event.ConnectEvent{
-//	//	Event: event.Event{Type: event.Connect, DevId: id},
+//	//r.messages <- event.ConnectEvent{
+//	//	Message: event.Message{Type: event.Connect, Addr: id},
 //	//	Id:    r.id,
 //	//}
 //}

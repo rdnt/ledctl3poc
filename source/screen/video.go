@@ -236,8 +236,12 @@ func (in *Input) processFrame(pix []byte) {
 
 	//wg.Wait()
 
-	in.events <- types.UpdateEvent{
-		//Segments: segs,
-		Latency: time.Since(now),
+	for _, out := range in.outputs {
+		in.events <- types.UpdateEvent{
+			SinkId: out.sinkId,
+			//Segments: segs,
+			Latency: time.Since(now),
+		}
 	}
+
 }

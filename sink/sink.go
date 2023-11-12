@@ -100,7 +100,7 @@ func (s *Sink) handleDataEvent(e event.DataEvent) {
 
 func (s *Sink) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 	s.events <- event.CapabilitiesEvent{
-		Event:  event.Event{Type: event.Capabilities, DevId: s.registryId},
+		Event:  event.Event{Type: event.Capabilities, Addr: s.registryId},
 		Id:     s.id,
 		Inputs: []event.CapabilitiesEventInput{},
 		Outputs: lo.Map(lo.Values(s.outputs), func(output Output, _ int) event.CapabilitiesEventOutput {
@@ -117,7 +117,7 @@ func (s *Sink) AddOutput(o Output) {
 
 	//go func() {
 	//	// forward events from input to the network~
-	//	for e := range o.Events() {
+	//	for e := range o.Messages() {
 	//		var outputs []event.DataEventOutput
 	//		for _, output := range e.Outputs {
 	//			outputs = append(outputs, event.DataEventOutput{
@@ -127,7 +127,7 @@ func (s *Sink) AddOutput(o Output) {
 	//		}
 	//
 	//		s.events <- event.DataEvent{
-	//			Event:     event.Event{Type: event.Data, DevId: e.SinkId},
+	//			Payload:     event.Payload{Type: event.Data, Addr: e.SinkId},
 	//			SessionId: s.sessionId,
 	//			Outputs:   outputs,
 	//		}

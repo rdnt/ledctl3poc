@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 
@@ -29,12 +30,16 @@ type Source struct {
 	mux sync.Mutex
 	id  uuid.UUID
 	//address    net.Addr
-	state      types.State
-	sessionId  uuid.UUID
-	inputs     map[uuid.UUID]Input
-	events     chan event.EventIface
-	inputCfgs  map[uuid.UUID]inputConfig
-	registryId uuid.UUID
+	state     types.State
+	sessionId uuid.UUID
+	inputs    map[uuid.UUID]Input
+	messages  chan Message
+	inputCfgs map[uuid.UUID]inputConfig
+}
+
+type Message struct {
+	Addr  net.Addr
+	Event event.EventIface
 }
 
 func (s *Source) SetState(v any) error {
@@ -78,15 +83,14 @@ type outputConfig struct {
 	Leds   int
 }
 
-func New(registryId uuid.UUID) (*Source, error) {
+func New(id uuid.UUID) (*Source, error) {
 	s := &Source{
-		id: uuid.New(),
+		id: id,
 		//address:   address,
-		state:      types.StateIdle,
-		inputs:     make(map[uuid.UUID]Input),
-		events:     make(chan event.EventIface),
-		inputCfgs:  map[uuid.UUID]inputConfig{},
-		registryId: registryId,
+		state:     types.StateIdle,
+		inputs:    make(map[uuid.UUID]Input),
+		messages:  make(chan Message),
+		inputCfgs: map[uuid.UUID]inputConfig{},
 	}
 
 	return s, nil
@@ -97,7 +101,7 @@ func (s *Source) AddInput(i Input) {
 	s.inputCfgs[i.Id()] = inputConfig{}
 
 	go func() {
-		// forward events from input to the network
+		// forward messages from input to the network
 		for e := range i.Events() {
 			var outputs []event.DataEventOutput
 			for _, output := range e.Outputs {
@@ -107,10 +111,13 @@ func (s *Source) AddInput(i Input) {
 				})
 			}
 
-			s.events <- event.DataEvent{
-				Event:     event.Event{Type: event.Data, DevId: e.SinkId},
-				SessionId: s.sessionId,
-				Outputs:   outputs,
+			s.messages <- Message{
+				Addr: nil, // TODO: registry addr
+				Event: event.DataEvent{
+					Event:     event.Event{Type: event.Data},
+					SessionId: s.sessionId,
+					Outputs:   outputs,
+				},
 			}
 		}
 	}()
@@ -120,11 +127,11 @@ func (s *Source) RemoveInput(id uuid.UUID) {
 	delete(s.inputs, id)
 }
 
-func (s *Source) Events() <-chan event.EventIface {
-	return s.events
+func (s *Source) Messages() <-chan Message {
+	return s.messages
 }
 
-func (s *Source) ProcessEvent(e event.EventIface) {
+func (s *Source) ProcessEvent(addr net.Addr, e event.EventIface) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -137,13 +144,13 @@ func (s *Source) ProcessEvent(e event.EventIface) {
 		s.handleSetIdleEvent(e)
 	case event.ListCapabilitiesEvent:
 		fmt.Printf("-> source %s: recv ListCapabilitiesEvent\n", s.id)
-		s.handleListCapabilitiesEvent(e)
+		s.handleListCapabilitiesEvent(addr, e)
 	//case event.SetInputConfigEvent:
 	//	fmt.Printf("-> source %s: recv SetInputConfigEvent\n", s.id)
 	//	s.handleSetInputConfigEvent(e)
 	case event.AssistedSetupEvent:
 		fmt.Printf("-> source %s: recv AssistedSetupEvent\n", s.id)
-		s.handleAssistedSetupEvent(e)
+		s.handleAssistedSetupEvent(addr, e)
 	default:
 		fmt.Println("unknrown event", e)
 	}
@@ -217,8 +224,8 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//					})
 		//				}
 		//
-		//				s.events <- event.DataEvent{
-		//					Event:     event.Event{Type: event.Data, DevId: sink.OutputId},
+		//				s.messages <- event.DataEvent{
+		//					Payload:     event.Payload{Type: event.Data, Addr: sink.OutputId},
 		//					SessionId: s.sessionId,
 		//					Outputs:   outputs,
 		//				}
@@ -244,7 +251,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//
 		//	//go func() {
 		//	//	for _, input := range s.inputs {
-		//	//		for ue := range input.Events() {
+		//	//		for ue := range input.Messages() {
 		//	//			for _, sinkCfg := range sinkCfgs {
 		//	//				e := regevent.SetLedsEvent{
 		//	//					SessionId: uuid.Nil, // TODO
@@ -255,7 +262,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 		//	//
 		//	//				_ = ue
 		//	//
-		//	//				s.events <- e
+		//	//				s.messages <- e
 		//	//			}
 		//	//
 		//	//		}
@@ -284,18 +291,21 @@ func (s *Source) Id() uuid.UUID {
 	return s.id
 }
 
-func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
-	s.events <- event.CapabilitiesEvent{
-		Event: event.Event{Type: event.Capabilities, DevId: s.registryId},
-		Id:    s.id,
-		Inputs: lo.Map(lo.Values(s.inputs), func(input Input, _ int) event.CapabilitiesEventInput {
-			return event.CapabilitiesEventInput{
-				Id:           input.Id(),
-				Type:         event.InputTypeDefault,
-				ConfigSchema: input.Schema(),
-			}
-		}),
-		Outputs: []event.CapabilitiesEventOutput{},
+func (s *Source) handleListCapabilitiesEvent(addr net.Addr, e event.ListCapabilitiesEvent) {
+	s.messages <- Message{
+		Addr: addr,
+		Event: event.CapabilitiesEvent{
+			Event: event.Event{Type: event.Capabilities},
+			Id:    s.id,
+			Inputs: lo.Map(lo.Values(s.inputs), func(input Input, _ int) event.CapabilitiesEventInput {
+				return event.CapabilitiesEventInput{
+					Id:           input.Id(),
+					Type:         event.InputTypeDefault,
+					ConfigSchema: input.Schema(),
+				}
+			}),
+			Outputs: []event.CapabilitiesEventOutput{},
+		},
 	}
 }
 
@@ -313,7 +323,7 @@ func (s *Source) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
 //	}
 //}
 
-func (s *Source) handleAssistedSetupEvent(e event.AssistedSetupEvent) {
+func (s *Source) handleAssistedSetupEvent(addr net.Addr, e event.AssistedSetupEvent) {
 	input, ok := s.inputs[e.InputId]
 	if !ok {
 		fmt.Print("input not found")
@@ -336,10 +346,13 @@ func (s *Source) handleAssistedSetupEvent(e event.AssistedSetupEvent) {
 	//	return
 	//}
 
-	s.events <- event.AssistedSetupConfigEvent{
-		Event:    event.Event{Type: event.Capabilities, DevId: s.registryId},
-		SourceId: s.id,
-		InputId:  e.InputId,
-		Config:   cfg,
+	s.messages <- Message{
+		Addr: addr,
+		Event: event.AssistedSetupConfigEvent{
+			Event:    event.Event{Type: event.Capabilities},
+			SourceId: s.id,
+			InputId:  e.InputId,
+			Config:   cfg,
+		},
 	}
 }

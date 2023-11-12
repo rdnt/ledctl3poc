@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/grandcat/zeroconf"
@@ -53,7 +54,13 @@ func (r *Resolver) Browse(ctx context.Context) error {
 						break
 					}
 
-					err = r.reg.RegisterDevice(id)
+					addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", e.AddrIPv4[0], e.Port))
+					if err != nil {
+						fmt.Print("failed to resolve tcp address: ", err)
+						break
+					}
+
+					err = r.reg.RegisterDevice(id, addr)
 					if errors.Is(err, registry.ErrDeviceExists) {
 						break
 					} else if err != nil {

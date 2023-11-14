@@ -14,9 +14,9 @@ type DebugOutput struct {
 	//pixs   map[uuid.UUID][]color.Color
 }
 
-func New(leds int) *DebugOutput {
+func New(id uuid.UUID, leds int) *DebugOutput {
 	i := &DebugOutput{
-		id:     uuid.New(),
+		id:     id,
 		leds:   leds,
 		events: make(chan sink.UpdateEvent),
 		//pixs:   make(map[uuid.UUID][]color.Color),

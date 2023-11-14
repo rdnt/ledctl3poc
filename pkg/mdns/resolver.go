@@ -2,10 +2,11 @@ package mdns
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/grandcat/zeroconf"
-	"ledctl3/pkg/uuid"
 	"net"
+
+	"github.com/grandcat/zeroconf"
 )
 
 type Resolver struct {
@@ -28,12 +29,11 @@ func NewResolver() (*Resolver, error) {
 type OnRegistryFound func(addr net.Addr)
 
 type Device struct {
-	Id   uuid.UUID
 	Addr net.Addr
 }
 
-func (r *Resolver) Browse(ctx context.Context) (<-chan Device, error) {
-	devs := make(chan Device)
+func (r *Resolver) Browse(ctx context.Context) (<-chan net.Addr, error) {
+	devs := make(chan net.Addr)
 	entries := make(chan *zeroconf.ServiceEntry, 10)
 
 	service := fmt.Sprintf("_%s._tcp", r.serviceName)
@@ -45,28 +45,39 @@ func (r *Resolver) Browse(ctx context.Context) (<-chan Device, error) {
 
 	go func(entries chan *zeroconf.ServiceEntry) {
 		for e := range entries {
-			id, err := uuid.Parse(e.Instance)
-			if err != nil {
-				fmt.Print("failed to parse uuid: ", err)
-				break
-			}
-
-			fmt.Println("@@@", e.AddrIPv4[0])
-
 			addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", e.AddrIPv4[0], e.Port))
 			if err != nil {
 				fmt.Print("failed to resolve tcp address: ", err)
 				break
 			}
 
-			fmt.Println("@@@", addr)
-
-			devs <- Device{
-				Id:   id,
-				Addr: addr,
-			}
+			devs <- addr
 		}
 	}(entries)
 
 	return devs, nil
+}
+
+func (r *Resolver) Lookup(ctx context.Context) (net.Addr, error) {
+	service := fmt.Sprintf("_%s._tcp", r.serviceName)
+	entries := make(chan *zeroconf.ServiceEntry)
+
+	err := r.resolver.Lookup(ctx, "registry", service, "local", entries)
+	if err != nil {
+		return nil, err
+	}
+
+	e := <-entries
+
+	if e == nil {
+		return nil, errors.New("no device found")
+	}
+
+	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", e.AddrIPv4[0], e.Port))
+	if err != nil {
+		fmt.Print("failed to resolve tcp address: ", err)
+		return nil, err
+	}
+
+	return addr, nil
 }

@@ -8,30 +8,22 @@ import (
 )
 
 type Source struct {
-	Id   uuid.UUID
-	Addr net.Addr
-	Name string
-
-	Configured bool
-	Inputs     map[uuid.UUID]*Input
+	Id     uuid.UUID
+	Addr   net.Addr
+	Name   string
+	Inputs map[uuid.UUID]*Input
 }
 
 func New(id uuid.UUID, addr net.Addr) *Source {
 	return &Source{
-		Id:         id,
-		Addr:       addr,
-		Configured: false,
+		Id:   id,
+		Addr: addr,
 	}
-}
-
-func (s *Source) SetInputs(inputs map[uuid.UUID]*Input) {
-	s.Inputs = inputs
-	s.Configured = true
 }
 
 func (s *Source) String() string {
 	return fmt.Sprintf(
-		"source{OutputId: %s, Name: %s}",
+		"source{Id: %s, Name: %s}",
 		s.Id, s.Name,
 	)
 }

@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"ledctl3/pkg/codec"
 	"net"
 	"sync"
 	"time"
+
+	"ledctl3/pkg/codec"
 )
 
 type Server[E any] struct {
@@ -166,7 +167,7 @@ func (s *Server[E]) processEvents(addr net.Addr, conn net.Conn) {
 				continue
 			}
 
-			fmt.Println("received msg")
+			//fmt.Println("received msg")
 
 			s.handler(addr, e)
 

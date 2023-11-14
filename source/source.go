@@ -97,6 +97,8 @@ func New(id uuid.UUID) (*Source, error) {
 }
 
 func (s *Source) AddInput(i Input) {
+	//fmt.Println("ADD INPUT CALLED", i)
+
 	s.inputs[i.Id()] = i
 	s.inputCfgs[i.Id()] = inputConfig{}
 
@@ -124,6 +126,7 @@ func (s *Source) AddInput(i Input) {
 }
 
 func (s *Source) RemoveInput(id uuid.UUID) {
+	fmt.Println("RemoveInput CALLED", id)
 	delete(s.inputs, id)
 }
 
@@ -136,6 +139,9 @@ func (s *Source) ProcessEvent(addr net.Addr, e event.EventIface) {
 	defer s.mux.Unlock()
 
 	switch e := e.(type) {
+	case event.ConnectEvent:
+		fmt.Printf("-> source %s: recv SetSourceActiveEvent\n", s.id)
+		s.handleConnectedEvent(e)
 	case event.SetSourceActiveEvent:
 		fmt.Printf("-> source %s: recv SetSourceActiveEvent\n", s.id)
 		s.handleSetActiveEvent(e)
@@ -158,7 +164,7 @@ func (s *Source) ProcessEvent(addr net.Addr, e event.EventIface) {
 
 func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 	if s.state == types.StateIdle {
-		//fmt.Println("Initializing session", e.SessionId, e.Sinks)
+		fmt.Println("Initializing session", e)
 
 		s.state = types.StateActive
 		s.sessionId = e.SessionId
@@ -202,7 +208,7 @@ func (s *Source) handleSetActiveEvent(e event.SetSourceActiveEvent) {
 				}
 			}
 
-			cfg.Framerate = 5
+			cfg.Framerate = 30
 
 			_ = s.inputs[inputId].Start(cfg)
 		}
@@ -292,6 +298,7 @@ func (s *Source) Id() uuid.UUID {
 }
 
 func (s *Source) handleListCapabilitiesEvent(addr net.Addr, e event.ListCapabilitiesEvent) {
+	//fmt.Println("LISTING CAPABILITIES", fmt.Sprintf("%#v", s.inputs))
 	s.messages <- Message{
 		Addr: addr,
 		Event: event.CapabilitiesEvent{
@@ -355,4 +362,8 @@ func (s *Source) handleAssistedSetupEvent(addr net.Addr, e event.AssistedSetupEv
 			Config:   cfg,
 		},
 	}
+}
+
+func (s *Source) handleConnectedEvent(e event.ConnectEvent) {
+
 }

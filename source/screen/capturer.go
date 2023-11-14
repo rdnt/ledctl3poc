@@ -47,13 +47,25 @@ func New(src Source) (*Capturer, error) {
 		src:       src,
 		repo:      dr,
 		inputs:    make(map[uuid.UUID]*Input),
-		captureWg: &sync.WaitGroup{},
+		captureWg: new(sync.WaitGroup),
 	}
 
 	return c, nil
 }
 
 func (c *Capturer) Start() {
+	for {
+		err := c.init()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		break
+	}
+
+	//fmt.Println("Capturer initialized")
+
 	go func() {
 		for {
 			err := c.run()
@@ -75,11 +87,86 @@ func displayAssociationId(ds []types2.Display) string {
 	return strings.Join(ids, "|")
 }
 
+func (c *Capturer) init() error {
+	displays, err := c.repo.All()
+	if err != nil {
+		return err
+	}
+
+	if len(displays) == 0 {
+		fmt.Println("No displays")
+		return nil
+	}
+
+	s := State{}
+	err = c.src.GetState(&s)
+	if err != nil {
+		return err
+	}
+
+	assocId := displayAssociationId(displays)
+
+	assoc, ok := s.Associations[assocId]
+	if !ok {
+		if s.Associations == nil {
+			s.Associations = make(map[string][]uuid.UUID)
+		}
+
+		s.Associations[assocId] = []uuid.UUID{}
+		for range displays {
+			s.Associations[assocId] = append(s.Associations[assocId], uuid.New())
+		}
+
+		err = c.src.SetState(s)
+		if err != nil {
+			return err
+		}
+
+		assoc = s.Associations[assocId]
+	}
+
+	fmt.Println("Current association:", assoc)
+	fmt.Println(assoc)
+
+	//for _, in := range c.inputs {
+	//	if !slices.Contains(assoc, in.uuid) {
+	//		in.started = false
+	//	}
+	//}
+
+	for i, d := range displays {
+		if in, ok := c.inputs[assoc[i]]; ok {
+			in.display = d
+			//c.capturing = c.capturing || in.started
+			continue
+		}
+
+		in := &Input{
+			capturer: c,
+			uuid:     assoc[i],
+			events:   make(chan types.UpdateEvent),
+			display:  d,
+			outputs:  nil,
+			cfg: types.InputConfig{
+				Framerate: 1,
+				Outputs:   nil,
+			},
+		}
+
+		//fmt.Println("Added input", in.uuid, "for display", d.Id())
+
+		c.inputs[assoc[i]] = in
+		c.src.AddInput(in)
+	}
+
+	return nil
+}
+
 func (c *Capturer) run() error {
-	println("=== run")
+	//println("=== run")
 
 	for id, in := range c.inputs {
-		c.src.RemoveInput(id)
+		//c.src.RemoveInput(id) // TODO: race when listing capabilities
 		_ = in.display.Close()
 		in.display = nil
 		delete(c.inputs, id)
@@ -147,7 +234,7 @@ func (c *Capturer) run() error {
 			},
 		}
 
-		fmt.Println("Added input", in.uuid, "for display", d.Id())
+		//fmt.Println("Added input", in.uuid, "for display", d.Id())
 
 		c.inputs[assoc[i]] = in
 		c.src.AddInput(in)

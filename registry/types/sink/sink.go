@@ -12,17 +12,16 @@ import (
 )
 
 type Sink struct {
-	Id   uuid.UUID
-	Addr net.Addr
-	Name string
-
-	Configured bool
-	Outputs    map[uuid.UUID]*Output
+	Id      uuid.UUID
+	Addr    net.Addr
+	Name    string
+	Outputs map[uuid.UUID]*Output
 }
 
-func New(id uuid.UUID) *Sink {
+func New(id uuid.UUID, addr net.Addr) *Sink {
 	return &Sink{
-		Id: id,
+		Id:   id,
+		Addr: addr,
 	}
 }
 
@@ -77,9 +76,4 @@ func (s *Sink) Process(e event.EventIface) {
 	default:
 		fmt.Printf("@@@ 1 unknown event %#v %s\n", e, reflect.TypeOf(e))
 	}
-}
-
-func (s *Sink) SetOutputs(outputsMap map[uuid.UUID]*Output) {
-	s.Outputs = outputsMap
-	s.Configured = true
 }

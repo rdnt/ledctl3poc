@@ -2,6 +2,7 @@ package mdns
 
 import (
 	"fmt"
+
 	"github.com/grandcat/zeroconf"
 )
 

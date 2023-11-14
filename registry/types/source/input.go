@@ -3,7 +3,9 @@ package source
 import (
 	"errors"
 	"fmt"
+
 	"github.com/xeipuuv/gojsonschema"
+
 	"ledctl3/pkg/uuid"
 )
 
@@ -92,7 +94,7 @@ func (i *Input) AddConfig(name string, cfg map[string]any) (InputConfig, error) 
 	}
 
 	conf := InputConfig{
-		Id:   uuid.New(),
+		Id:   uuid.MustParse("aaaaaaaa-7435-43db-ab90-f6bc8d21368b"), // TODO: remove static uuid
 		Name: name,
 		Cfg:  cfg,
 	}

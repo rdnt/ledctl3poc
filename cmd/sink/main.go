@@ -9,30 +9,30 @@ import (
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver2"
 	"ledctl3/pkg/uuid"
-	sourcedev "ledctl3/source"
-	screensrc "ledctl3/source/screen"
+	sinkdev "ledctl3/sink"
+	outputdev "ledctl3/sink/debug"
 )
 
 func main() {
-	src, err := sourcedev.New(uuid.MustParse("4282186d-dca5-430b-971c-fbe5b9112bfe"))
-	handle(err)
+	snk := sinkdev.New(uuid.MustParse("d17c94aa-2fb1-4fb5-b315-f22113e8d165"))
 
-	screenProv, err := screensrc.New(src)
-	handle(err)
+	outputdev2a := outputdev.New(uuid.MustParse("30dc1242-2f66-4fb9-8db0-d8f29beca51c"), 20)
+	outputdev2b := outputdev.New(uuid.MustParse("c715765b-29a9-42e3-aec6-f590978fb1dd"), 120)
 
-	screenProv.Start()
+	snk.AddOutput(outputdev2a)
+	snk.AddOutput(outputdev2b)
 
 	s := netserver2.New[event.EventIface](-1, event.Codec, func(addr net.Addr) {
-		src.ProcessEvent(addr, event.ConnectEvent{
+		snk.ProcessEvent(addr, event.ConnectEvent{
 			Event: event.Event{Type: event.Connect},
 		})
 	}, func(addr net.Addr, e event.EventIface) {
-		src.ProcessEvent(addr, e)
+		snk.ProcessEvent(addr, e)
 	})
 
 	go func() {
-		for msg := range src.Messages() {
-			err = s.Write(msg.Addr, msg.Event)
+		for msg := range snk.Messages() {
+			err := s.Write(msg.Addr, msg.Event)
 			if err != nil {
 				fmt.Print("error sending event: ", err)
 			}
@@ -53,7 +53,7 @@ func main() {
 		conn, dispose := s.Connect(addr)
 
 		err = s.Write(addr, event.ConnectEvent{
-			Id: src.Id(),
+			Id: snk.Id(),
 		})
 		if err != nil {
 			fmt.Println(err)

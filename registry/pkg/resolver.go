@@ -2,14 +2,10 @@ package resolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/grandcat/zeroconf"
-
-	"ledctl3/pkg/uuid"
 
 	"ledctl3/registry"
 )
@@ -47,26 +43,26 @@ func (r *Resolver) Browse(ctx context.Context) error {
 		for e := range entries {
 			for _, txt := range e.Text {
 				if strings.HasPrefix(txt, "uuid=") {
-					var err error
-					id, err := uuid.Parse(strings.TrimPrefix(txt, "uuid="))
-					if err != nil {
-						fmt.Print("failed to parse uuid: ", err)
-						break
-					}
+					//var err error
+					//id, err := uuid.Parse(strings.TrimPrefix(txt, "uuid="))
+					//if err != nil {
+					//	fmt.Print("failed to parse uuid: ", err)
+					//	break
+					//}
+					//
+					//addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", e.AddrIPv4[0], e.Port))
+					//if err != nil {
+					//	fmt.Print("failed to resolve tcp address: ", err)
+					//	break
+					//}
 
-					addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", e.AddrIPv4[0], e.Port))
-					if err != nil {
-						fmt.Print("failed to resolve tcp address: ", err)
-						break
-					}
-
-					err = r.reg.RegisterDevice(id, addr)
-					if errors.Is(err, registry.ErrDeviceExists) {
-						break
-					} else if err != nil {
-						fmt.Print("failed to add source: ", err)
-						break
-					}
+					//err = r.reg.RegisterDevice(id, addr)
+					//if errors.Is(err, registry.ErrDeviceExists) {
+					//	break
+					//} else if err != nil {
+					//	fmt.Print("failed to add source: ", err)
+					//	break
+					//}
 				}
 			}
 		}

@@ -5,19 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"ledctl3/pkg/codec"
 	"net"
 	"sync"
 	"time"
+
+	"ledctl3/pkg/codec"
 )
 
 type Server[E any] struct {
-	mux     sync.Mutex
-	codec   codec.Codec[E]
-	ln      net.Listener
-	port    int
-	handler func(net.Addr, E)
-	conns   map[connId]net.Conn
+	mux       sync.Mutex
+	codec     codec.Codec[E]
+	ln        net.Listener
+	port      int
+	onConnect func(net.Addr)
+	handler   func(net.Addr, E)
+	conns     map[connId]net.Conn
 }
 
 type connId struct {
@@ -25,47 +27,39 @@ type connId struct {
 	addr string
 }
 
-func New[E any](port int, codec codec.Codec[E], handler func(net.Addr, E)) *Server[E] {
+func New[E any](port int, codec codec.Codec[E], onConnect func(net.Addr), handler func(net.Addr, E)) *Server[E] {
 	s := &Server[E]{
-		port:    port,
-		codec:   codec,
-		conns:   map[connId]net.Conn{},
-		handler: handler,
+		port:      port,
+		codec:     codec,
+		conns:     map[connId]net.Conn{},
+		onConnect: onConnect,
+		handler:   handler,
 	}
 
 	return s
 }
 
-func (s *Server[E]) Connect(addr net.Addr) {
-	go s.connect(addr)
-}
-
-func (s *Server[E]) connect(addr net.Addr) {
-	var first bool
-	go func() {
-		for {
-			c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
-			if err != nil {
-				fmt.Println("error during dial: ", err)
-				continue
-			}
-
-			id := connId{
-				netw: addr.Network(),
-				addr: addr.String(),
-			}
-
-			s.mux.Lock()
-			s.conns[id] = c
-			s.mux.Unlock()
-
-			if !first {
-				first = true
-			}
-
-			s.processEvents(addr, c)
+func (s *Server[E]) Connect(addr net.Addr) (conn net.Conn, dispose func()) {
+	for {
+		c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
+		if err != nil {
+			fmt.Println("error during dial: ", err)
+			continue
 		}
-	}()
+
+		id := connId{
+			netw: addr.Network(),
+			addr: addr.String(),
+		}
+
+		s.mux.Lock()
+		s.conns[id] = c
+		s.mux.Unlock()
+
+		return c, func() {
+			_ = c.Close()
+		}
+	}
 }
 
 func (s *Server[E]) Start() error {
@@ -97,7 +91,7 @@ func (s *Server[E]) Start() error {
 			s.conns[id] = c
 			s.mux.Unlock()
 
-			go s.processEvents(c.RemoteAddr(), c)
+			go s.ProcessEvents(c.RemoteAddr(), c)
 		}
 	}()
 
@@ -108,8 +102,9 @@ func (s *Server[E]) Stop() {
 	_ = s.ln.Close()
 }
 
-func (s *Server[E]) processEvents(addr net.Addr, conn net.Conn) {
-	defer fmt.Println("HANDLE CONN DONE")
+func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
+	//fmt.Println("PROCESSING EVENTS FROM", addr)
+	//defer fmt.Println("HANDLE CONN DONE")
 
 	defer func() {
 		id := connId{
@@ -166,7 +161,7 @@ func (s *Server[E]) processEvents(addr net.Addr, conn net.Conn) {
 				continue
 			}
 
-			fmt.Println("received msg")
+			//fmt.Println("received msg")
 
 			s.handler(addr, e)
 

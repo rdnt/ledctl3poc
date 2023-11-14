@@ -108,7 +108,7 @@ func main() {
 	sink1dev.AddOutput(outputdev1b)
 	socket.Subscribe(sink1dev.Id(), sink1dev.ProcessEvent)
 	go func() {
-		for e := range sink1dev.Events() {
+		for e := range sink1dev.Messages() {
 			socket.Publish(e.Address(), e)
 		}
 	}()
@@ -126,7 +126,7 @@ func main() {
 	sink2dev.AddOutput(outputdev2b)
 	socket.Subscribe(sink2dev.Id(), sink2dev.ProcessEvent)
 	go func() {
-		for e := range sink2dev.Events() {
+		for e := range sink2dev.Messages() {
 			socket.Publish(e.Address(), e)
 		}
 	}()
@@ -212,7 +212,7 @@ func main() {
 
 	reg.UpdateInputConfig(ins[0].Id(), cfgs[0].Id, "custom", cfgs[0].Cfg)
 
-	prof1 := reg.AddProfile("profile1", []registry.ProfileSource{
+	prof1, _ := reg.AddProfile("profile1", []registry.ProfileSource{
 		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
 		//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
 		{

@@ -1,22 +1,52 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"time"
+
+	"github.com/samber/lo"
+
 	"ledctl3/event"
-	"ledctl3/pkg/codec"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver2"
 	"ledctl3/pkg/uuid"
 	"ledctl3/registry"
-	"net"
-	"os"
-	"time"
 )
 
 type registryStore struct {
 }
+
+//func (r registryStore) Sources() (map[uuid.UUID]*source.Source, error) {
+//	b, err := os.ReadFile("sources.json")
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	var srcs map[uuid.UUID]*source.Source
+//	err = json.Unmarshal(b, &srcs)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return srcs, nil
+//}
+//
+//func (r registryStore) SetSources(src map[uuid.UUID]*source.Source) error {
+//	b, err := json.MarshalIndent(src, "", "  ")
+//	if err != nil {
+//		return err
+//	}
+//
+//	err = os.WriteFile("sources.json", b, 0644)
+//	if err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 func (r registryStore) SetProfiles(profs map[uuid.UUID]registry.Profile) error {
 	b, err := json.MarshalIndent(profs, "", "  ")
@@ -58,24 +88,12 @@ func main() {
 	//	log.Fatal(err)
 	//}
 
-	cod := codec.NewGobCodec[event.EventIface](
-		[]any{},
-		map[string]any{},
-		event.AssistedSetupEvent{},
-		event.AssistedSetupConfigEvent{},
-		event.CapabilitiesEvent{},
-		event.ConnectEvent{},
-		event.DataEvent{},
-		event.ListCapabilitiesEvent{},
-		event.SetInputConfigEvent{},
-		event.SetSinkActiveEvent{},
-		event.SetSourceActiveEvent{},
-		event.SetSourceIdleEvent{},
-	)
-
-	s := netserver2.New[event.EventIface](-1, cod, func(addr net.Addr, e event.EventIface) {
+	s := netserver2.New[event.EventIface](1337, event.Codec, nil, func(addr net.Addr, e event.EventIface) {
 		reg.ProcessEvent(addr, e)
 	})
+
+	err = s.Start()
+	handle(err)
 
 	go func() {
 		for msg := range reg.Messages() {
@@ -86,56 +104,71 @@ func main() {
 		}
 	}()
 
-	srv2, err := mdns.NewResolver()
+	mdnsServer, err := mdns.NewServer("registry", 1337)
 	handle(err)
 
-	devs, err := srv2.Browse(context.Background())
+	err = mdnsServer.Start()
 	handle(err)
 
-	go func() {
-		for dev := range devs {
-			s.Connect(dev.Addr)
-			time.Sleep(1 * time.Second)
-			err = reg.RegisterDevice(dev.Id, dev.Addr)
-			if err != nil {
-				fmt.Println(err)
-			}
+	time.Sleep(1 * time.Second)
 
-			_, err := reg.AddProfile("profile1", []registry.ProfileSource{
-				//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
-				//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
-				{
-					SourceId: uuid.Nil,
-					Inputs: []registry.ProfileInput{
-						{
-							InputId: uuid.Nil,
-							Sinks: []registry.ProfileSink{
-								{
-									SinkId: uuid.Nil,
-									Outputs: []registry.ProfileOutput{
-										{
-											OutputId:      uuid.Nil,
-											InputConfigId: uuid.Nil,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-
-				//{inputdev1a.OutputId(): {outputdev2b.OutputId()}}, // audio
-				//{inputdev1b.OutputId(): {outputdev2b.OutputId()}}, // video
-			})
-			handle(err)
-		}
-	}()
-
-	//time.Sleep(1 * time.Second)
+	//_, err = reg.AddProfile("profile1", []registry.ProfileSource{
+	//	//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
+	//	//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
+	//	{
+	//		SourceId: uuid.Nil,
+	//		Inputs: []registry.ProfileInput{
+	//			{
+	//				InputId: uuid.Nil,
+	//				Sinks: []registry.ProfileSink{
+	//					{
+	//						SinkId: uuid.Nil,
+	//						Outputs: []registry.ProfileOutput{
+	//							{
+	//								OutputId:      uuid.Nil,
+	//								InputConfigId: uuid.Nil,
+	//							},
+	//						},
+	//					},
+	//				},
+	//			},
+	//		},
+	//	},
+	//
+	//	//{inputdev1a.OutputId(): {outputdev2b.OutputId()}}, // audio
+	//	//{inputdev1b.OutputId(): {outputdev2b.OutputId()}}, // video
+	//})
+	//handle(err)
 
 	//err = reg.AssistedSetup(uuid.MustParse("4282186d-dca5-430b-971c-fbe5b9112bfe"))
 	//handle(err)
 
+	time.Sleep(1 * time.Second)
+
+	err = reg.AssistedSetup(uuid.MustParse("72c04693-fe20-433d-8dd0-1a8892960e95"))
+	handle(err)
+
+	//err = reg.AssistedSetup(uuid.MustParse("59d757d3-51e2-4baf-b008-894f26d3f689"))
+	//handle(err)
+
+	time.Sleep(3 * time.Second)
+
+	cfgs := lo.Values(reg.InputConfigs(uuid.MustParse("72c04693-fe20-433d-8dd0-1a8892960e95")))
+
+	if len(cfgs) == 0 {
+		panic("no config")
+	}
+
+	cfgs[0].Cfg["reverse"] = true
+
+	reg.UpdateInputConfig(uuid.MustParse("72c04693-fe20-433d-8dd0-1a8892960e95"), cfgs[0].Id, "custom", cfgs[0].Cfg)
+
+	// TODO: input configs need to be persisted
+
+	err = reg.SelectProfile(uuid.MustParse("974f0075-59a2-4421-8afb-b7ef61b6a3e5"), true)
+	handle(err)
+
+	fmt.Println("idle")
 	select {}
 }
 
@@ -144,3 +177,29 @@ func handle(err error) {
 		panic(err)
 	}
 }
+
+//var t = event.SetSourceActiveEvent{
+//	Event:     event.Event{Type: "setActive"},
+//	SessionId: "c63c1eeb-bdf7-4757-9b12-ba52ddb8c3d3",
+//	Inputs: []event.SetSourceActiveEventInput{{
+//		Id: "60ff01a7-5507-48f7-8ae5-dd6c8609f98b",
+//		Sinks: []event.SetSourceActiveEventSink{{
+//			Id: "d17c94aa-2fb1-4fb5-b315-f22113e8d165",
+//			Outputs: []event.SetSourceActiveEventOutput{{
+//				Id:     "30dc1242-2f66-4fb9-8db0-d8f29beca51c",
+//				Config: map[string]interface{}(nil),
+//				Leds:   20,
+//			}},
+//		}},
+//	}, {
+//		Id: "59d757d3-51e2-4baf-b008-894f26d3f689",
+//		Sinks: []event.SetSourceActiveEventSink{{
+//			Id: "d17c94aa-2fb1-4fb5-b315-f22113e8d165",
+//			Outputs: []event.SetSourceActiveEventOutput{{
+//				Id:     "c715765b-29a9-42e3-aec6-f590978fb1dd",
+//				Config: map[string]interface{}(nil),
+//				Leds:   120,
+//			}},
+//		}},
+//	}},
+//}

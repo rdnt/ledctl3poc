@@ -4,10 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"ledctl3/pkg/uuid"
 	"net"
 	"sync"
 	"time"
+
+	"ledctl3/pkg/uuid"
 )
 
 var deadline = 5 * time.Second
@@ -290,7 +291,7 @@ func (b *Broker[E]) handleConnection(conn net.Conn) {
 				continue
 			}
 
-			fmt.Println("received msg")
+			//fmt.Println("received msg")
 
 			b.mux.Lock()
 			for _, h := range b.in {

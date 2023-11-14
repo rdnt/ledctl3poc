@@ -24,6 +24,9 @@ const (
 	SetInputConfig      Type = "setInputConfig"
 	AssistedSetup       Type = "assistedSetup"
 	AssistedSetupConfig Type = "assistedSetupConfig"
+
+	InputAdded   Type = "inputAdded"
+	InputRemoved Type = "inputRemoved"
 )
 
 type Event struct {

@@ -3,6 +3,7 @@ package sink
 import (
 	"fmt"
 	"image/color"
+	"net"
 	"sync"
 
 	gcolor "github.com/gookit/color"
@@ -27,25 +28,28 @@ type UpdateEvent struct {
 	Pix []color.Color
 }
 
+type Message struct {
+	Addr  net.Addr
+	Event event.EventIface
+}
+
 type Sink struct {
 	mux sync.Mutex
 	id  uuid.UUID
 	//address    net.Addr
-	state      types.State
-	sessionId  uuid.UUID
-	outputs    map[uuid.UUID]Output
-	events     chan event.EventIface
-	registryId uuid.UUID
+	state     types.State
+	sessionId uuid.UUID
+	outputs   map[uuid.UUID]Output
+	events    chan Message
 }
 
-func New(registryId uuid.UUID) *Sink {
+func New(id uuid.UUID) *Sink {
 	s := &Sink{
-		id: uuid.New(),
+		id: id,
 		//address: address,
-		state:      types.StateIdle,
-		outputs:    make(map[uuid.UUID]Output),
-		events:     make(chan event.EventIface),
-		registryId: registryId,
+		state:   types.StateIdle,
+		outputs: make(map[uuid.UUID]Output),
+		events:  make(chan Message),
 	}
 
 	return s
@@ -55,26 +59,26 @@ func (s *Sink) Id() uuid.UUID {
 	return s.id
 }
 
-func (s *Sink) ProcessEvent(e event.EventIface) {
+func (s *Sink) ProcessEvent(addr net.Addr, e event.EventIface) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	switch e := e.(type) {
 	case event.ListCapabilitiesEvent:
-		fmt.Printf("-> sink %s: recv ListCapabilitiesEvent\n", s.id)
-		s.handleListCapabilitiesEvent(e)
+		fmt.Printf("%s -> sink: recv ListCapabilitiesEvent\n", addr)
+		s.handleListCapabilitiesEvent(addr, e)
 	case event.SetSinkActiveEvent:
-		fmt.Printf("-> sink %s: recv SetSinkActiveEvent\n", s.id)
-		s.handleSetActiveEvent(e)
+		fmt.Printf("%s -> sink: recv SetSinkActiveEvent\n", addr)
+		s.handleSetActiveEvent(addr, e)
 	case event.DataEvent:
-		//fmt.Printf("-> sink %s: recv DataEvent\n", s.id)
-		s.handleDataEvent(e)
+		fmt.Printf("%s -> sink: recv DataEvent\n", addr)
+		s.handleDataEvent(addr, e)
 	default:
 		fmt.Println("unknown event", e)
 	}
 }
 
-func (s *Sink) handleSetActiveEvent(e event.SetSinkActiveEvent) {
+func (s *Sink) handleSetActiveEvent(addr net.Addr, e event.SetSinkActiveEvent) {
 	if len(e.OutputIds) == 0 {
 		return
 	}
@@ -82,7 +86,7 @@ func (s *Sink) handleSetActiveEvent(e event.SetSinkActiveEvent) {
 	//fmt.Println("=== sink activating")
 }
 
-func (s *Sink) handleDataEvent(e event.DataEvent) {
+func (s *Sink) handleDataEvent(addr net.Addr, e event.DataEvent) {
 	for _, output := range e.Outputs {
 		out := "\n"
 		for _, c := range output.Pix {
@@ -98,17 +102,20 @@ func (s *Sink) handleDataEvent(e event.DataEvent) {
 	}
 }
 
-func (s *Sink) handleListCapabilitiesEvent(_ event.ListCapabilitiesEvent) {
-	s.events <- event.CapabilitiesEvent{
-		Event:  event.Event{Type: event.Capabilities, Addr: s.registryId},
-		Id:     s.id,
-		Inputs: []event.CapabilitiesEventInput{},
-		Outputs: lo.Map(lo.Values(s.outputs), func(output Output, _ int) event.CapabilitiesEventOutput {
-			return event.CapabilitiesEventOutput{
-				Id:   output.Id(),
-				Leds: output.Leds(),
-			}
-		}),
+func (s *Sink) handleListCapabilitiesEvent(addr net.Addr, _ event.ListCapabilitiesEvent) {
+	s.events <- Message{
+		Addr: addr,
+		Event: event.CapabilitiesEvent{
+			Event:  event.Event{Type: event.Capabilities},
+			Id:     s.id,
+			Inputs: []event.CapabilitiesEventInput{},
+			Outputs: lo.Map(lo.Values(s.outputs), func(output Output, _ int) event.CapabilitiesEventOutput {
+				return event.CapabilitiesEventOutput{
+					Id:   output.Id(),
+					Leds: output.Leds(),
+				}
+			}),
+		},
 	}
 }
 
@@ -135,6 +142,6 @@ func (s *Sink) AddOutput(o Output) {
 	//}()
 }
 
-func (s *Sink) Events() <-chan event.EventIface {
+func (s *Sink) Messages() <-chan Message {
 	return s.events
 }

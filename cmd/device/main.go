@@ -39,6 +39,9 @@ func main() {
 	out := debug_output.New(uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"), 40)
 	dev.AddOutput(out)
 
+	out2 := debug_output.New(uuid.MustParse("99999999-ebd3-46dd-9d27-3d7d8443c715"), 80)
+	dev.AddOutput(out2)
+
 	s.SetMessageHandler(func(addr string, e event.Event) {
 		dev.ProcessEvent(addr, e)
 	})

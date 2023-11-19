@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 
 	"ledctl3/event"
@@ -49,16 +50,18 @@ type StateHolder interface {
 }
 
 type State struct {
-	Devices  map[uuid.UUID]*Device `json:"devices"`
-	Profiles map[uuid.UUID]Profile `json:"profiles"`
+	Devices        map[uuid.UUID]*Device `json:"devices"`
+	Profiles       map[uuid.UUID]Profile `json:"profiles"`
+	ActiveProfiles []uuid.UUID           `json:"-"` // TODO: persist active profiles for restarting if registry restarts
 }
 
 type Registry struct {
-	mux   sync.Mutex
-	conns map[string]uuid.UUID
-	write func(addr string, e event.Event) error
-	state *State
-	sh    StateHolder
+	mux       sync.Mutex
+	conns     map[string]uuid.UUID
+	connsAddr map[uuid.UUID]string
+	write     func(addr string, e event.Event) error
+	state     *State
+	sh        StateHolder
 }
 
 func New(write func(addr string, e event.Event) error) *Registry {
@@ -77,10 +80,11 @@ func New(write func(addr string, e event.Event) error) *Registry {
 	fmt.Println("Starting with state", fmt.Sprintf("%#v", state))
 
 	return &Registry{
-		conns: make(map[string]uuid.UUID),
-		state: &state,
-		write: write,
-		sh:    sh,
+		conns:     make(map[string]uuid.UUID),
+		connsAddr: make(map[uuid.UUID]string),
+		state:     &state,
+		write:     write,
+		sh:        sh,
 	}
 }
 
@@ -92,17 +96,17 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 
 	switch e := e.(type) {
 	case event.Connect:
-		r.handleConnectEvent(addr, e)
+		r.handleConnect(addr, e)
 	case event.Disconnect:
-		r.handleDisconnectEvent(addr, e)
+		r.handleDisconnect(addr, e)
 	case event.InputConnected:
-		r.handleInputConnectedEvent(addr, e)
+		r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
-		r.handleInputDisconnectedEvent(addr, e)
+		r.handleInputDisconnected(addr, e)
 	case event.OutputConnected:
-		r.handleOutputConnectedEvent(addr, e)
+		r.handleOutputConnected(addr, e)
 	case event.OutputDisconnected:
-		r.handleOutputDisconnectedEvent(addr, e)
+		r.handleOutputDisconnected(addr, e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -125,10 +129,11 @@ func (r *Registry) send(addr string, e any) error {
 	return r.write(addr, e)
 }
 
-func (r *Registry) handleConnectEvent(addr string, e event.Connect) {
+func (r *Registry) handleConnect(addr string, e event.Connect) {
 	fmt.Printf("%s: recv Connect\n", addr)
 
 	r.conns[addr] = e.Id
+	r.connsAddr[e.Id] = addr
 
 	if dev, ok := r.state.Devices[e.Id]; ok {
 		dev.Connect()
@@ -145,7 +150,7 @@ func (r *Registry) handleConnectEvent(addr string, e event.Connect) {
 	return
 }
 
-func (r *Registry) handleDisconnectEvent(addr string, _ event.Disconnect) {
+func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	id, ok := r.conns[addr]
@@ -162,9 +167,12 @@ func (r *Registry) handleDisconnectEvent(addr string, _ event.Disconnect) {
 
 	dev.Disconnect()
 	r.state.Devices[id] = dev
+
+	delete(r.conns, addr)
+	delete(r.connsAddr, id)
 }
 
-func (r *Registry) handleInputConnectedEvent(addr string, e event.InputConnected) {
+func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {
 	fmt.Printf("%s: recv InputConnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -183,7 +191,7 @@ func (r *Registry) handleInputConnectedEvent(addr string, e event.InputConnected
 	r.state.Devices[id] = dev
 }
 
-func (r *Registry) handleInputDisconnectedEvent(addr string, e event.InputDisconnected) {
+func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) {
 	fmt.Printf("%s: recv InputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -202,7 +210,7 @@ func (r *Registry) handleInputDisconnectedEvent(addr string, e event.InputDiscon
 	r.state.Devices[id] = dev
 }
 
-func (r *Registry) handleOutputConnectedEvent(addr string, e event.OutputConnected) {
+func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) {
 	fmt.Printf("%s: recv OutputConnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -221,7 +229,7 @@ func (r *Registry) handleOutputConnectedEvent(addr string, e event.OutputConnect
 	r.state.Devices[id] = dev
 }
 
-func (r *Registry) handleOutputDisconnectedEvent(addr string, e event.OutputDisconnected) {
+func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnected) {
 	fmt.Printf("%s: recv OutputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -241,38 +249,38 @@ func (r *Registry) handleOutputDisconnectedEvent(addr string, e event.OutputDisc
 }
 
 type Profile struct {
-	Id      uuid.UUID       `json:"id"`
-	Name    string          `json:"name"`
-	Sources []ProfileSource `json:"sources"`
+	Id          uuid.UUID                 `json:"id"`
+	Name        string                    `json:"name"`
+	InputOutput map[uuid.UUID][]uuid.UUID `json:"io"`
 }
 
-type ProfileSource struct {
-	Id     uuid.UUID      `json:"id"`
-	Inputs []ProfileInput `json:"inputs"`
-}
+//type Profile struct {
+//	Id      uuid.UUID       `json:"id"`
+//	Name    string          `json:"name"`
+//	Sources []ProfileSource `json:"sources"`
+//}
+//
+//type ProfileSource struct {
+//	Id     uuid.UUID      `json:"id"`
+//	Inputs []ProfileInput `json:"inputs"`
+//}
+//
+//type ProfileInput struct {
+//	Id    uuid.UUID     `json:"id"`
+//	Sinks []ProfileSink `json:"sinks"`
+//}
+//
+//type ProfileSink struct {
+//	Id      uuid.UUID       `json:"id"`
+//	Outputs []ProfileOutput `json:"outputs"`
+//}
+//
+//type ProfileOutput struct {
+//	Id            uuid.UUID `json:"id"`
+//	InputConfigId uuid.UUID `json:"input_config_id"`
+//}
 
-type ProfileInput struct {
-	Id    uuid.UUID     `json:"id"`
-	Sinks []ProfileSink `json:"sinks"`
-}
-
-type ProfileSink struct {
-	Id      uuid.UUID       `json:"id"`
-	Outputs []ProfileOutput `json:"outputs"`
-}
-
-type ProfileOutput struct {
-	Id            uuid.UUID `json:"id"`
-	InputConfigId uuid.UUID `json:"input_config_id"`
-}
-
-func (r *Registry) AddProfile(name string, sources []ProfileSource) (Profile, error) {
-	prof := Profile{
-		Id:      uuid.New(),
-		Name:    name,
-		Sources: sources,
-	}
-
+func (r *Registry) AddProfile(prof Profile) (Profile, error) {
 	if r.state.Profiles == nil {
 		r.state.Profiles = make(map[uuid.UUID]Profile)
 	}
@@ -293,61 +301,108 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		return errors.New("profile not found")
 	}
 
-	// verify all devices and IO are connected
-	for _, source := range prof.Sources {
-		dev, ok := r.state.Devices[source.Id]
-		if !ok {
-			return errors.New("source device not found")
-		}
+	if slices.Contains(r.state.ActiveProfiles, id) {
+		return errors.New("profile already active")
+	}
 
-		if !dev.Connected {
-			return errors.New("source device not connected")
-		}
+	activeOutputIds := r.activeOutputs()
 
-		for _, input := range source.Inputs {
-			if !dev.Inputs[input.Id].Connected {
-				return errors.New("input not connected")
-			}
-
-			for _, sink := range input.Sinks {
-				dev, ok := r.state.Devices[sink.Id]
-				if !ok {
-					return errors.New("sink device not found")
-				}
-
-				if !dev.Connected {
-					return errors.New("sink device not connected")
-				}
-
-				for _, output := range sink.Outputs {
-					if !dev.Outputs[output.Id].Connected {
-						return errors.New("output not connected")
-					}
-				}
+	// cannot have multiple outputs active with different inputs.
+	// maybe in the future, input data can be combined to the same
+	// output with some transformer function, e.g. one input
+	// modifying hue/sat and another modifying brightness.
+	for _, outputIds := range prof.InputOutput {
+		for _, outputId := range outputIds {
+			if slices.Contains(activeOutputIds, outputId) {
+				return errors.New("output already in use")
 			}
 		}
 	}
 
-	var startErrs []error
-	for _, source := range prof.Sources {
-		conn, ok := r.conns[source.Id.String()]
+	r.state.ActiveProfiles = append(r.state.ActiveProfiles, id)
+
+	err := r.sh.SetState(*r.state)
+	if err != nil {
+		fmt.Println("error writing state", err)
+	}
+
+	sourceInputs := map[uuid.UUID][]event.SetSourceActiveInput{}
+
+	for inputId, outputIds := range prof.InputOutput {
+
+		var outputs []event.SetSourceActiveOutput
+		for _, outputId := range outputIds {
+			sinkId := r.outputDeviceId(outputId)
+			outputs = append(outputs, event.SetSourceActiveOutput{
+				Id:     outputId,
+				SinkId: sinkId,
+				Leds:   r.state.Devices[sinkId].Outputs[outputId].Leds,
+				Config: nil,
+			})
+		}
+
+		sourceId := r.inputDeviceId(inputId)
+
+		sourceInputs[sourceId] = append(sourceInputs[sourceId], event.SetSourceActiveInput{
+			Id:      inputId,
+			Outputs: outputs,
+		})
+	}
+
+	for sourceId, inputs := range sourceInputs {
+		addr, ok := r.connsAddr[sourceId]
 		if !ok {
-			startErrs = append(startErrs, errors.New("source device not connected"))
+			fmt.Println("source device not connected")
 			continue
 		}
 
-		err := r.send(conn.String(), event.SetSourceActive{})
+		err = r.send(addr, event.SetSourceActive{
+			Inputs: inputs,
+		})
 		if err != nil {
-			startErrs = append(startErrs, err)
+			fmt.Println("error sending event:", err)
 			continue
 		}
+
+		fmt.Println("sent SetSourceActive to", addr)
 	}
 
-	if len(startErrs) > 0 {
-		return fmt.Errorf("failed to start stream: %v", startErrs)
-	}
-
-	fmt.Println("All connected!")
+	fmt.Println("profile activated:", id)
 
 	return nil
+}
+
+func (r *Registry) activeOutputs() []uuid.UUID {
+	var outputIds []uuid.UUID
+
+	for _, profId := range r.state.ActiveProfiles {
+		prof := r.state.Profiles[profId]
+		for _, ids := range prof.InputOutput {
+			outputIds = append(outputIds, ids...)
+		}
+	}
+
+	return outputIds
+}
+
+func (r *Registry) outputDeviceId(id uuid.UUID) uuid.UUID {
+	for _, dev := range r.state.Devices {
+		for _, out := range dev.Outputs {
+			if out.Id == id {
+				return dev.Id
+			}
+		}
+	}
+	return uuid.Nil
+}
+
+func (r *Registry) inputDeviceId(id uuid.UUID) uuid.UUID {
+	for _, dev := range r.state.Devices {
+		for _, in := range dev.Inputs {
+			if in.Id == id {
+				return dev.Id
+			}
+		}
+	}
+	return uuid.Nil
 }

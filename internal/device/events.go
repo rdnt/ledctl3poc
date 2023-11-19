@@ -1,9 +1,11 @@
 package device
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"ledctl3/event"
+	"ledctl3/internal/device/types"
 )
 
 func (s *Device) ProcessEvent(addr string, e event.Event) {
@@ -14,9 +16,11 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 
 	switch e := e.(type) {
 	case event.Connect:
-		s.handleConnectEvent(addr, e)
+		s.handleConnect(addr, e)
 	case event.Disconnect:
-		s.handleDisconnectEvent(addr, e)
+		s.handleDisconnect(addr, e)
+	case event.SetSourceActive:
+		s.handleSetSourceActive(addr, e)
 	//case event.ListCapabilities:
 	//	s.handleListCapabilitiesEvent(addr, e)
 	default:
@@ -26,8 +30,8 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 	//fmt.Println("ProcessEvents done")
 }
 
-func (s *Device) handleConnectEvent(addr string, e event.Connect) {
-	fmt.Printf("%s: recv ListCapabilities\n", addr)
+func (s *Device) handleConnect(addr string, e event.Connect) {
+	fmt.Printf("%s: recv Connect\n", addr)
 
 	fmt.Printf("%s: send Connect\n", addr)
 	err := s.write(addr, event.Connect{
@@ -67,7 +71,7 @@ func (s *Device) handleConnectEvent(addr string, e event.Connect) {
 	s.regAddr = addr
 }
 
-func (s *Device) handleDisconnectEvent(addr string, _ event.Disconnect) {
+func (s *Device) handleDisconnect(addr string, _ event.Disconnect) {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	s.regAddr = ""
@@ -98,3 +102,43 @@ func (s *Device) handleDisconnectEvent(addr string, _ event.Disconnect) {
 //		fmt.Println("error writing to addr", addr, err)
 //	}
 //}
+
+func (s *Device) handleSetSourceActive(addr string, e event.SetSourceActive) {
+	fmt.Printf("%s: recv SetSourceActive\n", addr)
+
+	b, err := json.Marshal(e)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(b))
+
+	for _, input := range e.Inputs {
+		in, ok := s.inputs[input.Id]
+		if !ok {
+			fmt.Println("in not found", input.Id)
+			continue
+		}
+
+		var outputCfgs []types.OutputConfig
+		for _, output := range input.Outputs {
+			outputCfgs = append(outputCfgs, types.OutputConfig{
+				Id:     output.Id,
+				SinkId: output.SinkId,
+				Config: nil,
+				Leds:   output.Leds,
+			})
+		}
+
+		err := in.Start(types.InputConfig{
+			Framerate: 60,
+			Outputs:   outputCfgs,
+		})
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		fmt.Println("input started", input.Id)
+	}
+}

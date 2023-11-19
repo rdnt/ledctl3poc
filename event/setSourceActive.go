@@ -9,17 +9,13 @@ type SetSourceActive struct {
 }
 
 type SetSourceActiveInput struct {
-	Id    uuid.UUID
-	Sinks []SetSourceActiveSink
-}
-
-type SetSourceActiveSink struct {
 	Id      uuid.UUID
 	Outputs []SetSourceActiveOutput
 }
 
 type SetSourceActiveOutput struct {
 	Id     uuid.UUID
-	Config map[string]any
+	SinkId uuid.UUID
 	Leds   int
+	Config map[string]any
 }

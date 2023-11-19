@@ -195,7 +195,8 @@ func (c *Capturer) run() error {
 		//c.src.RemoveInput(id) // TODO: race when listing capabilities
 		_ = in.display.Close()
 		in.display = nil
-		delete(c.inputs, id)
+		//delete(c.inputs, id)
+		_ = id
 	}
 
 	displays, err := c.repo.All()
@@ -260,7 +261,7 @@ func (c *Capturer) run() error {
 			},
 		}
 
-		//fmt.Println("Added input", in.uuid, "for display", d.Id())
+		fmt.Println("Added input", in.uuid, "for display", d.Id())
 
 		c.inputs[assoc[i]] = in
 		c.reg.AddInput(in)

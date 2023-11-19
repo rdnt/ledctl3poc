@@ -2,7 +2,7 @@
   "974f0075-59a2-4421-8afb-b7ef61b6a3e5": {
     "Id": "974f0075-59a2-4421-8afb-b7ef61b6a3e5",
     "Name": "profile1",
-    "Sources": [
+    "io": [
       {
         "SourceId": "4282186d-dca5-430b-971c-fbe5b9112bfe",
         "Inputs": [

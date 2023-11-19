@@ -21,7 +21,7 @@ func main2() {
 
 	time.Sleep(500 * time.Millisecond)
 
-	socket.Publish(uuid.Nil, event.AssistedSetupEvent{
+	socket.Publish(uuid.Nil, event.AssistedSetup{
 		Event: event.Event{
 			Type: event.AssistedSetup,
 			Addr: uuid.Nil,
@@ -33,18 +33,18 @@ func main2() {
 }
 
 func main() {
-	gob.Register(event.AssistedSetupEvent{})
-	gob.Register(event.AssistedSetupConfigEvent{})
-	gob.Register(event.CapabilitiesEvent{})
-	gob.Register(event.ConnectEvent{})
-	gob.Register(event.DataEvent{})
-	gob.Register(event.ListCapabilitiesEvent{})
-	gob.Register(event.SetInputConfigEvent{})
-	gob.Register(event.SetSinkActiveEvent{})
-	gob.Register(event.SetSourceActiveEvent{})
-	gob.Register(event.SetSourceIdleEvent{})
+	gob.Register(event.AssistedSetup{})
+	gob.Register(event.AssistedSetupConfig{})
+	gob.Register(event.Capabilities{})
+	gob.Register(event.Connect{})
+	gob.Register(event.Data{})
+	gob.Register(event.ListCapabilities{})
+	gob.Register(event.SetInputConfig{})
+	gob.Register(event.SetSinkActive{})
+	gob.Register(event.SetSourceActive{})
+	gob.Register(event.SetSourceIdle{})
 
-	e := event.AssistedSetupEvent{
+	e := event.AssistedSetup{
 		Event: event.Event{
 			Type: event.AssistedSetup,
 			Addr: uuid.New(),
@@ -63,7 +63,7 @@ func main() {
 
 	dec := gob.NewDecoder(&b)
 	var e2 event.EventIface
-	//e2 := reflect.New(reflect.TypeOf(event.EventIface(event.DataEvent{})))
+	//e2 := reflect.New(reflect.TypeOf(event.EventIface(event.Data{})))
 	err = dec.Decode(&e2)
 	if err != nil {
 		panic(err)

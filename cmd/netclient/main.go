@@ -2,27 +2,28 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"time"
+
 	"ledctl3/event"
 	"ledctl3/pkg/codec"
 	"ledctl3/pkg/netclient"
-	"net"
-	"time"
 )
 
 func main() {
 	cod := codec.NewGobCodec[event.EventIface](
 		[]any{},
 		map[string]any{},
-		event.AssistedSetupEvent{},
-		event.AssistedSetupConfigEvent{},
-		event.CapabilitiesEvent{},
-		event.ConnectEvent{},
-		event.DataEvent{},
-		event.ListCapabilitiesEvent{},
-		event.SetInputConfigEvent{},
-		event.SetSinkActiveEvent{},
-		event.SetSourceActiveEvent{},
-		event.SetSourceIdleEvent{},
+		event.AssistedSetup{},
+		event.AssistedSetupConfig{},
+		event.Capabilities{},
+		event.Connect{},
+		event.Data{},
+		event.ListCapabilities{},
+		event.SetInputConfig{},
+		event.SetSinkActive{},
+		event.SetSourceActive{},
+		event.SetSourceIdle{},
 	)
 
 	ip := net.ParseIP("127.0.0.1")
@@ -39,7 +40,7 @@ func main() {
 	for {
 		time.Sleep(1 * time.Second)
 
-		err := cli.Send(event.ConnectEvent{
+		err := cli.Send(event.Connect{
 			Event: event.Event{
 				Type: event.Connect,
 			},

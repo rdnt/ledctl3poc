@@ -2,32 +2,19 @@ package event
 
 import "ledctl3/pkg/uuid"
 
-type CapabilitiesEvent struct {
-	Event
-	Id      uuid.UUID                 `json:"id"`
-	Inputs  []CapabilitiesEventInput  `json:"inputs"`
-	Outputs []CapabilitiesEventOutput `json:"outputs"`
+type Capabilities struct {
+	Inputs  []CapabilitiesInput
+	Outputs []CapabilitiesOutput
 }
 
-type CapabilitiesEventInput struct {
-	Id           uuid.UUID      `json:"id"`
-	Type         InputType      `json:"type"`
-	ConfigSchema map[string]any `json:"configSchema"`
+type CapabilitiesInput struct {
+	Id     uuid.UUID
+	Type   InputType
+	Schema map[string]any
+	Config map[string]any
 }
 
-type CapabilitiesEventOutput struct {
-	Id   uuid.UUID `json:"id"`
-	Leds int       `json:"leds"`
-}
-
-type InputType string
-
-const (
-	InputTypeDefault       InputType = "default"
-	InputTypeScreenCapture InputType = "screen_capture"
-	InputTypeAudioCapture  InputType = "audio_capture"
-)
-
-func (e CapabilitiesEvent) Type() Type {
-	return Capabilities
+type CapabilitiesOutput struct {
+	Id   uuid.UUID
+	Leds int
 }

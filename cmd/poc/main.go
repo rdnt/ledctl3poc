@@ -9,18 +9,18 @@ import (
 
 	"github.com/samber/lo"
 
+	"ledctl3/_registry-old"
+	resolver "ledctl3/_registry-old/pkg"
+	sinkdev "ledctl3/_sink-old"
+	outputdev "ledctl3/_sink-old/debug"
+	"ledctl3/_sink-old/pkg/sinkmdns"
+	sourcedev "ledctl3/_source-old"
+	audiosrc "ledctl3/_source-old/audio"
+	inputdev "ledctl3/_source-old/debug"
+	"ledctl3/_source-old/pkg/sourcemdns"
+	screensrc "ledctl3/_source-old/screen"
 	"ledctl3/event"
 	"ledctl3/pkg/fsbroker"
-	"ledctl3/registry"
-	resolver "ledctl3/registry/pkg"
-	sinkdev "ledctl3/sink"
-	outputdev "ledctl3/sink/debug"
-	"ledctl3/sink/pkg/sinkmdns"
-	sourcedev "ledctl3/source"
-	audiosrc "ledctl3/source/audio"
-	inputdev "ledctl3/source/debug"
-	"ledctl3/source/pkg/sourcemdns"
-	screensrc "ledctl3/source/screen"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 	socket := fsbroker.New[event.EventIface]()
 	socket.Start()
 
-	reg, err := registry.New()
+	reg, err := _registry_old.New()
 	handle(err)
 
 	res, err := resolver.New(reg)
@@ -138,22 +138,22 @@ func main() {
 
 	//////////////////////////
 
-	//input1a := source.NewInput(inputdev1a.OutputId(), "input1a")
-	//input1b := source.NewInput(inputdev1b.OutputId(), "input1b")
+	//input1a := source.NewInput(inputdev1a.Id(), "input1a")
+	//input1b := source.NewInput(inputdev1b.Id(), "input1b")
 	//
-	//source1 := source.NewSource(src1dev.OutputId(), "source1", map[uuid.UUID]*source.Capturer{
-	//	input1a.OutputId(): input1a, input1b.OutputId(): input1b,
+	//source1 := source.NewSource(src1dev.Id(), "source1", map[uuid.UUID]*source.Capturer{
+	//	input1a.Id(): input1a, input1b.Id(): input1b,
 	//})
 	//
 	//_ = source1
 	////err := reg.AddSource(source1)
 	////handle(err)
 	//
-	//input2a := source.NewInput(inputdev2a.OutputId(), "input2a")
-	//input2b := source.NewInput(inputdev2b.OutputId(), "input2b")
+	//input2a := source.NewInput(inputdev2a.Id(), "input2a")
+	//input2b := source.NewInput(inputdev2b.Id(), "input2b")
 	//
-	//source2 := source.NewSource(src2dev.OutputId(), "source2", map[uuid.UUID]*source.Capturer{
-	//	input2a.OutputId(): input2a, input2b.OutputId(): input2b,
+	//source2 := source.NewSource(src2dev.Id(), "source2", map[uuid.UUID]*source.Capturer{
+	//	input2a.Id(): input2a, input2b.Id(): input2b,
 	//})
 	//
 	//_ = source2
@@ -165,8 +165,8 @@ func main() {
 	//output1a := sink.NewOutput(uuid.New(), "output1a", 4)
 	//output1b := sink.NewOutput(uuid.New(), "output1b", 8)
 	//
-	//sink1 := sink.NewSink(sink1dev.OutputId(), "sink1", map[uuid.UUID]*sink.Output{
-	//	output1a.OutputId(): output1a, output1b.OutputId(): output1b,
+	//sink1 := sink.NewSink(sink1dev.Id(), "sink1", map[uuid.UUID]*sink.Output{
+	//	output1a.Id(): output1a, output1b.Id(): output1b,
 	//})
 	//
 	//_ = sink1
@@ -176,8 +176,8 @@ func main() {
 	//output2a := sink.NewOutput(uuid.New(), "output2a", 16)
 	//output2b := sink.NewOutput(uuid.New(), "output2b", 32)
 	//
-	//sink2 := sink.NewSink(sink2dev.OutputId(), "sink2", map[uuid.UUID]*sink.Output{
-	//	output2a.OutputId(): output2a, output2b.OutputId(): output2b,
+	//sink2 := sink.NewSink(sink2dev.Id(), "sink2", map[uuid.UUID]*sink.Output{
+	//	output2a.Id(): output2a, output2b.Id(): output2b,
 	//})
 	//
 	//_ = sink2
@@ -212,18 +212,18 @@ func main() {
 
 	reg.UpdateInputConfig(ins[0].Id(), cfgs[0].Id, "custom", cfgs[0].Cfg)
 
-	prof1, _ := reg.AddProfile("profile1", []registry.ProfileSource{
-		//{inputdev1a.OutputId(): {outputdev1a.OutputId(), outputdev2b.OutputId()}},
-		//{inputdev2b.OutputId(): {outputdev1b.OutputId()}},
+	prof1, _ := reg.AddProfile("profile1", []_registry_old.ProfileSource{
+		//{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
+		//{inputdev2b.Id(): {outputdev1b.Id()}},
 		{
 			SourceId: src2dev.Id(),
-			Inputs: []registry.ProfileInput{
+			Inputs: []_registry_old.ProfileInput{
 				{
 					InputId: ins[0].Id(),
-					Sinks: []registry.ProfileSink{
+					Sinks: []_registry_old.ProfileSink{
 						{
 							SinkId: sink2dev.Id(),
-							Outputs: []registry.ProfileOutput{
+							Outputs: []_registry_old.ProfileOutput{
 								{
 									OutputId:      outputdev2b.Id(),
 									InputConfigId: cfgs[0].Id,
@@ -235,13 +235,13 @@ func main() {
 			},
 		},
 
-		//{inputdev1a.OutputId(): {outputdev2b.OutputId()}}, // audio
-		//{inputdev1b.OutputId(): {outputdev2b.OutputId()}}, // video
+		//{inputdev1a.Id(): {outputdev2b.Id()}}, // audio
+		//{inputdev1b.Id(): {outputdev2b.Id()}}, // video
 	})
 
 	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{
-	//	{input1a.OutputId(): {output1a.OutputId(), output2b.OutputId()}},
-	//	{input2b.OutputId(): {output1b.OutputId()}},
+	//	{input1a.Id(): {output1a.Id(), output2b.Id()}},
+	//	{input2b.Id(): {output1b.Id()}},
 	//})
 
 	//fmt.Println("==== registry ===")
@@ -268,7 +268,7 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 
-	//err = reg.ConfigureInput(inputdev1a.OutputId(), map[string]any{
+	//err = reg.ConfigureInput(inputdev1a.Id(), map[string]any{
 	//	"colors": []string{
 	//		"#4a1524",
 	//		"#065394",
@@ -283,7 +283,7 @@ func main() {
 
 	//time.Sleep(5 * time.Second)
 	//
-	//err = reg.SelectProfile(prof2.OutputId)
+	//err = reg.SelectProfile(prof2.Id)
 	//handle(err)
 
 	c := make(chan os.Signal, 1)

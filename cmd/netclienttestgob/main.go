@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"ledctl3/event"
 	"ledctl3/pkg/codec"
 )
@@ -10,19 +11,19 @@ func main() {
 	cod := codec.NewGobCodec[event.EventIface](
 		[]any{},
 		map[string]any{},
-		event.AssistedSetupEvent{},
-		event.AssistedSetupConfigEvent{},
-		event.CapabilitiesEvent{},
-		event.ConnectEvent{},
-		event.DataEvent{},
-		event.ListCapabilitiesEvent{},
-		event.SetInputConfigEvent{},
-		event.SetSinkActiveEvent{},
-		event.SetSourceActiveEvent{},
-		event.SetSourceIdleEvent{},
+		event.AssistedSetup{},
+		event.AssistedSetupConfig{},
+		event.Capabilities{},
+		event.Connect{},
+		event.Data{},
+		event.ListCapabilities{},
+		event.SetInputConfig{},
+		event.SetSinkActive{},
+		event.SetSourceActive{},
+		event.SetSourceIdle{},
 	)
 
-	b, err := cod.MarshalEvent(event.SetSourceIdleEvent{Event: event.Event{Type: event.SetSourceIdle}})
+	b, err := cod.MarshalEvent(event.SetSourceIdle{Event: event.Event{Type: event.SetSourceIdle}})
 	if err != nil {
 		panic(err)
 	}

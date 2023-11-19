@@ -4,25 +4,26 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"ledctl3/event"
-	"ledctl3/pkg/netbroker"
 	"net"
 	"time"
+
+	"ledctl3/event"
+	"ledctl3/pkg/netbroker"
 )
 
 func init() {
 	gob.Register([]any{})
 	gob.Register(map[string]any{})
-	gob.Register(event.AssistedSetupEvent{})
-	gob.Register(event.AssistedSetupConfigEvent{})
-	gob.Register(event.CapabilitiesEvent{})
-	gob.Register(event.ConnectEvent{})
-	gob.Register(event.DataEvent{})
-	gob.Register(event.ListCapabilitiesEvent{})
-	gob.Register(event.SetInputConfigEvent{})
-	gob.Register(event.SetSinkActiveEvent{})
-	gob.Register(event.SetSourceActiveEvent{})
-	gob.Register(event.SetSourceIdleEvent{})
+	gob.Register(event.AssistedSetup{})
+	gob.Register(event.AssistedSetupConfig{})
+	gob.Register(event.Capabilities{})
+	gob.Register(event.Connect{})
+	gob.Register(event.Data{})
+	gob.Register(event.ListCapabilities{})
+	gob.Register(event.SetInputConfig{})
+	gob.Register(event.SetSinkActive{})
+	gob.Register(event.SetSourceActive{})
+	gob.Register(event.SetSourceIdle{})
 }
 
 func main() {
@@ -60,7 +61,7 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	err := br.Send(addr, event.ConnectEvent{
+	err := br.Send(addr, event.Connect{
 		Event: event.Event{
 			Type: event.Connect,
 		},

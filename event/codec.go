@@ -2,21 +2,26 @@ package event
 
 import "ledctl3/pkg/codec"
 
-var Codec codec.Codec[EventIface]
+var Codec codec.Codec[Event]
 
 func init() {
-	Codec = codec.NewGobCodec[EventIface](
+	Codec = codec.NewGobCodec[Event](
 		[]any{},
 		map[string]any{},
-		AssistedSetupEvent{},
-		AssistedSetupConfigEvent{},
-		CapabilitiesEvent{},
-		ConnectEvent{},
-		DataEvent{},
-		ListCapabilitiesEvent{},
-		SetInputConfigEvent{},
-		SetSinkActiveEvent{},
-		SetSourceActiveEvent{},
-		SetSourceIdleEvent{},
+		AssistedSetup{},
+		AssistedSetupConfig{},
+		Capabilities{},
+		Connect{},
+		Data{},
+		ListCapabilities{},
+		SetInputConfig{},
+		SetSinkActive{},
+		SetSourceActive{},
+		SetSourceIdle{},
+		InputConnected{},
+		InputDisconnected{},
+		OutputConnected{},
+		OutputDisconnected{},
 	)
+
 }

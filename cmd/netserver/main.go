@@ -2,28 +2,29 @@ package main
 
 import (
 	"fmt"
-	"ledctl3/event"
-	"ledctl3/pkg/codec"
-	"ledctl3/pkg/netserver"
 	"net"
 	"sync"
 	"time"
+
+	"ledctl3/event"
+	"ledctl3/pkg/codec"
+	"ledctl3/pkg/netserver"
 )
 
 func main() {
 	cod := codec.NewGobCodec[event.EventIface](
 		[]any{},
 		map[string]any{},
-		event.AssistedSetupEvent{},
-		event.AssistedSetupConfigEvent{},
-		event.CapabilitiesEvent{},
-		event.ConnectEvent{},
-		event.DataEvent{},
-		event.ListCapabilitiesEvent{},
-		event.SetInputConfigEvent{},
-		event.SetSinkActiveEvent{},
-		event.SetSourceActiveEvent{},
-		event.SetSourceIdleEvent{},
+		event.AssistedSetup{},
+		event.AssistedSetupConfig{},
+		event.Capabilities{},
+		event.Connect{},
+		event.Data{},
+		event.ListCapabilities{},
+		event.SetInputConfig{},
+		event.SetSinkActive{},
+		event.SetSourceActive{},
+		event.SetSourceIdle{},
 	)
 
 	var ADDR net.Addr
@@ -52,7 +53,7 @@ func main() {
 			continue
 		}
 
-		err := cli.Send(addr, event.AssistedSetupEvent{
+		err := cli.Send(addr, event.AssistedSetup{
 			Event: event.Event{
 				Type: event.AssistedSetup,
 			},

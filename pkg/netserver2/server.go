@@ -13,13 +13,14 @@ import (
 )
 
 type Server[E any] struct {
-	mux       sync.Mutex
-	codec     codec.Codec[E]
-	ln        net.Listener
-	port      int
-	onConnect func(net.Addr)
-	handler   func(net.Addr, E)
-	conns     map[connId]net.Conn
+	mux               sync.Mutex
+	codec             codec.Codec[E]
+	ln                net.Listener
+	port              int
+	handler           func(string, E)
+	conns             map[connId]net.Conn
+	connectHandler    func(string)
+	disconnectHandler func(string)
 }
 
 type connId struct {
@@ -27,13 +28,11 @@ type connId struct {
 	addr string
 }
 
-func New[E any](port int, codec codec.Codec[E], onConnect func(net.Addr), handler func(net.Addr, E)) *Server[E] {
+func New[E any](port int, codec codec.Codec[E]) *Server[E] {
 	s := &Server[E]{
-		port:      port,
-		codec:     codec,
-		conns:     map[connId]net.Conn{},
-		onConnect: onConnect,
-		handler:   handler,
+		port:  port,
+		codec: codec,
+		conns: map[connId]net.Conn{},
 	}
 
 	return s
@@ -106,6 +105,16 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 	//fmt.Println("PROCESSING EVENTS FROM", addr)
 	//defer fmt.Println("HANDLE CONN DONE")
 
+	if s.disconnectHandler != nil {
+		defer func() {
+			s.disconnectHandler(addr.String())
+		}()
+	}
+
+	if s.connectHandler != nil {
+		s.connectHandler(addr.String())
+	}
+
 	defer func() {
 		id := connId{
 			netw: addr.Network(),
@@ -126,7 +135,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			n, err := conn.Read(sizeBuf)
 			if err != nil {
 				_ = conn.Close()
-				fmt.Println("error during read: ", err)
+				//fmt.Println("error during read: ", err)
 				return
 			}
 
@@ -146,7 +155,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			n, err := conn.Read(readBuf)
 			if err != nil {
 				_ = conn.Close()
-				fmt.Println("error during read: ", err)
+				//fmt.Println("error during read: ", err)
 				return
 			}
 
@@ -163,17 +172,19 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 
 			//fmt.Println("received msg")
 
-			s.handler(addr, e)
+			if s.handler != nil {
+				s.handler(addr.String(), e)
+			}
 
 			foundLength = false
 		}
 	}
 }
 
-func (s *Server[E]) Write(addr net.Addr, e E) error {
+func (s *Server[E]) Write(addr string, e E) error {
 	id := connId{
-		netw: addr.Network(),
-		addr: addr.String(),
+		netw: "tcp",
+		addr: addr,
 	}
 
 	s.mux.Lock()
@@ -207,4 +218,16 @@ func (s *Server[E]) Write(addr net.Addr, e E) error {
 	}
 
 	return nil
+}
+
+func (s *Server[E]) SetMessageHandler(h func(addr string, e E)) {
+	s.handler = h
+}
+
+func (s *Server[E]) SetConnectHandler(h func(addr string)) {
+	s.connectHandler = h
+}
+
+func (s *Server[E]) SetDisconnectHandler(h func(addr string)) {
+	s.disconnectHandler = h
 }

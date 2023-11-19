@@ -65,6 +65,10 @@ func (c *Capturer) Start() {
 		break
 	}
 
+	for _, in := range c.inputs {
+		fmt.Printf("%#v\n", in.capturer)
+	}
+
 	//fmt.Println("Capturer initialized")
 
 	go func() {

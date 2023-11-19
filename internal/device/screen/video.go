@@ -55,7 +55,10 @@ func (in *Input) Start(cfg types.InputConfig) error {
 	// reconfigure input and restart capture
 	in.started = true
 	in.cfg = cfg
-	in.capturer.captureCancel()
+
+	if in.capturer.captureCancel != nil {
+		in.capturer.captureCancel()
+	}
 
 	//in.display.Close()
 	//in.display.Capture(in.capturer.captureCtx, cfg.Framerate)

@@ -18,7 +18,7 @@ func init() {
 		SetSinkActive{},
 		SetSourceActive{},
 		SetSourceIdle{},
-		InputConnected{},
+		InputAdded{},
 		InputDisconnected{},
 		OutputConnected{},
 		OutputDisconnected{},

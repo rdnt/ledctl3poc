@@ -42,9 +42,9 @@ func (s *Device) handleConnect(addr string, e event.Connect) {
 	}
 
 	for _, in := range s.inputs {
-		fmt.Printf("%s: send InputConnected\n", addr)
+		fmt.Printf("%s: send InputAdded\n", addr)
 
-		err := s.write(addr, event.InputConnected{
+		err := s.write(addr, event.InputAdded{
 			Id:     in.Id(),
 			Type:   event.InputTypeDefault,
 			Schema: in.Schema(),

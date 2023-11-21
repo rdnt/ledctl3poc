@@ -99,7 +99,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 		r.handleConnect(addr, e)
 	case event.Disconnect:
 		r.handleDisconnect(addr, e)
-	case event.InputConnected:
+	case event.InputAdded:
 		r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
 		r.handleInputDisconnected(addr, e)
@@ -153,49 +153,52 @@ func (r *Registry) handleConnect(addr string, e event.Connect) {
 			}
 		}
 
-		sourceInputs := map[uuid.UUID][]event.SetSourceActiveInput{}
+		// TODO: an input can be offline, so this should be done when an input itself
+		// connects, not when the source device connects.
 
-		for inputId, outputIds := range io {
-
-			sourceId := r.inputDeviceId(inputId)
-			if sourceId != dev.Id {
-				continue
-			}
-
-			var outputs []event.SetSourceActiveOutput
-			for _, outputId := range outputIds {
-				sinkId := r.outputDeviceId(outputId)
-				outputs = append(outputs, event.SetSourceActiveOutput{
-					Id:     outputId,
-					SinkId: sinkId,
-					Leds:   r.state.Devices[sinkId].Outputs[outputId].Leds,
-					Config: nil,
-				})
-			}
-
-			sourceInputs[sourceId] = append(sourceInputs[sourceId], event.SetSourceActiveInput{
-				Id:      inputId,
-				Outputs: outputs,
-			})
-		}
-
-		for sourceId, inputs := range sourceInputs {
-			addr, ok := r.connsAddr[sourceId]
-			if !ok {
-				fmt.Println("source device not connected")
-				continue
-			}
-
-			err := r.send(addr, event.SetSourceActive{
-				Inputs: inputs,
-			})
-			if err != nil {
-				fmt.Println("error sending event:", err)
-				continue
-			}
-
-			fmt.Println("sent SetSourceActive to", addr)
-		}
+		//sourceInputs := map[uuid.UUID][]event.SetSourceActiveInput{}
+		//
+		//for inputId, outputIds := range io {
+		//
+		//	sourceId := r.inputDeviceId(inputId)
+		//	if sourceId != dev.Id {
+		//		continue
+		//	}
+		//
+		//	var outputs []event.SetSourceActiveOutput
+		//	for _, outputId := range outputIds {
+		//		sinkId := r.outputDeviceId(outputId)
+		//		outputs = append(outputs, event.SetSourceActiveOutput{
+		//			Id:     outputId,
+		//			SinkId: sinkId,
+		//			Leds:   r.state.Devices[sinkId].Outputs[outputId].Leds,
+		//			Config: nil,
+		//		})
+		//	}
+		//
+		//	sourceInputs[sourceId] = append(sourceInputs[sourceId], event.SetSourceActiveInput{
+		//		Id:      inputId,
+		//		Outputs: outputs,
+		//	})
+		//}
+		//
+		//for sourceId, inputs := range sourceInputs {
+		//	addr, ok := r.connsAddr[sourceId]
+		//	if !ok {
+		//		fmt.Println("source device not connected")
+		//		continue
+		//	}
+		//
+		//	err := r.send(addr, event.SetSourceActive{
+		//		Inputs: inputs,
+		//	})
+		//	if err != nil {
+		//		fmt.Println("error sending event:", err)
+		//		continue
+		//	}
+		//
+		//	fmt.Println("sent SetSourceActive to", addr)
+		//}
 
 		return
 	}
@@ -230,8 +233,8 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) {
 	delete(r.connsAddr, id)
 }
 
-func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {
-	fmt.Printf("%s: recv InputConnected\n", addr)
+func (r *Registry) handleInputConnected(addr string, e event.InputAdded) {
+	fmt.Printf("%s: recv InputAdded\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
@@ -247,6 +250,49 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {
 
 	dev.ConnectInput(e.Id, string(e.Type))
 	r.state.Devices[id] = dev
+
+	var outputIds []uuid.UUID
+
+	for _, id := range r.state.ActiveProfiles {
+		prof, ok := r.state.Profiles[id]
+		if !ok {
+			continue
+		}
+
+		for inputId, outIds := range prof.InputOutput {
+			if inputId != e.Id {
+				continue
+			}
+
+			outputIds = append(outputIds, outIds...)
+		}
+	}
+
+	var outputs []event.SetSourceActiveOutput
+	for _, outputId := range outputIds {
+		sinkId := r.outputDeviceId(outputId)
+		outputs = append(outputs, event.SetSourceActiveOutput{
+			Id:     outputId,
+			SinkId: sinkId,
+			Leds:   r.state.Devices[sinkId].Outputs[outputId].Leds,
+			Config: nil,
+		})
+	}
+
+	err := r.send(addr, event.SetSourceActive{
+		Inputs: []event.SetSourceActiveInput{
+			{
+				Id:      e.Id,
+				Outputs: outputs,
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return
+	}
+
+	fmt.Println("sent SetSourceActive to", addr)
 }
 
 func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) {
@@ -266,6 +312,8 @@ func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnecte
 
 	dev.DisconnectInput(e.Id)
 	r.state.Devices[id] = dev
+
+	r.state.ActiveProfiles = []uuid.UUID{}
 }
 
 func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) {

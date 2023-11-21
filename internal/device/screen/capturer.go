@@ -197,6 +197,9 @@ func (c *Capturer) run() error {
 
 	for id, in := range c.inputs {
 		//c.src.RemoveInput(id) // TODO: race when listing capabilities
+		if in.display == nil {
+			continue
+		}
 		_ = in.display.Close()
 		in.display = nil
 		//delete(c.inputs, id)

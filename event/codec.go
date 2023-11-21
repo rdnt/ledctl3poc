@@ -1,6 +1,10 @@
 package event
 
-import "ledctl3/pkg/codec"
+import (
+	"image/color"
+
+	"ledctl3/pkg/codec"
+)
 
 var Codec codec.Codec[Event]
 
@@ -19,9 +23,11 @@ func init() {
 		SetSourceActive{},
 		SetSourceIdle{},
 		InputAdded{},
+		InputConnected{},
 		InputDisconnected{},
 		OutputConnected{},
 		OutputDisconnected{},
+		color.NRGBA{},
 	)
 
 }

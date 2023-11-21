@@ -39,6 +39,11 @@ func (d *Device) ConnectOutput(id uuid.UUID, leds int) {
 	out, ok := d.Outputs[id]
 	if !ok {
 		out = NewOutput(id, leds, true)
+
+		if d.Outputs == nil {
+			d.Outputs = make(map[uuid.UUID]*Output)
+		}
+
 		d.Outputs[out.Id] = out
 	}
 
@@ -49,6 +54,11 @@ func (d *Device) ConnectInput(id uuid.UUID, typ string) {
 	in, ok := d.Inputs[id]
 	if !ok {
 		in = NewInput(id, typ, true)
+
+		if d.Inputs == nil {
+			d.Inputs = make(map[uuid.UUID]*Input)
+		}
+
 		d.Inputs[in.Id] = in
 	}
 

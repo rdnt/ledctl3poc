@@ -7,7 +7,6 @@ import (
 	"ledctl3/event"
 	"ledctl3/internal/device"
 	"ledctl3/internal/device/debug_output"
-	screensrc "ledctl3/internal/device/screen"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver2"
 	"ledctl3/pkg/uuid"
@@ -18,7 +17,7 @@ func main() {
 
 	dev, err := device.New(
 		device.Config{
-			Id: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
+			Id: uuid.MustParse("66666666-dca5-430b-971c-fbe5b9112bfe"),
 		},
 		func(addr string, e event.Event) error {
 			return s.Write(addr, e)
@@ -27,19 +26,10 @@ func main() {
 		panic(err)
 	}
 
-	// 22222222-b301-47d6-b289-2a4c3327962a
-	// 33333333-e72d-470e-a343-5c2cc2f1746f
-	screenProv, err := screensrc.New(dev)
-	if err != nil {
-		panic(err)
-	}
-
-	screenProv.Start()
-
-	out := debug_output.New(uuid.MustParse("55558888-6b50-4789-b635-16237d268efa"), 40)
+	out := debug_output.New(uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"), 40)
 	dev.AddOutput(out)
 
-	out2 := debug_output.New(uuid.MustParse("55559999-ebd3-46dd-9d27-3d7d8443c715"), 80)
+	out2 := debug_output.New(uuid.MustParse("99999999-ebd3-46dd-9d27-3d7d8443c715"), 80)
 	dev.AddOutput(out2)
 
 	s.SetMessageHandler(func(addr string, e event.Event) {

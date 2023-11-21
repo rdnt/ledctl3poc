@@ -43,7 +43,7 @@ func (s *Device) AddInput(in common.Input) {
 		// forward messages from input to the network
 		for e := range in.Events() {
 
-			if in.Id() == s.id {
+			if e.SinkId == s.id {
 				// deliver to local device outputs
 
 				for _, out := range e.Outputs {
@@ -64,6 +64,19 @@ func (s *Device) AddInput(in common.Input) {
 					Id:  output.OutputId,
 					Pix: output.Pix,
 				})
+			}
+
+			if s.regAddr == "" {
+				fmt.Println("no registry addr")
+				continue
+			}
+
+			err := s.write(s.regAddr, event.Data{
+				SinkId:  e.SinkId,
+				Outputs: outputs,
+			})
+			if err != nil {
+				fmt.Println("write error:", err)
 			}
 
 			//s.messages <- Message{
@@ -93,4 +106,15 @@ func (s *Device) RemoveOutput(id uuid.UUID) {
 	//fmt.Println("REMOVE OUTPUT CALLED", id)
 
 	delete(s.outputs, id)
+}
+
+func (s *Device) handleData(addr string, e event.Data) {
+	for _, out := range e.Outputs {
+		if _, ok := s.outputs[out.Id]; !ok {
+			fmt.Println("output not found", out.Id)
+			continue
+		}
+
+		s.outputs[out.Id].Render(out.Pix)
+	}
 }

@@ -7,8 +7,8 @@ import (
 )
 
 type Data struct {
-	SessionId uuid.UUID
-	Outputs   []DataOutput
+	SinkId  uuid.UUID
+	Outputs []DataOutput
 }
 
 type DataOutput struct {

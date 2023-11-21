@@ -21,6 +21,8 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 		s.handleDisconnect(addr, e)
 	case event.SetSourceActive:
 		s.handleSetSourceActive(addr, e)
+	case event.Data:
+		s.handleData(addr, e)
 	//case event.ListCapabilities:
 	//	s.handleListCapabilitiesEvent(addr, e)
 	default:
@@ -42,12 +44,12 @@ func (s *Device) handleConnect(addr string, e event.Connect) {
 	}
 
 	for _, in := range s.inputs {
-		fmt.Printf("%s: send InputAdded\n", addr)
+		fmt.Printf("%s: send InputConnected\n", addr)
 
-		err := s.write(addr, event.InputAdded{
-			Id:     in.Id(),
-			Type:   event.InputTypeDefault,
-			Schema: in.Schema(),
+		err := s.write(addr, event.InputConnected{
+			Id: in.Id(),
+			//Type:   event.InputTypeDefault,
+			//Schema: in.Schema(),
 		})
 		if err != nil {
 			fmt.Println("error writing to addr", addr, err)

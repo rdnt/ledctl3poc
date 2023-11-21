@@ -1,6 +1,8 @@
 package screen
 
 import (
+	"fmt"
+	"image/color"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -52,9 +54,32 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
+
+	if fmt.Sprintf("%+v", cfg) == fmt.Sprintf("%+v", in.cfg) {
+		fmt.Println("config unchanged")
+		return nil
+	}
 	// reconfigure input and restart capture
 	in.started = true
+
 	in.cfg = cfg
+
+	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
+
+	width := in.display.Width()
+	height := in.display.Width()
+
+	for _, out := range cfg.Outputs {
+		reverse, _ := out.Config["reverse"].(bool)
+
+		in.outputs[out.Id] = outputCaptureConfig{
+			id:      out.Id,
+			sinkId:  out.SinkId,
+			leds:    out.Leds,
+			reverse: reverse,
+			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
+		}
+	}
 
 	if in.capturer.captureCancel != nil {
 		in.capturer.captureCancel()
@@ -239,11 +264,29 @@ func (in *Input) processFrame(pix []byte) {
 
 	//wg.Wait()
 
+	var outs = []types.UpdateEventOutput{}
+	for _, out := range in.outputs {
+
+		pix := make([]color.Color, out.leds)
+		for i := 0; i < out.leds; i++ {
+			pix[i] = color.NRGBA{
+				R: uint8(i % 255),
+				G: 0,
+				B: 0,
+				A: 255,
+			}
+		}
+		outs = append(outs, types.UpdateEventOutput{
+			OutputId: out.id,
+			Pix:      pix,
+		})
+	}
+
 	for _, out := range in.outputs {
 		select {
 		case in.events <- types.UpdateEvent{
-			SinkId: out.sinkId,
-			//Segments: segs,
+			SinkId:  out.sinkId,
+			Outputs: outs,
 			Latency: time.Since(now),
 		}:
 		default:

@@ -107,6 +107,8 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 		r.handleOutputConnected(addr, e)
 	case event.OutputDisconnected:
 		r.handleOutputDisconnected(addr, e)
+	case event.Data:
+		r.handleData(addr, e)
 	default:
 		fmt.Println("unknown event", e)
 	}
@@ -511,4 +513,18 @@ func (r *Registry) inputDeviceId(id uuid.UUID) uuid.UUID {
 		}
 	}
 	return uuid.Nil
+}
+
+func (r *Registry) handleData(_ string, e event.Data) {
+	addr, ok := r.connsAddr[e.SinkId]
+	if !ok {
+		fmt.Println("unknown sink device:", e.SinkId)
+		return
+	}
+
+	err := r.send(addr, e)
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return
+	}
 }

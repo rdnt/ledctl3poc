@@ -11,7 +11,6 @@ require (
 	github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/moutend/go-wca v0.3.0
-	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
 	github.com/radovskyb/watcher v1.0.7
 	github.com/samber/lo v1.38.1

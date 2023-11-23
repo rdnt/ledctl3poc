@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
-	"time"
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
@@ -63,17 +61,10 @@ func main() {
 		panic(err)
 	}
 
-	var addr net.Addr
-	for {
-		fmt.Println("lookup")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		addr, err = mdnsResolver.Lookup(ctx)
-		cancel()
-		if err != nil {
-			fmt.Println("error resolving: ", err)
-			continue
-		}
-		break
+	fmt.Println("lookup")
+	addr, err := mdnsResolver.Lookup(context.Background())
+	if err != nil {
+		panic(err)
 	}
 
 	for {

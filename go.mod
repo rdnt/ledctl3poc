@@ -7,7 +7,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6
 	github.com/google/uuid v1.2.0
 	github.com/gookit/color v1.5.3
-	github.com/grandcat/zeroconf v1.0.0
+	github.com/grandcat/zeroconf v1.0.1-0.20230119201135-e4f60f8407b1
 	github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/moutend/go-wca v0.3.0

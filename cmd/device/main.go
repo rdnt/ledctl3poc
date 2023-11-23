@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
@@ -61,12 +63,20 @@ func main() {
 		panic(err)
 	}
 
+	var addr net.Addr
 	for {
-		addr, err := mdnsResolver.Lookup(context.Background())
+		fmt.Println("lookup")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		addr, err = mdnsResolver.Lookup(ctx)
+		cancel()
 		if err != nil {
 			fmt.Println("error resolving: ", err)
 			continue
 		}
+		break
+	}
+
+	for {
 
 		//fmt.Println("@@@@@@@@@@@ CONNECTING")
 
@@ -79,7 +89,4 @@ func main() {
 
 		//fmt.Println("@@@@@@@@@@@@ CONNECTION INTERRUPTED")
 	}
-
-	fmt.Println("idle")
-	select {}
 }

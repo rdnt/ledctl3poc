@@ -135,7 +135,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			n, err := conn.Read(sizeBuf)
 			if err != nil {
 				_ = conn.Close()
-				//fmt.Println("error during read: ", err)
+				fmt.Println("error during read: ", err)
 				return
 			}
 
@@ -155,7 +155,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			n, err := conn.Read(readBuf)
 			if err != nil {
 				_ = conn.Close()
-				//fmt.Println("error during read: ", err)
+				fmt.Println("error during read: ", err)
 				return
 			}
 
@@ -167,6 +167,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			var e E
 			err = s.codec.UnmarshalEvent(readBuf, &e)
 			if err != nil {
+				fmt.Println("error during unmarshal: ", err)
 				continue
 			}
 
@@ -190,16 +191,20 @@ func (s *Server[E]) Write(addr string, e E) error {
 	s.mux.Lock()
 	conn, ok := s.conns[id]
 	s.mux.Unlock()
+
 	if !ok {
+		fmt.Println("no connection for addr", addr)
 		return io.ErrClosedPipe
 	}
 
 	if conn == nil {
+		fmt.Println("conn nil for addr", addr)
 		return io.ErrClosedPipe
 	}
 
 	buf, err := s.codec.MarshalEvent(e)
 	if err != nil {
+		fmt.Println("error during marshal: ", err)
 		return err
 	}
 
@@ -209,11 +214,13 @@ func (s *Server[E]) Write(addr string, e E) error {
 
 	n, err := conn.Write(buf)
 	if err != nil {
+		fmt.Println("error during write: ", err)
 		_ = conn.Close()
 		return err
 	}
 
 	if n != len(buf) {
+		fmt.Println("short write")
 		return io.ErrShortWrite
 	}
 

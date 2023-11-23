@@ -26,7 +26,7 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 	//case event.ListCapabilities:
 	//	s.handleListCapabilitiesEvent(addr, e)
 	default:
-		fmt.Println("unknown event", e)
+		fmt.Printf("unknown event %#v\n", e)
 	}
 
 	//fmt.Println("ProcessEvents done")

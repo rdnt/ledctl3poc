@@ -77,7 +77,7 @@ func New(write func(addr string, e event.Event) error) *Registry {
 		}
 	}
 
-	fmt.Println("Starting with state", fmt.Sprintf("%#v", state))
+	//fmt.Println("Starting with state", fmt.Sprintf("%#v", state))
 
 	return &Registry{
 		conns:     make(map[string]uuid.UUID),
@@ -99,7 +99,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 		r.handleConnect(addr, e)
 	case event.Disconnect:
 		r.handleDisconnect(addr, e)
-	case event.InputAdded:
+	case event.InputConnected:
 		r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
 		r.handleInputDisconnected(addr, e)
@@ -110,7 +110,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 	case event.Data:
 		r.handleData(addr, e)
 	default:
-		fmt.Println("unknown event", e)
+		fmt.Printf("unknown event %#v\n", e)
 	}
 
 	//fmt.Println("Saving state", fmt.Sprintf("%#v", *r.state))
@@ -235,7 +235,7 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) {
 	delete(r.connsAddr, id)
 }
 
-func (r *Registry) handleInputConnected(addr string, e event.InputAdded) {
+func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {
 	fmt.Printf("%s: recv InputAdded\n", addr)
 
 	id, ok := r.conns[addr]
@@ -250,7 +250,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputAdded) {
 		return
 	}
 
-	dev.ConnectInput(e.Id, string(e.Type))
+	dev.ConnectInput(e.Id, string("todo"))
 	r.state.Devices[id] = dev
 
 	var outputIds []uuid.UUID

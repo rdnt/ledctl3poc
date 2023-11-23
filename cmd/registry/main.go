@@ -23,12 +23,15 @@ func main() {
 	})
 
 	s.SetConnectHandler(func(addr string) {
-		fmt.Println("device connected")
+		//fmt.Println("device connected")
 	})
 
 	s.SetDisconnectHandler(func(addr string) {
 		reg.ProcessEvent(addr, event.Disconnect{})
 	})
+
+	time.Sleep(1 * time.Second)
+	fmt.Println("registry started")
 
 	err := s.Start()
 	if err != nil {
@@ -46,8 +49,9 @@ func main() {
 	}
 
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(10 * time.Second)
 
+		fmt.Println("Activating profile!")
 		err = reg.SelectProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
 		if err != nil {
 			panic(err)

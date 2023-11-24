@@ -522,6 +522,7 @@ func (r *Registry) handleData(_ string, e event.Data) {
 		return
 	}
 
+	fmt.Print(".")
 	err := r.send(addr, e)
 	if err != nil {
 		fmt.Println("error sending event:", err)

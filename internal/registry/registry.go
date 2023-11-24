@@ -2,10 +2,8 @@ package registry
 
 import (
 	"encoding/gob"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"sync"
 
@@ -13,35 +11,8 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-type sh struct {
-}
-
 func init() {
 	gob.Register(State{})
-}
-
-func (s sh) SetState(state State) error {
-	b, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile("registry.json", b, 0644)
-}
-
-func (s sh) GetState() (State, error) {
-	b, err := os.ReadFile("registry.json")
-	if err != nil {
-		return State{}, err
-	}
-
-	var state State
-	err = json.Unmarshal(b, &state)
-	if err != nil {
-		return State{}, err
-	}
-
-	return state, nil
 }
 
 type StateHolder interface {
@@ -64,8 +35,7 @@ type Registry struct {
 	sh        StateHolder
 }
 
-func New(write func(addr string, e event.Event) error) *Registry {
-	sh := sh{}
+func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry {
 	state, err := sh.GetState()
 	if err == nil {
 		//fmt.Println("Loaded state", state)
@@ -88,17 +58,18 @@ func New(write func(addr string, e event.Event) error) *Registry {
 	}
 }
 
-func (r *Registry) ProcessEvent(addr string, e event.Event) {
+func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
 	//fmt.Println("ProcessEvents")
 
+	var err error
 	switch e := e.(type) {
 	case event.Connect:
-		r.handleConnect(addr, e)
+		err = r.handleConnect(addr, e)
 	case event.Disconnect:
-		r.handleDisconnect(addr, e)
+		err = r.handleDisconnect(addr, e)
 	case event.InputConnected:
 		r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
@@ -113,13 +84,18 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) {
 		fmt.Printf("unknown event %#v\n", e)
 	}
 
+	if err != nil {
+		return err
+	}
+
 	//fmt.Println("Saving state", fmt.Sprintf("%#v", *r.state))
-	err := r.sh.SetState(*r.state)
+	err = r.sh.SetState(*r.state)
 	if err != nil {
 		fmt.Println("error writing state", err)
 	}
 
 	//fmt.Println("ProcessEvents done")
+	return nil
 }
 
 func (r *Registry) send(addr string, e any) error {
@@ -131,8 +107,14 @@ func (r *Registry) send(addr string, e any) error {
 	return r.write(addr, e)
 }
 
-func (r *Registry) handleConnect(addr string, e event.Connect) {
+var ErrDeviceConnected = errors.New("device already connected")
+
+func (r *Registry) handleConnect(addr string, e event.Connect) error {
 	fmt.Printf("%s: recv Connect\n", addr)
+
+	if _, ok := r.conns[addr]; ok {
+		return ErrDeviceConnected
+	}
 
 	r.conns[addr] = e.Id
 	r.connsAddr[e.Id] = addr
@@ -141,98 +123,37 @@ func (r *Registry) handleConnect(addr string, e event.Connect) {
 		dev.Connect()
 		r.state.Devices[e.Id] = dev
 
-		fmt.Println("device Connected:", e.Id)
+		fmt.Println("device connected:", e.Id)
 
-		io := map[uuid.UUID][]uuid.UUID{}
-		for _, id := range r.state.ActiveProfiles {
-			prof, ok := r.state.Profiles[id]
-			if !ok {
-				continue
-			}
-
-			for inputId, outputIds := range prof.InputOutput {
-				io[inputId] = append(io[inputId], outputIds...)
-			}
-		}
-
-		// TODO: an input can be offline, so this should be done when an input itself
-		// connects, not when the source device connects.
-
-		//sourceInputs := map[uuid.UUID][]event.SetSourceActiveInput{}
-		//
-		//for inputId, outputIds := range io {
-		//
-		//	sourceId := r.inputDeviceId(inputId)
-		//	if sourceId != dev.Id {
-		//		continue
-		//	}
-		//
-		//	var outputs []event.SetSourceActiveOutput
-		//	for _, outputId := range outputIds {
-		//		sinkId := r.outputDeviceId(outputId)
-		//		outputs = append(outputs, event.SetSourceActiveOutput{
-		//			Id:     outputId,
-		//			SinkId: sinkId,
-		//			Leds:   r.state.Devices[sinkId].Outputs[outputId].Leds,
-		//			Config: nil,
-		//		})
-		//	}
-		//
-		//	sourceInputs[sourceId] = append(sourceInputs[sourceId], event.SetSourceActiveInput{
-		//		Id:      inputId,
-		//		Outputs: outputs,
-		//	})
-		//}
-		//
-		//for sourceId, inputs := range sourceInputs {
-		//	addr, ok := r.connsAddr[sourceId]
-		//	if !ok {
-		//		fmt.Println("source device not connected")
-		//		continue
-		//	}
-		//
-		//	err := r.send(addr, event.SetSourceActive{
-		//		Inputs: inputs,
-		//	})
-		//	if err != nil {
-		//		fmt.Println("error sending event:", err)
-		//		continue
-		//	}
-		//
-		//	fmt.Println("sent SetSourceActive to", addr)
-		//}
-
-		return
+		return nil
 	}
-
-	fmt.Println("unknown Device Connected:", e.Id)
 
 	r.state.Devices[e.Id] = NewDevice(e.Id, true)
 
 	fmt.Println("device added:", e.Id)
-	return
+
+	return nil
 }
 
-func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) {
+var ErrDeviceDisconnected = errors.New("device already disconnected")
+
+func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
-		fmt.Println("unknown conn disconnected", addr)
-		return
+		return ErrDeviceDisconnected
 	}
 
-	dev, ok := r.state.Devices[id]
-	if !ok {
-		fmt.Println("unknown Device:", id)
-		return
-	}
+	dev := r.state.Devices[id]
 
 	dev.Disconnect()
 	r.state.Devices[id] = dev
 
 	delete(r.conns, addr)
 	delete(r.connsAddr, id)
+
+	return nil
 }
 
 func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {

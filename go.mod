@@ -19,11 +19,13 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/image v0.6.0
 	gonum.org/v1/gonum v0.13.0
+	gotest.tools/v3 v3.5.1
 )
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect

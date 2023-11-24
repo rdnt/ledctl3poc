@@ -67,7 +67,6 @@ func (s *Device) AddInput(in common.Input) {
 			}
 
 			if s.regAddr == "" {
-				fmt.Println("no registry addr")
 				continue
 			}
 

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"ledctl3/event"
@@ -11,10 +13,38 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
+type sh struct {
+}
+
+func (s sh) SetState(state registry.State) error {
+	b, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile("registry.json", b, 0644)
+}
+
+func (s sh) GetState() (registry.State, error) {
+	b, err := os.ReadFile("registry.json")
+	if err != nil {
+		return registry.State{}, err
+	}
+
+	var state registry.State
+	err = json.Unmarshal(b, &state)
+	if err != nil {
+		return registry.State{}, err
+	}
+
+	return state, nil
+}
+
 func main() {
 	s := netserver2.New[event.Event](1337, event.Codec)
 
-	reg := registry.New(func(addr string, e event.Event) error {
+	sh := sh{}
+	reg := registry.New(sh, func(addr string, e event.Event) error {
 		return s.Write(addr, e)
 	})
 

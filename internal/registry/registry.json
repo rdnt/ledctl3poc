@@ -1,0 +1,15 @@
+{
+  "devices": {
+    "7b38f0ad-10dd-44a7-986d-5e0580e49c9a": {
+      "id": "7b38f0ad-10dd-44a7-986d-5e0580e49c9a",
+      "inputs": {},
+      "outputs": {}
+    },
+    "fe7db664-f284-4c96-b1bc-c8e4d0cef19e": {
+      "id": "fe7db664-f284-4c96-b1bc-c8e4d0cef19e",
+      "inputs": {},
+      "outputs": {}
+    }
+  },
+  "profiles": {}
+}

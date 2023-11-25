@@ -41,10 +41,15 @@ func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry
 		//fmt.Println("Loaded State", State)
 	} else {
 		fmt.Println("error reading State", err)
-		state = State{
-			Devices:  make(map[uuid.UUID]*Device),
-			Profiles: make(map[uuid.UUID]Profile),
-		}
+		state = State{}
+	}
+
+	if state.Devices == nil {
+		state.Devices = make(map[uuid.UUID]*Device)
+	}
+
+	if state.Profiles == nil {
+		state.Profiles = make(map[uuid.UUID]Profile)
 	}
 
 	//fmt.Println("Starting with State", fmt.Sprintf("%#v", State))
@@ -135,14 +140,12 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 	return nil
 }
 
-var ErrDeviceDisconnected = errors.New("device already disconnected")
-
 func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return ErrDeviceDisconnected
+		return errors.New("device already disconnected")
 	}
 
 	dev := r.State.Devices[id]
@@ -160,7 +163,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return ErrDeviceDisconnected
+		return errors.New("device disconnected")
 	}
 
 	dev := r.State.Devices[id]
@@ -221,7 +224,7 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return ErrDeviceDisconnected
+		return errors.New("device disconnected")
 	}
 
 	dev := r.State.Devices[id]
@@ -287,35 +290,37 @@ type IOConfig struct {
 //	InputConfigId uuid.UUID `json:"input_config_id"`
 //}
 
+var ErrEmptyIO = errors.New("empty io")
+
 func (r *Registry) CreateProfile(name string, io []IOConfig) (Profile, error) {
+	if len(io) == 0 {
+		return Profile{}, ErrEmptyIO
+	}
+
 	prof := Profile{
 		Id:   uuid.New(),
 		Name: name,
 		IO:   io,
 	}
 
-	if r.State.Profiles == nil {
-		r.State.Profiles = make(map[uuid.UUID]Profile)
-	}
-
 	r.State.Profiles[prof.Id] = prof
 
 	err := r.sh.SetState(*r.State)
 	if err != nil {
-		fmt.Println("error writing State", err)
+		return Profile{}, err
 	}
 
 	return prof, nil
 }
 
-func (r *Registry) SelectProfile(id uuid.UUID) error {
+func (r *Registry) EnableProfile(id uuid.UUID) error {
 	prof, ok := r.State.Profiles[id]
 	if !ok {
 		return errors.New("profile not found")
 	}
 
 	if slices.Contains(r.State.ActiveProfiles, id) {
-		return errors.New("profile already active")
+		return errors.New("profile already enabled")
 	}
 
 	activeOutputIds := r.activeOutputs()
@@ -324,7 +329,6 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 	// maybe in the future, input data can be combined to the same
 	// output with some transformer function, e.g. one input
 	// modifying hue/sat and another modifying brightness.
-
 	for _, io := range prof.IO {
 		if slices.Contains(activeOutputIds, io.OutputId) {
 			return errors.New("output already in use")
@@ -338,49 +342,27 @@ func (r *Registry) SelectProfile(id uuid.UUID) error {
 		fmt.Println("error writing State", err)
 	}
 
-	sourceInputs := map[uuid.UUID][]event.SetSourceActiveInput{}
+	for _, io := range prof.IO {
+		srcDev := r.State.Devices[r.inputDeviceId(io.InputId)]
+		sinkDev := r.State.Devices[r.outputDeviceId(io.OutputId)]
 
-	// TODO: @@@
-	//for _, io := range prof.IO {
-	//	inputId := io.InputId
-	//	var outputs []event.SetSourceActiveOutput
-	//
-	//		sinkId := r.outputDeviceId(io.OutputId)
-	//		outputs = append(outputs, event.SetSourceActiveOutput{
-	//			Id:     io.OutputId,
-	//			SinkId: sinkId,
-	//			Leds:   r.State.Devices[sinkId].Outputs[outputId].Leds,
-	//			Config: nil,
-	//		})
-	//
-	//	sourceId := r.inputDeviceId(inputId)
-	//
-	//	sourceInputs[sourceId] = append(sourceInputs[sourceId], event.SetSourceActiveInput{
-	//		Id:      inputId,
-	//		Outputs: outputs,
-	//	})
-	//}
-
-	for sourceId, inputs := range sourceInputs {
-		addr, ok := r.connsAddr[sourceId]
-		if !ok {
-			fmt.Println("source device not connected")
-			continue
-		}
-
-		err = r.send(addr, event.SetSourceActive{
-			Inputs: inputs,
+		err = r.send(r.connsAddr[srcDev.Id], event.SetInputActive{
+			Id: io.InputId,
+			Outputs: []event.SetInputActiveOutput{
+				{
+					Id:     io.OutputId,
+					Leds:   sinkDev.Outputs[io.OutputId].Leds,
+					Config: io.Config,
+				},
+			},
 		})
 		if err != nil {
 			fmt.Println("error sending event:", err)
 			continue
 		}
-
-		fmt.Println("sent SetSourceActive to", addr)
 	}
 
-	fmt.Println("profile activated:", id)
-
+	fmt.Println("profile enabled:", id)
 	return nil
 }
 

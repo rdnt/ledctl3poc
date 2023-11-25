@@ -82,7 +82,7 @@ func main() {
 		time.Sleep(10 * time.Second)
 
 		fmt.Println("Activating profile!")
-		err = reg.SelectProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
+		err = reg.EnableProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
 		if err != nil {
 			panic(err)
 		}

@@ -283,7 +283,7 @@ func main() {
 
 	//time.Sleep(5 * time.Second)
 	//
-	//err = reg.SelectProfile(prof2.Id)
+	//err = reg.EnableProfile(prof2.Id)
 	//handle(err)
 
 	c := make(chan os.Signal, 1)

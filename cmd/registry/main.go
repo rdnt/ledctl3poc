@@ -90,7 +90,7 @@ func main() {
 
 	//go func() {
 	//	time.Sleep(5 * time.Second)
-	//	_, err = reg.AddProfile("custom", []registry.ProfileSource{
+	//	_, err = reg.CreateProfile("custom", []registry.ProfileSource{
 	//		{
 	//			Id: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
 	//			Inputs: []registry.ProfileInput{

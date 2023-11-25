@@ -288,12 +288,6 @@ type IOConfig struct {
 //}
 
 func (r *Registry) CreateProfile(name string, io []IOConfig) (Profile, error) {
-	prof := Profile{
-		Id:   uuid.New(),
-		Name: name,
-		IO:   io,
-	}
-
 	if r.State.Profiles == nil {
 		r.State.Profiles = make(map[uuid.UUID]Profile)
 	}

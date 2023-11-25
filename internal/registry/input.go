@@ -7,15 +7,17 @@ import (
 )
 
 type Input struct {
-	Id        uuid.UUID `json:"id"`
-	Type      string    `json:"type"`
-	Connected bool      `json:"-"`
+	Id        uuid.UUID      `json:"id"`
+	Schema    map[string]any `json:"schema"`
+	Config    map[string]any `json:"config"`
+	Connected bool           `json:"-"`
 }
 
-func NewInput(id uuid.UUID, typ string, connected bool) *Input {
+func NewInput(id uuid.UUID, schema, config map[string]any, connected bool) *Input {
 	return &Input{
 		Id:        id,
-		Type:      typ,
+		Schema:    schema,
+		Config:    config,
 		Connected: connected,
 	}
 }

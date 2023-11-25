@@ -35,10 +35,10 @@ func (d *Device) Disconnect() {
 	fmt.Println("device disconnected:", d.Id)
 }
 
-func (d *Device) ConnectOutput(id uuid.UUID, leds int) {
+func (d *Device) ConnectOutput(id uuid.UUID, leds int, schema, config map[string]any) {
 	out, ok := d.Outputs[id]
 	if !ok {
-		out = NewOutput(id, leds, true)
+		out = NewOutput(id, leds, schema, config, true)
 
 		if d.Outputs == nil {
 			d.Outputs = make(map[uuid.UUID]*Output)
@@ -50,10 +50,10 @@ func (d *Device) ConnectOutput(id uuid.UUID, leds int) {
 	out.Connect()
 }
 
-func (d *Device) ConnectInput(id uuid.UUID, typ string) {
+func (d *Device) ConnectInput(id uuid.UUID, schema, config map[string]any) {
 	in, ok := d.Inputs[id]
 	if !ok {
-		in = NewInput(id, typ, true)
+		in = NewInput(id, schema, config, true)
 
 		if d.Inputs == nil {
 			d.Inputs = make(map[uuid.UUID]*Input)

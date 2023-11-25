@@ -112,7 +112,7 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	//_, err = reg.AddProfile("profile1", []registry.ProfileSource{
+	//_, err = reg.CreateProfile("profile1", []registry.ProfileSource{
 	//	//{inputdev1a.Id(): {outputdev1a.Id(), outputdev2b.Id()}},
 	//	//{inputdev2b.Id(): {outputdev1b.Id()}},
 	//	{

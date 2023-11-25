@@ -239,7 +239,7 @@ func main() {
 		//{inputdev1b.Id(): {outputdev2b.Id()}}, // video
 	})
 
-	//prof2 := reg.AddProfile("profile2", []map[uuid.UUID][]uuid.UUID{
+	//prof2 := reg.CreateProfile("profile2", []map[uuid.UUID][]uuid.UUID{
 	//	{input1a.Id(): {output1a.Id(), output2b.Id()}},
 	//	{input2b.Id(): {output1b.Id()}},
 	//})

@@ -27,7 +27,7 @@ func (in *Input) ApplyConfig(cfg map[string]any) error {
 	//	return err
 	//}
 
-	fmt.Printf("applying config: %#in\n", cfg)
+	fmt.Printf("applying config: %#v\n", cfg)
 
 	return nil
 }

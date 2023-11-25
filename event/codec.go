@@ -22,7 +22,6 @@ func init() {
 		SetSinkActive{},
 		SetSourceActive{},
 		SetSourceIdle{},
-		InputAdded{},
 		InputConnected{},
 		InputDisconnected{},
 		OutputConnected{},

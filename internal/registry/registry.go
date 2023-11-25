@@ -156,22 +156,17 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 	return nil
 }
 
-func (r *Registry) handleInputConnected(addr string, e event.InputConnected) {
+func (r *Registry) handleInputConnected(addr string, e event.InputConnected) error {
 	fmt.Printf("%s: recv InputAdded\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
-		fmt.Println("unknown connection:", addr)
-		return
+		return ErrDeviceDisconnected
 	}
 
-	dev, ok := r.state.Devices[id]
-	if !ok {
-		fmt.Println("unknown Device:", id)
-		return
-	}
+	dev := r.state.Devices[id]
 
-	dev.ConnectInput(e.Id, string("todo"))
+	dev.ConnectInput(e.Id, string(e.Type))
 	r.state.Devices[id] = dev
 
 	var outputIds []uuid.UUID

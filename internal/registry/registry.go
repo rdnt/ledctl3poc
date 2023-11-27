@@ -78,11 +78,11 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	case event.InputConnected:
 		err = r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
-		r.handleInputDisconnected(addr, e)
+		err = r.handleInputDisconnected(addr, e)
 	case event.OutputConnected:
 		err = r.handleOutputConnected(addr, e)
 	case event.OutputDisconnected:
-		r.handleOutputDisconnected(addr, e)
+		err = r.handleOutputDisconnected(addr, e)
 	case event.Data:
 		r.handleData(addr, e)
 	default:
@@ -159,7 +159,7 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 }
 
 func (r *Registry) handleInputConnected(addr string, e event.InputConnected) error {
-	fmt.Printf("%s: recv InputAdded\n", addr)
+	fmt.Printf("%s: recv InputConnected\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
@@ -199,24 +199,19 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 	return nil
 }
 
-func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) {
+func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) error {
 	fmt.Printf("%s: recv InputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
-		fmt.Println("unknown connection:", addr)
-		return
+		return errors.New("device disconnected")
 	}
 
-	dev, ok := r.State.Devices[id]
-	if !ok {
-		fmt.Println("unknown device:", id)
-		return
-	}
+	dev := r.State.Devices[id]
 
 	dev.DisconnectInput(e.Id)
 
-	r.State.ActiveProfiles = []uuid.UUID{}
+	return nil
 }
 
 func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) error {
@@ -234,22 +229,19 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 	return nil
 }
 
-func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnected) {
+func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnected) error {
 	fmt.Printf("%s: recv OutputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {
-		fmt.Println("unknown connection:", addr)
-		return
+		return errors.New("device disconnected")
 	}
 
-	dev, ok := r.State.Devices[id]
-	if !ok {
-		fmt.Println("unknown Device:", id)
-		return
-	}
+	dev := r.State.Devices[id]
 
 	dev.DisconnectOutput(e.Id)
+
+	return nil
 }
 
 type Profile struct {
@@ -271,7 +263,7 @@ type IOConfig struct {
 //}
 //
 //type ProfileSource struct {
-//	Id     uuid.UUID      `json:"id"`
+//	Id     uuid.UUID 	     `json:"id"`
 //	Inputs []ProfileInput `json:"inputs"`
 //}
 //

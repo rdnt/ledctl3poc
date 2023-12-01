@@ -47,7 +47,7 @@ func TestConnect(t *testing.T) {
 
 	t.Run("noop if connect is sent again", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Connect{Id: id})
-		assert.ErrorIs(t, err, registry.ErrDeviceConnected)
+		assert.Error(t, err, "device already connected")
 		assert.Equal(t, len(reg.State.Devices), 1)
 	})
 

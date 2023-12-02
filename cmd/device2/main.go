@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"sync"
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
@@ -12,12 +16,31 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
+type Config struct {
+	DeviceId  uuid.UUID `json:"device_id"`
+	Output1Id uuid.UUID `json:"output1_id"`
+	Output2Id uuid.UUID `json:"output2_id"`
+}
+
 func main() {
+	fmt.Println("starting")
+
+	b, err := os.ReadFile("../device.json")
+	if err != nil {
+		panic(err)
+	}
+
+	var cfg Config
+	err = json.Unmarshal(b, &cfg)
+	if err != nil {
+		panic(err)
+	}
+
 	s := netserver2.New[event.Event](-1, event.Codec)
 
 	dev, err := device.New(
 		device.Config{
-			Id: uuid.MustParse("66666666-dca5-430b-971c-fbe5b9112bfe"),
+			Id: cfg.DeviceId,
 		},
 		func(addr string, e event.Event) error {
 			return s.Write(addr, e)
@@ -26,10 +49,10 @@ func main() {
 		panic(err)
 	}
 
-	out := debug_output.New(uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"), 40)
+	out := debug_output.New(cfg.Output1Id, 40)
 	dev.AddOutput(out)
 
-	out2 := debug_output.New(uuid.MustParse("99999999-ebd3-46dd-9d27-3d7d8443c715"), 80)
+	out2 := debug_output.New(cfg.Output2Id, 80)
 	dev.AddOutput(out2)
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
@@ -46,30 +69,49 @@ func main() {
 		dev.ProcessEvent(addr, event.Disconnect{})
 	})
 
+	fmt.Println(cfg.DeviceId, "started")
+
+	fmt.Println("resolving registry address")
+
 	mdnsResolver, err := mdns.NewResolver()
 	if err != nil {
 		panic(err)
 	}
 
-	for {
-		addr, err := mdnsResolver.Lookup(context.Background())
-		if err != nil {
-			fmt.Println("error resolving: ", err)
-			continue
-		}
-
-		//fmt.Println("@@@@@@@@@@@ CONNECTING")
-
-		conn, dispose := s.Connect(addr)
-		//fmt.Println("@@@@@@@@@@@ CONNECTED!")
-
-		s.ProcessEvents(addr, conn)
-
-		dispose()
-
-		//fmt.Println("@@@@@@@@@@@@ CONNECTION INTERRUPTED")
+	var allAddrs []net.Addr
+	var addrsMux sync.Mutex
+	addrs, err := mdnsResolver.Lookup(context.Background())
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Println("idle")
-	select {}
+	go func() {
+		for addr := range addrs {
+			addrsMux.Lock()
+			allAddrs = append(allAddrs, addr)
+			addrsMux.Unlock()
+		}
+	}()
+
+	for {
+		addrsMux.Lock()
+		addrs := allAddrs
+		addrsMux.Unlock()
+
+		for _, addr := range addrs {
+			fmt.Println("connecting to", addr)
+
+			conn, err := s.Connect(addr)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			s.ProcessEvents(addr, conn)
+
+			_ = conn.Close()
+
+			fmt.Println("disconnected from", addr)
+		}
+	}
 }

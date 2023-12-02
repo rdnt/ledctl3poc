@@ -38,27 +38,23 @@ func New[E any](port int, codec codec.Codec[E]) *Server[E] {
 	return s
 }
 
-func (s *Server[E]) Connect(addr net.Addr) (conn net.Conn, dispose func()) {
-	for {
-		c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
-		if err != nil {
-			fmt.Println("error during dial: ", err)
-			continue
-		}
-
-		id := connId{
-			netw: addr.Network(),
-			addr: addr.String(),
-		}
-
-		s.mux.Lock()
-		s.conns[id] = c
-		s.mux.Unlock()
-
-		return c, func() {
-			_ = c.Close()
-		}
+func (s *Server[E]) Connect(addr net.Addr) (net.Conn, error) {
+	c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
+	if err != nil {
+		fmt.Println("error during dial: ", err)
+		return nil, err
 	}
+
+	id := connId{
+		netw: addr.Network(),
+		addr: addr.String(),
+	}
+
+	s.mux.Lock()
+	s.conns[id] = c
+	s.mux.Unlock()
+
+	return c, nil
 }
 
 func (s *Server[E]) Start() error {
@@ -66,7 +62,7 @@ func (s *Server[E]) Start() error {
 		return errors.New("server disabled")
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", s.port))
 	if err != nil {
 		return err
 	}

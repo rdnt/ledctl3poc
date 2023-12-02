@@ -75,29 +75,51 @@ func main() {
 		dev.ProcessEvent(addr, event.Disconnect{})
 	})
 
+	fmt.Println(cfg.DeviceId, "started")
+
+	fmt.Println("resolving registry address")
+
 	mdnsResolver, err := mdns.NewResolver()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(cfg.DeviceId, "started")
-
-	addr, err := mdnsResolver.Lookup(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
 	for {
+		addrs, err := mdnsResolver.Lookup(context.Background())
+		if err != nil {
+			panic(err)
+		}
 
-		//fmt.Println("@@@@@@@@@@@ CONNECTING")
+		for addr := range addrs {
+			fmt.Println("connecting to", addr)
 
-		conn, dispose := s.Connect(addr)
-		//fmt.Println("@@@@@@@@@@@ CONNECTED!")
+			conn, err := s.Connect(addr)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 
-		s.ProcessEvents(addr, conn)
+			s.ProcessEvents(addr, conn)
 
-		dispose()
+			_ = conn.Close()
 
-		//fmt.Println("@@@@@@@@@@@@ CONNECTION INTERRUPTED")
+			fmt.Println("disconnected from", addr)
+
+			for {
+				fmt.Println("connecting to", addr)
+
+				conn, err := s.Connect(addr)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+
+				s.ProcessEvents(addr, conn)
+
+				_ = conn.Close()
+
+				fmt.Println("disconnected from", addr)
+			}
+		}
 	}
 }

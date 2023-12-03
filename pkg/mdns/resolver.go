@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/grandcat/zeroconf"
 )
@@ -13,37 +14,29 @@ type Resolver struct {
 	serviceName string
 }
 
-func NewResolver() (*Resolver, error) {
-	zr, err := zeroconf.NewResolver(nil)
-	if err != nil {
-		return nil, err
+func NewResolver() *Resolver {
+	r := &Resolver{
+		serviceName: "ledctl",
 	}
 
-	return &Resolver{
-		resolver:    zr,
-		serviceName: "ledctl",
-	}, nil
+	for {
+		zr, err := zeroconf.NewResolver(nil)
+		if err != nil {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		r.resolver = zr
+		break
+	}
+
+	return r
 }
 
 type OnRegistryFound func(addr net.Addr)
 
 type Device struct {
 	Addr net.Addr
-}
-
-var PrivateIPNetworks = []net.IPNet{
-	net.IPNet{
-		IP:   net.ParseIP("10.0.0.0"),
-		Mask: net.CIDRMask(8, 32),
-	},
-	net.IPNet{
-		IP:   net.ParseIP("172.16.0.0"),
-		Mask: net.CIDRMask(12, 32),
-	},
-	net.IPNet{
-		IP:   net.ParseIP("192.168.0.0"),
-		Mask: net.CIDRMask(16, 32),
-	},
 }
 
 func (r *Resolver) Browse(ctx context.Context) (<-chan net.Addr, error) {

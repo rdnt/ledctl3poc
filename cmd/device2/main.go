@@ -73,10 +73,7 @@ func main() {
 
 	fmt.Println("resolving registry address")
 
-	mdnsResolver, err := mdns.NewResolver()
-	if err != nil {
-		panic(err)
-	}
+	mdnsResolver := mdns.NewResolver()
 
 	var allAddrs []net.Addr
 	var addrsMux sync.Mutex

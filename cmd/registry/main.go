@@ -9,7 +9,7 @@ import (
 	"ledctl3/event"
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserver2"
+	"ledctl3/pkg/netserver"
 )
 
 type sh struct {
@@ -40,7 +40,7 @@ func (s sh) GetState() (registry.State, error) {
 }
 
 func main() {
-	s := netserver2.New[event.Event](1337, event.Codec)
+	s := netserver.New[event.Event](1337, event.Codec)
 
 	sh := sh{}
 	reg := registry.New(sh, func(addr string, e event.Event) error {

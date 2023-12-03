@@ -13,7 +13,7 @@ import (
 	"ledctl3/internal/device/debug_output"
 	screensrc "ledctl3/internal/device/screen"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserver2"
+	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
 )
 
@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	s := netserver2.New[event.Event](-1, event.Codec)
+	s := netserver.New[event.Event](-1, event.Codec)
 
 	dev, err := device.New(
 		device.Config{

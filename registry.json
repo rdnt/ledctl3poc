@@ -71,13 +71,76 @@
           "config": null
         }
       }
+    },
+    "ffffffff-0000-0000-0000-000000000000": {
+      "id": "ffffffff-0000-0000-0000-000000000000",
+      "inputs": {
+        "22222222-b301-47d6-b289-2a4c3327962a": {
+          "id": "22222222-b301-47d6-b289-2a4c3327962a",
+          "schema": null,
+          "config": null
+        },
+        "33333333-e72d-470e-a343-5c2cc2f1746f": {
+          "id": "33333333-e72d-470e-a343-5c2cc2f1746f",
+          "schema": null,
+          "config": null
+        }
+      },
+      "outputs": {
+        "ffffaaaa-0000-0000-0000-000000000000": {
+          "id": "ffffaaaa-0000-0000-0000-000000000000",
+          "leds": 40,
+          "schema": null,
+          "config": null
+        },
+        "ffffbbbb-0000-0000-0000-000000000000": {
+          "id": "ffffbbbb-0000-0000-0000-000000000000",
+          "leds": 80,
+          "schema": null,
+          "config": null
+        }
+      }
     }
   },
   "profiles": {
     "ffffffff-2e2d-4470-b9ab-c78786bf5667": {
       "id": "ffffffff-2e2d-4470-b9ab-c78786bf5667",
       "name": "custom",
-      "io": []
+      "io": [
+        {
+          "input_id": "22222222-b301-47d6-b289-2a4c3327962a",
+          "output_id": "ffffaaaa-0000-0000-0000-000000000000",
+          "config": null
+        },
+        {
+          "input_id": "22222222-b301-47d6-b289-2a4c3327962a",
+          "output_id": "0000aaaa-0000-0000-0000-000000000000",
+          "config": null
+        },
+        {
+          "input_id": "22222222-b301-47d6-b289-2a4c3327962a",
+          "output_id": "1111aaaa-0000-0000-0000-000000000000",
+          "config": null
+        },
+        {
+          "input_id": "22222222-b301-47d6-b289-2a4c3327962a",
+          "output_id": "2222aaaa-0000-0000-0000-000000000000",
+          "config": null
+        },
+        {
+          "input_id": "33333333-e72d-470e-a343-5c2cc2f1746f",
+          "output_id": "2222bbbb-0000-0000-0000-000000000000",
+          "config": null
+        },
+        {
+          "input_id": "33333333-e72d-470e-a343-5c2cc2f1746f",
+          "output_id": "3333bbbb-0000-0000-0000-000000000000",
+          "config": null
+        }
+      ]
     }
-  }
+  },
+  "activeProfiles": [
+    "ffffffff-2e2d-4470-b9ab-c78786bf5667"
+  ]
 }

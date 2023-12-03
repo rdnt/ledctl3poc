@@ -201,7 +201,7 @@ func (c *Capturer) run() error {
 			continue
 		}
 		_ = in.display.Close()
-		in.display = nil
+		//in.display = nil
 		//delete(c.inputs, id)
 		_ = id
 	}

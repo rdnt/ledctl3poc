@@ -23,7 +23,7 @@ type StateHolder interface {
 type State struct {
 	Devices        map[uuid.UUID]*Device `json:"devices"`
 	Profiles       map[uuid.UUID]Profile `json:"profiles"`
-	ActiveProfiles []uuid.UUID           `json:"-"` // TODO: persist active profiles for restarting if registry restarts
+	ActiveProfiles []uuid.UUID           `json:"activeProfiles"`
 }
 
 type Registry struct {
@@ -162,6 +162,7 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 			Outputs: []event.SetInputActiveOutput{
 				{
 					Id:     io.OutputId,
+					SinkId: sinkDev.Id,
 					Leds:   sinkDev.Outputs[io.OutputId].Leds,
 					Config: io.Config,
 				},

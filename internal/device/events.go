@@ -19,8 +19,10 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 		s.handleConnect(addr, e)
 	case event.Disconnect:
 		s.handleDisconnect(addr, e)
-	case event.SetSourceActive:
-		s.handleSetSourceActive(addr, e)
+	//case event.SetSourceActive:
+	//	s.handleSetSourceActive(addr, e)
+	case event.SetInputActive:
+		s.handleSetInputActive(addr, e)
 	case event.Data:
 		s.handleData(addr, e)
 	//case event.ListCapabilities:
@@ -143,4 +145,42 @@ func (s *Device) handleSetSourceActive(addr string, e event.SetSourceActive) {
 
 		fmt.Println("input started", input.Id)
 	}
+}
+
+func (s *Device) handleSetInputActive(addr string, e event.SetInputActive) {
+	fmt.Printf("%s: recv SetInputActive\n", addr)
+
+	b, err := json.Marshal(e)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(b))
+
+	in, ok := s.inputs[e.Id]
+	if !ok {
+		fmt.Println("in not found", e.Id)
+		return
+	}
+
+	var outputCfgs []types.OutputConfig
+	for _, output := range e.Outputs {
+		outputCfgs = append(outputCfgs, types.OutputConfig{
+			Id:     output.Id,
+			SinkId: output.SinkId,
+			Leds:   output.Leds,
+			Config: nil,
+		})
+	}
+
+	err = in.Start(types.InputConfig{
+		Framerate: 30,
+		Outputs:   outputCfgs,
+	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("input started", e.Id)
 }

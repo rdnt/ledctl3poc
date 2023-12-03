@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"sync"
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
@@ -79,18 +81,29 @@ func main() {
 
 	fmt.Println("resolving registry address")
 
-	mdnsResolver, err := mdns.NewResolver()
+	mdnsResolver := mdns.NewResolver()
+
+	var allAddrs []net.Addr
+	var addrsMux sync.Mutex
+	addrs, err := mdnsResolver.Lookup(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	for {
-		addrs, err := mdnsResolver.Lookup(context.Background())
-		if err != nil {
-			panic(err)
-		}
-
+	go func() {
 		for addr := range addrs {
+			addrsMux.Lock()
+			allAddrs = append(allAddrs, addr)
+			addrsMux.Unlock()
+		}
+	}()
+
+	for {
+		addrsMux.Lock()
+		addrs := allAddrs
+		addrsMux.Unlock()
+
+		for _, addr := range addrs {
 			fmt.Println("connecting to", addr)
 
 			conn, err := s.Connect(addr)
@@ -104,22 +117,6 @@ func main() {
 			_ = conn.Close()
 
 			fmt.Println("disconnected from", addr)
-
-			for {
-				fmt.Println("connecting to", addr)
-
-				conn, err := s.Connect(addr)
-				if err != nil {
-					fmt.Println(err)
-					continue
-				}
-
-				s.ProcessEvents(addr, conn)
-
-				_ = conn.Close()
-
-				fmt.Println("disconnected from", addr)
-			}
 		}
 	}
 }

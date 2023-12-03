@@ -3,6 +3,7 @@ package screen
 import (
 	"fmt"
 	"image/color"
+	"sync"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -14,6 +15,7 @@ import (
 )
 
 type Input struct {
+	mux      sync.Mutex
 	capturer *Capturer
 
 	uuid   uuid.UUID
@@ -54,6 +56,8 @@ func (in *Input) Id() uuid.UUID {
 }
 
 func (in *Input) Start(cfg types.InputConfig) error {
+	in.mux.Lock()
+	defer in.mux.Unlock()
 
 	if fmt.Sprintf("%+v", cfg) == fmt.Sprintf("%+v", in.cfg) {
 		fmt.Println("config unchanged")
@@ -264,9 +268,8 @@ func (in *Input) processFrame(pix []byte) {
 
 	//wg.Wait()
 
-	var outs = []types.UpdateEventOutput{}
+	var outs = map[uuid.UUID][]types.UpdateEventOutput{}
 	for _, out := range in.outputs {
-
 		pix := make([]color.Color, out.leds)
 		for i := 0; i < out.leds; i++ {
 			pix[i] = color.NRGBA{
@@ -276,16 +279,17 @@ func (in *Input) processFrame(pix []byte) {
 				A: 255,
 			}
 		}
-		outs = append(outs, types.UpdateEventOutput{
+
+		outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
 			OutputId: out.id,
 			Pix:      pix,
 		})
 	}
 
-	for _, out := range in.outputs {
+	for sinkId, outs := range outs {
 		select {
 		case in.events <- types.UpdateEvent{
-			SinkId:  out.sinkId,
+			SinkId:  sinkId,
 			Outputs: outs,
 			Latency: time.Since(now),
 		}:

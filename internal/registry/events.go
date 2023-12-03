@@ -103,16 +103,16 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 func (r *Registry) handleInputConnected(addr string, e event.InputConnected) error {
 	fmt.Printf("%s: recv InputConnected\n", addr)
 
-	id, ok := r.conns[addr]
+	srcId, ok := r.conns[addr]
 	if !ok {
 		return errors.New("device disconnected")
 	}
 
-	dev := r.State.Devices[id]
+	dev := r.State.Devices[srcId]
 
 	dev.ConnectInput(e.Id, e.Schema, e.Config)
 
-	cfgs := r.activeInputConfigs(id)
+	cfgs := r.activeInputConfigs(e.Id)
 	if len(cfgs) == 0 {
 		return nil
 	}
@@ -123,13 +123,14 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 
 		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
 			Id:     cfg.OutputId,
+			SinkId: sink.Id,
 			Leds:   sink.Outputs[cfg.OutputId].Leds,
 			Config: cfg.Config,
 		})
 	}
 
 	err := r.send(addr, event.SetInputActive{
-		Id:      id,
+		Id:      e.Id,
 		Outputs: evtOutCfgs,
 	})
 	if err != nil {

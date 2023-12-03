@@ -407,6 +407,7 @@ func TestEnableProfile(t *testing.T) {
 			Outputs: []event.SetInputActiveOutput{
 				{
 					Id:     outId,
+					SinkId: devId,
 					Leds:   40,
 					Config: nil,
 				},

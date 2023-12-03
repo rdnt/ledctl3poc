@@ -10,7 +10,6 @@ import (
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver2"
-	"ledctl3/pkg/uuid"
 )
 
 type sh struct {
@@ -78,15 +77,15 @@ func main() {
 		panic(err)
 	}
 
-	go func() {
-		time.Sleep(10 * time.Second)
-
-		fmt.Println("Activating profile!")
-		err = reg.EnableProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
-		if err != nil {
-			panic(err)
-		}
-	}()
+	//go func() {
+	//	time.Sleep(10 * time.Second)
+	//
+	//	fmt.Println("Activating profile!")
+	//	err = reg.EnableProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//}()
 
 	//go func() {
 	//	time.Sleep(5 * time.Second)

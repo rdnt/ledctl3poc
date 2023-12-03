@@ -98,11 +98,11 @@ func (c *Capturer) setState(v any) error {
 		return err
 	}
 
-	return os.WriteFile("state.json", b, 0644)
+	return os.WriteFile("../state.json", b, 0644)
 }
 
 func (c *Capturer) getState(v any) error {
-	b, err := os.ReadFile("state.json")
+	b, err := os.ReadFile("../state.json")
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	} else if err != nil {

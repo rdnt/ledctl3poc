@@ -24,3 +24,12 @@ func Parse(s string) (UUID, error) {
 
 	return UUID(uid.String()), nil
 }
+
+func MustParse(s string) UUID {
+	uid, err := uuid.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+
+	return UUID(uid.String())
+}

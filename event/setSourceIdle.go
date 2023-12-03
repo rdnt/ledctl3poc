@@ -4,16 +4,11 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-type SetSourceIdleEvent struct {
-	Event
-	Inputs []SetSourceIdleEventInput `json:"inputs"`
+type SetSourceIdle struct {
+	Inputs []SetSourceIdleInput
 }
 
-type SetSourceIdleEventInput struct {
-	InputId   uuid.UUID   `json:"inputId"`
-	OutputIds []uuid.UUID `json:"outputIds"`
-}
-
-func (e SetSourceIdleEvent) Type() Type {
-	return SetSourceIdle
+type SetSourceIdleInput struct {
+	InputId   uuid.UUID
+	OutputIds []uuid.UUID
 }

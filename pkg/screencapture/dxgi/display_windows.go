@@ -79,7 +79,7 @@ func (d *display) Capture(ctx context.Context, framerate int) chan []byte {
 				} else if err != nil {
 					fmt.Println(d.id, "non-nil error", err)
 
-					err := d.reset()
+					err := d.Close()
 					if err != nil {
 						fmt.Println(d.id, "failed to reset from capture")
 					}
@@ -130,8 +130,6 @@ func (d *display) reset() error {
 		_, err := win.SetThreadDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2)
 		if err != nil {
 			fmt.Printf("Could not set thread DPI awareness to PerMonitorAwareV2. %v\n", err)
-		} else {
-			fmt.Printf("Enabled PerMonitorAwareV2 DPI awareness.\n")
 		}
 	}
 

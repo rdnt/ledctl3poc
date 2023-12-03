@@ -4,31 +4,18 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-// SetSourceActiveEvent instructs a source to become active for the specified inputs (keys on the sinks map)
-// towards the outputs in an array of sinks for each input (e.g. 1 input to N outputs that reside in
-// different sinks)
-type SetSourceActiveEvent struct {
-	Event
-	SessionId uuid.UUID                   `json:"sessionId"`
-	Inputs    []SetSourceActiveEventInput `json:"inpus"`
+type SetSourceActive struct {
+	Inputs []SetSourceActiveInput
 }
 
-type SetSourceActiveEventInput struct {
-	Id    uuid.UUID                  `json:"id"`
-	Sinks []SetSourceActiveEventSink `json:"sinks"`
+type SetSourceActiveInput struct {
+	Id      uuid.UUID
+	Outputs []SetSourceActiveOutput
 }
 
-type SetSourceActiveEventSink struct {
-	Id      uuid.UUID                    `json:"id"`
-	Outputs []SetSourceActiveEventOutput `json:"outputs"`
-}
-
-type SetSourceActiveEventOutput struct {
-	Id     uuid.UUID      `json:"id"`
-	Config map[string]any `json:"config"`
-	Leds   int            `json:"leds"`
-}
-
-func (e SetSourceActiveEvent) Type() Type {
-	return SetSourceActive
+type SetSourceActiveOutput struct {
+	Id     uuid.UUID
+	SinkId uuid.UUID
+	Leds   int
+	Config map[string]any
 }

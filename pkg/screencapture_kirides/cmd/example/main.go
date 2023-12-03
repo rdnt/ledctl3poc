@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"image"
 	"net/http"
-	// _ "net/http/pprof"
+	// _ "net1/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -135,8 +135,6 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 		_, err := win.SetThreadDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2)
 		if err != nil {
 			fmt.Printf("Could not set thread DPI awareness to PerMonitorAwareV2. %v\n", err)
-		} else {
-			fmt.Printf("Enabled PerMonitorAwareV2 DPI awareness.\n")
 		}
 	}
 
@@ -162,7 +160,7 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 	limiter := NewFrameLimiter(framerate)
 	// Create image that can contain the wanted output (desktop)
 	finalBounds := screenshot.GetDisplayBounds(n)
-	imgBuf := image.NewRGBA(finalBounds)
+	imgBuf := image.NewNRGBA(finalBounds)
 	lastBounds := finalBounds
 
 	// TODO: This is just there, so that people can see how resizing might look
@@ -179,7 +177,7 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 		newBounds := image.Rect(0, 0, int(bounds.Dx()), int(bounds.Dy()))
 		if newBounds != lastBounds {
 			lastBounds = newBounds
-			imgBuf = image.NewRGBA(lastBounds)
+			imgBuf = image.NewNRGBA(lastBounds)
 
 			// Throw away old ddup
 			if ddup != nil {

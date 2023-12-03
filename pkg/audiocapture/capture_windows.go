@@ -11,7 +11,7 @@ import (
 	"github.com/moutend/go-wca/pkg/wca"
 	"github.com/pkg/errors"
 
-	wcaami "ledctl3/source/audio/wca-ami"
+	wcaami "ledctl3/_source-old/audio/wca-ami"
 )
 
 // Capturer is an audio capture device. It is NOT safe for concurrent use.

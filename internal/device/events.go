@@ -174,7 +174,7 @@ func (s *Device) handleSetInputActive(addr string, e event.SetInputActive) {
 	}
 
 	err = in.Start(types.InputConfig{
-		Framerate: 30,
+		Framerate: 120,
 		Outputs:   outputCfgs,
 	})
 	if err != nil {

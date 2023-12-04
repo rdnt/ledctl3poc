@@ -287,11 +287,11 @@ func (c *Capturer) run() error {
 			frames := in.display.Capture(c.captureCtx, in.cfg.Framerate)
 
 			for frame := range frames {
-				if !in.started {
-					fmt.Print(in.display.Id(), "- ")
-				} else {
-					fmt.Print(in.display.Id(), "  ")
-				}
+				//if !in.started {
+				//	fmt.Printf(" %d-", in.display.Id())
+				//} else {
+				//	fmt.Printf(" %d ", in.display.Id())
+				//}
 
 				go in.processFrame(frame)
 			}

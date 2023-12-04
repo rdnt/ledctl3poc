@@ -125,43 +125,47 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 	var foundLength bool
 	var msglen uint32
 	sizeBuf := make([]byte, 4)
+	var bytlen int
+	var readBuf []byte
 
 	for {
 		if !foundLength {
-			n, err := conn.Read(sizeBuf)
+			n, err := conn.Read(sizeBuf[bytlen:])
 			if err != nil {
 				_ = conn.Close()
 				fmt.Println("error during read: ", err)
 				return
 			}
 
-			if n != 4 {
-				fmt.Println("invalid header")
+			bytlen += n
+
+			if bytlen != 4 {
 				continue
 			}
 
 			msglen = binary.LittleEndian.Uint32(sizeBuf)
-			if msglen > 0 {
-				foundLength = true
-			} else {
-				fmt.Println("ACK")
+
+			foundLength = true
+			bytlen = 0
+			if cap(readBuf) < int(msglen) {
+				readBuf = make([]byte, msglen)
 			}
 		} else {
-			readBuf := make([]byte, msglen)
-			n, err := conn.Read(readBuf)
+			n, err := conn.Read(readBuf[bytlen:msglen])
 			if err != nil {
 				_ = conn.Close()
 				fmt.Println("error during read: ", err)
 				return
 			}
 
-			if n != int(msglen) {
-				fmt.Println("invalid message")
+			bytlen += n
+
+			if bytlen != int(msglen) {
 				continue
 			}
 
 			var e E
-			err = s.codec.UnmarshalEvent(readBuf, &e)
+			err = s.codec.UnmarshalEvent(readBuf[:msglen], &e)
 			if err != nil {
 				fmt.Println("error during unmarshal: ", err)
 				continue
@@ -174,6 +178,7 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			}
 
 			foundLength = false
+			bytlen = 0
 		}
 	}
 }

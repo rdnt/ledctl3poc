@@ -2,6 +2,7 @@ package event
 
 import (
 	"image/color"
+	"time"
 
 	"ledctl3/pkg/uuid"
 )
@@ -9,6 +10,7 @@ import (
 type Data struct {
 	SinkId  uuid.UUID
 	Outputs []DataOutput
+	Latency time.Duration
 }
 
 type DataOutput struct {

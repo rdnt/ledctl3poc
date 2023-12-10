@@ -39,10 +39,10 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	}
 
 	//fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
-	err = r.sh.SetState(*r.State)
-	if err != nil {
-		fmt.Println("error writing State", err)
-	}
+	//err = r.sh.SetState(*r.State)
+	//if err != nil {
+	//	fmt.Println("error writing State", err)
+	//}
 
 	//fmt.Println("ProcessEvents done")
 	return nil
@@ -218,12 +218,14 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 		return errors.New("invalid output")
 	}
 
-	fmt.Print(".")
+	fmt.Println("latency", e.Latency)
 
-	err := r.send(sinkAddr, e)
-	if err != nil {
-		return err
-	}
+	go func() {
+		err := r.send(sinkAddr, e)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	return nil
 }

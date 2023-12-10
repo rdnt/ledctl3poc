@@ -129,7 +129,7 @@ func (s *Device) handleSetSourceActive(addr string, e event.SetSourceActive) {
 			outputCfgs = append(outputCfgs, types.OutputConfig{
 				Id:     output.Id,
 				SinkId: output.SinkId,
-				Config: nil,
+				Config: types.OutputConfigConfig{},
 				Leds:   output.Leds,
 			})
 		}
@@ -165,16 +165,26 @@ func (s *Device) handleSetInputActive(addr string, e event.SetInputActive) {
 
 	var outputCfgs []types.OutputConfig
 	for _, output := range e.Outputs {
+		var outCfg types.OutputConfigConfig
+		b, err := json.Marshal(output.Config)
+		if err != nil {
+			panic(err)
+		}
+		err = json.Unmarshal(b, &outCfg)
+		if err != nil {
+			panic(err)
+		}
+
 		outputCfgs = append(outputCfgs, types.OutputConfig{
 			Id:     output.OutputId,
 			SinkId: output.SinkId,
 			Leds:   output.Leds,
-			Config: nil,
+			Config: outCfg,
 		})
 	}
 
 	err = in.Start(types.InputConfig{
-		Framerate: 120,
+		Framerate: 60,
 		Outputs:   outputCfgs,
 	})
 	if err != nil {

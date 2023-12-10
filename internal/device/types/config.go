@@ -10,6 +10,15 @@ type InputConfig struct {
 type OutputConfig struct {
 	Id     uuid.UUID
 	SinkId uuid.UUID
-	Config map[string]any
+	//Config map[string]any
+	Config OutputConfigConfig
 	Leds   int
+}
+
+type OutputConfigConfig struct {
+	Width   int
+	Height  int
+	Left    int
+	Top     int
+	Reverse bool
 }

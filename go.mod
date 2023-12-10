@@ -32,4 +32,4 @@ require (
 	golang.org/x/tools v0.11.0 // indirect
 )
 
-replace github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816 => ./pkg/screencapture_kirides
+//replace github.com/kirides/screencapture v0.0.0-20211031174040-89bc8578d816 => ./pkg/screencapture_kirides

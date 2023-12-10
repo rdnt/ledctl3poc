@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"ledctl3/event"
@@ -13,9 +14,13 @@ import (
 )
 
 type sh struct {
+	mux sync.Mutex
 }
 
-func (s sh) SetState(state registry.State) error {
+func (s *sh) SetState(state registry.State) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	b, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
@@ -24,7 +29,10 @@ func (s sh) SetState(state registry.State) error {
 	return os.WriteFile("../registry.json", b, 0644)
 }
 
-func (s sh) GetState() (registry.State, error) {
+func (s *sh) GetState() (registry.State, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	b, err := os.ReadFile("../registry.json")
 	if err != nil {
 		return registry.State{}, err
@@ -42,7 +50,7 @@ func (s sh) GetState() (registry.State, error) {
 func main() {
 	s := netserver.New[event.Event](1337, event.Codec)
 
-	sh := sh{}
+	sh := &sh{}
 	reg := registry.New(sh, func(addr string, e event.Event) error {
 		return s.Write(addr, e)
 	})

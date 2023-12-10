@@ -2,6 +2,7 @@ package screen
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"sync"
 	"time"
@@ -32,11 +33,15 @@ func (in *Input) Events() <-chan types.UpdateEvent {
 }
 
 type outputCaptureConfig struct {
-	id      uuid.UUID
-	sinkId  uuid.UUID
-	leds    int
-	reverse bool
-	scaler  draw.Scaler
+	outputId  uuid.UUID
+	sinkId    uuid.UUID
+	leds      int
+	reverse   bool
+	scaler    draw.Scaler
+	subWidth  int
+	subHeight int
+	subLeft   int
+	subTop    int
 }
 
 func (in *Input) AssistedSetup() map[string]any {
@@ -46,6 +51,7 @@ func (in *Input) AssistedSetup() map[string]any {
 		"left":      in.display.X(),
 		"top":       in.display.Y(),
 		"framerate": 60,
+		"reverse":   false,
 	}
 
 	return cfg
@@ -74,14 +80,19 @@ func (in *Input) Start(cfg types.InputConfig) error {
 	height := in.display.Width()
 
 	for _, out := range cfg.Outputs {
-		reverse, _ := out.Config["reverse"].(bool)
+		reverse := out.Config.Reverse
 
 		in.outputs[out.Id] = outputCaptureConfig{
-			id:      out.Id,
-			sinkId:  out.SinkId,
-			leds:    out.Leds,
-			reverse: reverse,
-			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
+			outputId: out.Id,
+			sinkId:   out.SinkId,
+			leds:     out.Leds,
+			reverse:  reverse,
+			//scaler:   draw.ApproxBiLinear,
+			scaler:    draw.BiLinear.NewScaler(width, height, out.Config.Width, out.Config.Height),
+			subWidth:  out.Config.Width,
+			subHeight: out.Config.Height,
+			subLeft:   out.Config.Left,
+			subTop:    out.Config.Top,
 		}
 	}
 
@@ -122,7 +133,7 @@ func (in *Input) Stop() error {
 //		reverse, _ := out.Config["reverse"].(bool)
 //
 //		in.outputs[out.OutputId] = outputCaptureConfig{
-//			id:      out.OutputId,
+//			outputId:      out.OutputId,
 //			sinkId:  out.OutputId,
 //			leds:    out.Leds,
 //			reverse: reverse,
@@ -217,84 +228,107 @@ func (in *Input) Stop() error {
 func (in *Input) processFrame(pix []byte) {
 	now := time.Now()
 
-	//src := &image.RGBA{
-	//	Pix:    pix,
-	//	Stride: d.Width() * 4,
-	//	Rect:   image.Rect(0, 0, d.Width(), d.Height()),
-	//}
+	outs := map[uuid.UUID][]types.UpdateEventOutput{}
 
-	//segs := make([]visualizer.Segment, len(cfg.Segments))
-
-	for _, _ = range in.outputs {
-		//rect := image.Rect(seg.From.X, seg.From.Y, seg.To.X, seg.To.Y)
-		//
-		//sub := src.SubImage(rect)
-		//
-		//var dst *image.RGBA
-		//
-		//if rect.Dx() > rect.Dy() {
-		//	// horizontal
-		//	dst = image.NewRGBA(image.Rect(0, 0, seg.Leds, 1))
-		//} else {
-		//	// vertical
-		//	dst = image.NewRGBA(image.Rect(0, 0, 1, seg.Leds))
-		//}
-
-		//v.scalers[seg.OutputId].Scale(dst, dst.Bounds(), sub, sub.Bounds(), draw.Over, nil)
-
-		//colors := []color.Color{}
-
-		//for i := 0; i < len(dst.Pix); i += 4 {
-		//	clr, _ := colorful.MakeColor(color.NRGBA{
-		//		R: dst.Pix[i],
-		//		G: dst.Pix[i+1],
-		//		B: dst.Pix[i+2],
-		//		A: dst.Pix[i+3],
-		//	})
-		//
-		//	colors = append(colors, clr)
-		//}
-
-		//if seg.Reverse {
-		//	reverse(colors)
-		//}
-
-		//segs[i] = visualizer.Segment{
-		//	OutputId:  seg.OutputId,
-		//	Pix: colors,
-		//}
-
+	src := &image.RGBA{
+		Pix:    pix,
+		Stride: in.display.Width() * 4,
+		Rect:   image.Rect(0, 0, in.display.Width(), in.display.Height()),
 	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(len(in.outputs))
+	var outMux sync.Mutex
+
+	for _, out := range in.outputs {
+		out := out
+		go func() {
+			defer wg.Done()
+			rect := image.Rect(out.subLeft, out.subTop, out.subLeft+out.subWidth, out.subTop+out.subHeight)
+
+			sub := src.SubImage(rect)
+
+			var dst *image.RGBA
+
+			if rect.Dx() > rect.Dy() {
+				// horizontal
+				dst = image.NewRGBA(image.Rect(0, 0, out.leds, 1))
+			} else {
+				// vertical
+				dst = image.NewRGBA(image.Rect(0, 0, 1, out.leds))
+			}
+
+			out.scaler.Scale(dst, dst.Bounds(), sub, sub.Bounds(), draw.Over, nil)
+
+			var colors []color.Color
+
+			for i := 0; i < len(dst.Pix); i += 4 {
+				clr := color.NRGBA{
+					R: dst.Pix[i],
+					G: dst.Pix[i+1],
+					B: dst.Pix[i+2],
+					A: dst.Pix[i+3],
+				}
+
+				colors = append(colors, clr)
+			}
+
+			if out.reverse {
+				reverse(colors)
+			}
+
+			outMux.Lock()
+			outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
+				OutputId: out.outputId,
+				Pix:      colors,
+			})
+			outMux.Unlock()
+		}()
+	}
+
+	wg.Wait()
 
 	//wg.Wait()
 
-	var outs = map[uuid.UUID][]types.UpdateEventOutput{}
-	for _, out := range in.outputs {
-		pix := make([]color.Color, out.leds)
-		for i := 0; i < out.leds; i++ {
-			pix[i] = color.NRGBA{
-				R: uint8(i + 40%255),
-				G: uint8(i + 40%255),
-				B: uint8(i + 40%255),
-				A: 255,
-			}
-		}
-
-		outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
-			OutputId: out.id,
-			Pix:      pix,
-		})
-	}
+	//for _, out := range in.outputs {
+	//	pix := make([]color.Color, out.leds)
+	//	for i := 0; i < out.leds; i++ {
+	//		pix[i] = color.NRGBA{
+	//			R: uint8((rand.Intn(2) * 30) % 255),
+	//			G: uint8((rand.Intn(2) * 30) % 255),
+	//			B: uint8((rand.Intn(2) * 30) % 255),
+	//			A: 255,
+	//		}
+	//	}
+	//
+	//	outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
+	//		OutputId: out.outputId,
+	//		Pix:      pix,
+	//	})
+	//}
 
 	for sinkId, outs := range outs {
-		select {
-		case in.events <- types.UpdateEvent{
+
+		in.events <- types.UpdateEvent{
 			SinkId:  sinkId,
 			Outputs: outs,
 			Latency: time.Since(now),
-		}:
-		default:
 		}
+
+		//select {
+		//case in.events <- types.UpdateEvent{
+		//	SinkId:  sinkId,
+		//	Outputs: outs,
+		//	Latency: time.Since(now),
+		//}:
+		//default:
+		//}
 	}
 
+}
+
+func reverse[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }

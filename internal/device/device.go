@@ -79,6 +79,7 @@ func (s *Device) AddInput(in common.Input) {
 			err := s.write(s.regAddr, event.Data{
 				SinkId:  e.SinkId,
 				Outputs: outputs,
+				Latency: e.Latency,
 			})
 			if err != nil {
 				fmt.Println("write error:", err)
@@ -120,6 +121,6 @@ func (s *Device) handleData(addr string, e event.Data) {
 			continue
 		}
 
-		s.outputs[out.OutputId].Render(out.Pix)
+		go s.outputs[out.OutputId].Render(out.Pix)
 	}
 }

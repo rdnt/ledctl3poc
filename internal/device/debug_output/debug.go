@@ -32,6 +32,7 @@ func (o *DebugOutput) Leds() int {
 }
 
 func (o *DebugOutput) Render(pix []color.Color) {
+	//fmt.Print(".")
 	out := ""
 	for _, c := range pix {
 		r, g, b, _ := c.RGBA()

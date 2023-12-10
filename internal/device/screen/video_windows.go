@@ -121,9 +121,9 @@ func (in *Input) Stop() error {
 //	for _, out := range cfg.Outputs {
 //		reverse, _ := out.Config["reverse"].(bool)
 //
-//		in.outputs[out.Id] = outputCaptureConfig{
-//			id:      out.Id,
-//			sinkId:  out.Id,
+//		in.outputs[out.OutputId] = outputCaptureConfig{
+//			id:      out.OutputId,
+//			sinkId:  out.OutputId,
 //			leds:    out.Leds,
 //			reverse: reverse,
 //			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
@@ -185,7 +185,7 @@ func (in *Input) Stop() error {
 //	//			height = seg.Leds
 //	//		}
 //	//
-//	//		in.scalers[seg.Id] = draw.BiLinear.NewScaler(width, height, cfg.Width, cfg.Height)
+//	//		in.scalers[seg.OutputId] = draw.BiLinear.NewScaler(width, height, cfg.Width, cfg.Height)
 //	//	}
 //	//}
 //
@@ -193,7 +193,7 @@ func (in *Input) Stop() error {
 //	//wg.Add(len(displays))
 //	//
 //	//for _, d := range displays {
-//	//	//cfg := displayConfigs[d.Id()]
+//	//	//cfg := displayConfigs[d.OutputId()]
 //	//
 //	//	go func(d types2.Display) {
 //	//		defer wg.Done()
@@ -240,7 +240,7 @@ func (in *Input) processFrame(pix []byte) {
 		//	dst = image.NewRGBA(image.Rect(0, 0, 1, seg.Leds))
 		//}
 
-		//v.scalers[seg.Id].Scale(dst, dst.Bounds(), sub, sub.Bounds(), draw.Over, nil)
+		//v.scalers[seg.OutputId].Scale(dst, dst.Bounds(), sub, sub.Bounds(), draw.Over, nil)
 
 		//colors := []color.Color{}
 
@@ -260,7 +260,7 @@ func (in *Input) processFrame(pix []byte) {
 		//}
 
 		//segs[i] = visualizer.Segment{
-		//	Id:  seg.Id,
+		//	OutputId:  seg.OutputId,
 		//	Pix: colors,
 		//}
 
@@ -273,9 +273,9 @@ func (in *Input) processFrame(pix []byte) {
 		pix := make([]color.Color, out.leds)
 		for i := 0; i < out.leds; i++ {
 			pix[i] = color.NRGBA{
-				R: uint8(i % 255),
-				G: 0,
-				B: 0,
+				R: uint8(i + 40%255),
+				G: uint8(i + 40%255),
+				B: uint8(i + 40%255),
 				A: 255,
 			}
 		}

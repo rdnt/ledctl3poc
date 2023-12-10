@@ -183,7 +183,7 @@ func (c *Capturer) init() error {
 			},
 		}
 
-		//fmt.Println("Added input", in.uuid, "for display", d.Id())
+		//fmt.Println("Added input", in.uuid, "for display", d.OutputId())
 
 		c.inputs[assoc[i]] = in
 		c.reg.AddInput(in)
@@ -288,9 +288,9 @@ func (c *Capturer) run() error {
 
 			for frame := range frames {
 				//if !in.started {
-				//	fmt.Printf(" %d-", in.display.Id())
+				//	fmt.Printf(" %d-", in.display.OutputId())
 				//} else {
-				//	fmt.Printf(" %d ", in.display.Id())
+				//	fmt.Printf(" %d ", in.display.OutputId())
 				//}
 
 				go in.processFrame(frame)
@@ -352,7 +352,7 @@ func (c *Capturer) run() error {
 //
 //		for frame := range frames {
 //			//fmt.Print(in.uuid, " ")
-//			fmt.Print(in.display.Id(), " ")
+//			fmt.Print(in.display.OutputId(), " ")
 //			//fmt.Println(in.display)
 //
 //			go in.processFrame(frame)

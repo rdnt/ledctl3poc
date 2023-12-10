@@ -11,15 +11,18 @@ import (
 	"ledctl3/event"
 	"ledctl3/internal/device"
 	"ledctl3/internal/device/debug_output"
+	"ledctl3/internal/device/debug_output_ws"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
+	"ledctl3/pkg/ws281x"
 )
 
 type Config struct {
 	DeviceId  uuid.UUID `json:"device_id"`
 	Output1Id uuid.UUID `json:"output1_id"`
 	Output2Id uuid.UUID `json:"output2_id"`
+	Output3Id uuid.UUID `json:"output3_id"`
 }
 
 func main() {
@@ -49,11 +52,19 @@ func main() {
 		panic(err)
 	}
 
-	out := debug_output.New(cfg.Output1Id, 40)
-	dev.AddOutput(out)
+	out1 := debug_output.New(cfg.Output1Id, 40)
+	dev.AddOutput(out1)
 
 	out2 := debug_output.New(cfg.Output2Id, 80)
 	dev.AddOutput(out2)
+
+	engine, err := ws281x.Init(18, 3, 255, "grb")
+	if err != nil {
+		panic(err)
+	}
+
+	out3 := debug_output_ws.New(cfg.Output3Id, 3, engine)
+	dev.AddOutput(out3)
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
 		dev.ProcessEvent(addr, e)

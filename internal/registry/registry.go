@@ -76,28 +76,28 @@ type IOConfig struct {
 }
 
 //type Profile struct {
-//	Id      uuid.UUID       `json:"id"`
+//	OutputId      uuid.UUID       `json:"id"`
 //	Name    string          `json:"name"`
 //	Sources []ProfileSource `json:"sources"`
 //}
 //
 //type ProfileSource struct {
-//	Id     uuid.UUID 	     `json:"id"`
+//	OutputId     uuid.UUID 	     `json:"id"`
 //	Inputs []ProfileInput `json:"inputs"`
 //}
 //
 //type ProfileInput struct {
-//	Id    uuid.UUID     `json:"id"`
+//	OutputId    uuid.UUID     `json:"id"`
 //	Sinks []ProfileSink `json:"sinks"`
 //}
 //
 //type ProfileSink struct {
-//	Id      uuid.UUID       `json:"id"`
+//	OutputId      uuid.UUID       `json:"id"`
 //	Outputs []ProfileOutput `json:"outputs"`
 //}
 //
 //type ProfileOutput struct {
-//	Id            uuid.UUID `json:"id"`
+//	OutputId            uuid.UUID `json:"id"`
 //	InputConfigId uuid.UUID `json:"input_config_id"`
 //}
 
@@ -161,10 +161,10 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 			Id: io.InputId,
 			Outputs: []event.SetInputActiveOutput{
 				{
-					Id:     io.OutputId,
-					SinkId: sinkDev.Id,
-					Leds:   sinkDev.Outputs[io.OutputId].Leds,
-					Config: io.Config,
+					OutputId: io.OutputId,
+					SinkId:   sinkDev.Id,
+					Leds:     sinkDev.Outputs[io.OutputId].Leds,
+					Config:   io.Config,
 				},
 			},
 		})
@@ -184,6 +184,25 @@ func (r *Registry) activeOutputs() []uuid.UUID {
 	for _, profId := range r.State.ActiveProfiles {
 		prof := r.State.Profiles[profId]
 		for _, io := range prof.IO {
+			outputIds = append(outputIds, io.OutputId)
+		}
+	}
+
+	return outputIds
+}
+
+func (r *Registry) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
+	var outputIds []uuid.UUID
+
+	for _, profId := range r.State.ActiveProfiles {
+		prof := r.State.Profiles[profId]
+		for _, io := range prof.IO {
+			srcId := r.inputDeviceId(io.InputId)
+
+			if srcId != id {
+				continue
+			}
+
 			outputIds = append(outputIds, io.OutputId)
 		}
 	}

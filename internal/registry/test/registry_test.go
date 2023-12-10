@@ -1,6 +1,8 @@
 package registry_test
 
 import (
+	"fmt"
+	"image/color"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -406,10 +408,10 @@ func TestEnableProfile(t *testing.T) {
 			Id: inId,
 			Outputs: []event.SetInputActiveOutput{
 				{
-					Id:     outId,
-					SinkId: devId,
-					Leds:   40,
-					Config: nil,
+					OutputId: outId,
+					SinkId:   devId,
+					Leds:     40,
+					Config:   nil,
 				},
 			},
 		})
@@ -422,5 +424,204 @@ func TestEnableProfile(t *testing.T) {
 
 	t.Run("no additional events sent", func(t *testing.T) {
 		assert.Equal(t, len(msgs), 1)
+	})
+}
+
+func TestData(t *testing.T) {
+	sh := mockStateHolder{}
+	msgs := make([]message, 0)
+	reg := registry.New(sh, func(addr string, e event.Event) error {
+		fmt.Println(addr, e)
+		msgs = append(msgs, message{
+			addr: addr,
+			e:    e,
+		})
+		return nil
+	})
+
+	addr1 := uuid.New().String()
+	devId1 := uuid.New()
+	inId1 := uuid.New()
+	outId1 := uuid.New()
+
+	addr2 := uuid.New().String()
+	devId2 := uuid.New()
+	inId2 := uuid.New()
+	outId2 := uuid.New()
+
+	t.Run("noop if device disconnected", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Data{
+			SinkId: devId2,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId2,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.Error(t, err, "device disconnected")
+	})
+
+	t.Run("device 1 connected", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Connect{Id: devId1})
+		assert.NilError(t, err)
+
+		err = reg.ProcessEvent(addr1, event.InputConnected{
+			Id:     inId1,
+			Schema: nil,
+			Config: nil,
+		})
+		assert.NilError(t, err)
+
+		err = reg.ProcessEvent(addr1, event.OutputConnected{
+			Id:     outId1,
+			Leds:   40,
+			Config: nil,
+			Schema: nil,
+		})
+		assert.NilError(t, err)
+
+		assert.Equal(t, len(reg.State.Devices), 1)
+		assert.Equal(t, len(reg.State.Devices[devId1].Inputs), 1)
+		assert.Equal(t, len(reg.State.Devices[devId1].Outputs), 1)
+	})
+
+	t.Run("device 2 connected", func(t *testing.T) {
+		err := reg.ProcessEvent(addr2, event.Connect{Id: devId2})
+		assert.NilError(t, err)
+
+		err = reg.ProcessEvent(addr2, event.InputConnected{
+			Id:     inId2,
+			Schema: nil,
+			Config: nil,
+		})
+		assert.NilError(t, err)
+
+		err = reg.ProcessEvent(addr2, event.OutputConnected{
+			Id:     outId2,
+			Leds:   80,
+			Config: nil,
+			Schema: nil,
+		})
+		assert.NilError(t, err)
+
+		assert.Equal(t, len(reg.State.Devices), 2)
+		assert.Equal(t, len(reg.State.Devices[devId2].Inputs), 1)
+		assert.Equal(t, len(reg.State.Devices[devId2].Outputs), 1)
+	})
+
+	t.Run("noop if invalid sink", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Data{
+			SinkId: uuid.New(),
+			Outputs: []event.DataOutput{
+				{
+					OutputId: uuid.New(),
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.Error(t, err, "unknown sink device")
+	})
+
+	t.Run("device disconnected", func(t *testing.T) {
+		err := reg.ProcessEvent(addr2, event.Disconnect{})
+		assert.NilError(t, err)
+	})
+
+	t.Run("noop if invalid sink", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Data{
+			SinkId: devId2,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId2,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.Error(t, err, "sink device disconnected")
+	})
+
+	t.Run("device connected", func(t *testing.T) {
+		err := reg.ProcessEvent(addr2, event.Connect{Id: devId2})
+		assert.NilError(t, err)
+	})
+
+	t.Run("data events ignored if output inactive", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Data{
+			SinkId: devId2,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId2,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.Error(t, err, "invalid output")
+
+		err = reg.ProcessEvent(addr2, event.Data{
+			SinkId: devId1,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId1,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.Error(t, err, "invalid output")
+	})
+
+	t.Run("profile enabled", func(t *testing.T) {
+		name := "test"
+		io := []registry.IOConfig{
+			//{
+			//	InputId:  inId1,
+			//	OutputId: outId1,
+			//	Config:   nil,
+			//},
+			{
+				InputId:  inId1,
+				OutputId: outId2,
+				Config:   nil,
+			},
+			{
+				InputId:  inId2,
+				OutputId: outId1,
+				Config:   nil,
+			},
+			//{
+			//	InputId:  inId2,
+			//	OutputId: outId2,
+			//	Config:   nil,
+			//},
+		}
+		prof, err := reg.CreateProfile(name, io)
+		assert.NilError(t, err)
+
+		err = reg.EnableProfile(prof.Id)
+		assert.NilError(t, err)
+	})
+
+	t.Run("data event is processed", func(t *testing.T) {
+		err := reg.ProcessEvent(addr1, event.Data{
+			SinkId: devId2,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId2,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.NilError(t, err)
+
+		err = reg.ProcessEvent(addr2, event.Data{
+			SinkId: devId1,
+			Outputs: []event.DataOutput{
+				{
+					OutputId: outId1,
+					Pix:      make([]color.Color, 40),
+				},
+			},
+		})
+		assert.NilError(t, err)
 	})
 }

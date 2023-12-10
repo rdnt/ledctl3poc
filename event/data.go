@@ -12,6 +12,6 @@ type Data struct {
 }
 
 type DataOutput struct {
-	Id  uuid.UUID
-	Pix []color.Color
+	OutputId uuid.UUID
+	Pix      []color.Color
 }

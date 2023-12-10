@@ -3,6 +3,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"ledctl3/event"
 )
@@ -28,7 +29,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	case event.OutputDisconnected:
 		err = r.handleOutputDisconnected(addr, e)
 	case event.Data:
-		r.handleData(addr, e)
+		err = r.handleData(addr, e)
 	default:
 		fmt.Printf("unknown event %#v\n", e)
 	}
@@ -122,10 +123,10 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		sink := r.State.Devices[r.outputDeviceId(cfg.OutputId)]
 
 		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
-			Id:     cfg.OutputId,
-			SinkId: sink.Id,
-			Leds:   sink.Outputs[cfg.OutputId].Leds,
-			Config: cfg.Config,
+			OutputId: cfg.OutputId,
+			SinkId:   sink.Id,
+			Leds:     sink.Outputs[cfg.OutputId].Leds,
+			Config:   cfg.Config,
 		})
 	}
 
@@ -188,7 +189,7 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 }
 
 func (r *Registry) handleData(addr string, e event.Data) error {
-	_, ok := r.conns[addr]
+	srcId, ok := r.conns[addr]
 	if !ok {
 		return errors.New("device disconnected")
 	}
@@ -201,6 +202,20 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 	sinkAddr, ok := r.connsAddr[e.SinkId]
 	if !ok {
 		return errors.New("sink device disconnected")
+	}
+
+	srcOutputs := r.activeSourceOutputs(srcId)
+
+	var valid bool
+	for _, out := range e.Outputs {
+		if slices.Contains(srcOutputs, out.OutputId) {
+			valid = true
+			break
+		}
+	}
+
+	if !valid {
+		return errors.New("invalid output")
 	}
 
 	fmt.Print(".")

@@ -91,16 +91,16 @@ func main() {
 	//	time.Sleep(5 * time.Second)
 	//	_, err = reg.CreateProfile("custom", []registry.ProfileSource{
 	//		{
-	//			Id: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
+	//			OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
 	//			Inputs: []registry.ProfileInput{
 	//				{
-	//					Id: uuid.MustParse("22222222-b301-47d6-b289-2a4c3327962a"),
+	//					OutputId: uuid.MustParse("22222222-b301-47d6-b289-2a4c3327962a"),
 	//					Sinks: []registry.ProfileSink{
 	//						{
-	//							Id: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
+	//							OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
 	//							Outputs: []registry.ProfileOutput{
 	//								{
-	//									Id:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
+	//									OutputId:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
 	//									InputConfigId: uuid.Nil,
 	//								},
 	//							},
@@ -108,13 +108,13 @@ func main() {
 	//					},
 	//				},
 	//				{
-	//					Id: uuid.MustParse("33333333-e72d-470e-a343-5c2cc2f1746f"),
+	//					OutputId: uuid.MustParse("33333333-e72d-470e-a343-5c2cc2f1746f"),
 	//					Sinks: []registry.ProfileSink{
 	//						{
-	//							Id: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
+	//							OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
 	//							Outputs: []registry.ProfileOutput{
 	//								{
-	//									Id:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
+	//									OutputId:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
 	//									InputConfigId: uuid.Nil,
 	//								},
 	//							},

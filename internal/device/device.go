@@ -37,32 +37,38 @@ func (s *Device) AddInput(in common.Input) {
 	//fmt.Println("ADD INPUT CALLED", in)
 
 	s.inputs[in.Id()] = in
-	//s.inputCfgs[in.Id()] = inputConfig{}
+	//s.inputCfgs[in.OutputId()] = inputConfig{}
 
 	go func() {
 		// forward messages from input to the network
 		for e := range in.Events() {
 
-			if e.SinkId == s.id {
-				// deliver to local device outputs
-
-				for _, out := range e.Outputs {
-					if _, ok := s.outputs[out.OutputId]; !ok {
-						fmt.Println("output not found", out.OutputId)
-						continue
-					}
-
-					s.outputs[out.OutputId].Render(out.Pix)
-				}
-
-				continue
-			}
+			// TODO: synchronized render won't work for same-device i/o.
+			//  possible solution: instead of sending data to registry, send
+			//  directly to sink device, and calculate and send to registry
+			//  the RTT from source to sink. the registry can then calculate
+			//  how much the sink should offset its render time to match the
+			//  latency of the slowest device on the network.
+			//if e.SinkId == s.id {
+			//	// deliver to local device outputs
+			//
+			//	for _, out := range e.Outputs {
+			//		if _, ok := s.outputs[out.OutputId]; !ok {
+			//			fmt.Println("output not found", out.OutputId)
+			//			continue
+			//		}
+			//
+			//		s.outputs[out.OutputId].Render(out.Pix)
+			//	}
+			//
+			//	continue
+			//}
 
 			var outputs []event.DataOutput
 			for _, output := range e.Outputs {
 				outputs = append(outputs, event.DataOutput{
-					Id:  output.OutputId,
-					Pix: output.Pix,
+					OutputId: output.OutputId,
+					Pix:      output.Pix,
 				})
 			}
 
@@ -109,11 +115,11 @@ func (s *Device) RemoveOutput(id uuid.UUID) {
 
 func (s *Device) handleData(addr string, e event.Data) {
 	for _, out := range e.Outputs {
-		if _, ok := s.outputs[out.Id]; !ok {
-			fmt.Println("output not found", out.Id)
+		if _, ok := s.outputs[out.OutputId]; !ok {
+			fmt.Println("output not found", out.OutputId)
 			continue
 		}
 
-		s.outputs[out.Id].Render(out.Pix)
+		s.outputs[out.OutputId].Render(out.Pix)
 	}
 }

@@ -87,14 +87,14 @@ func (s *Device) handleDisconnect(addr string, _ event.Disconnect) {
 //	e := event.Capabilities{
 //		Inputs: lo.Map(lo.Values(s.inputs), func(input common.Input, _ int) event.CapabilitiesInput {
 //			return event.CapabilitiesInput{
-//				Id:     input.Id(),
+//				OutputId:     input.OutputId(),
 //				Type:   event.InputTypeDefault,
 //				Schema: input.Schema(),
 //			}
 //		}),
 //		Outputs: lo.Map(lo.Values(s.outputs), func(out common.Output, _ int) event.CapabilitiesOutput {
 //			return event.CapabilitiesOutput{
-//				Id:   out.Id(),
+//				OutputId:   out.OutputId(),
 //				Leds: out.Leds(),
 //			}
 //		}),
@@ -166,7 +166,7 @@ func (s *Device) handleSetInputActive(addr string, e event.SetInputActive) {
 	var outputCfgs []types.OutputConfig
 	for _, output := range e.Outputs {
 		outputCfgs = append(outputCfgs, types.OutputConfig{
-			Id:     output.Id,
+			Id:     output.OutputId,
 			SinkId: output.SinkId,
 			Leds:   output.Leds,
 			Config: nil,

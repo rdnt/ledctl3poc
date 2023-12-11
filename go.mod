@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/VividCortex/ewma v1.2.0
+	github.com/bamiaux/rez v0.0.0-20170731184118-29f4463c688b
 	github.com/go-ole/go-ole v1.2.6
 	github.com/google/uuid v1.2.0
 	github.com/gookit/color v1.5.3

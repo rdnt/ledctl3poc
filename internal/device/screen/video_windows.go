@@ -11,6 +11,8 @@ import (
 
 	"ledctl3/pkg/uuid"
 
+	"github.com/bamiaux/rez"
+
 	"ledctl3/internal/device/types"
 	types2 "ledctl3/pkg/screencapture/types"
 )
@@ -22,10 +24,13 @@ type Input struct {
 	uuid   uuid.UUID
 	events chan types.UpdateEvent
 
-	display types2.Display
-	outputs map[uuid.UUID]outputCaptureConfig
-	started bool
-	cfg     types.InputConfig
+	display   types2.Display
+	outputs   map[uuid.UUID]outputCaptureConfig
+	started   bool
+	cfg       types.InputConfig
+	prescaler draw.Scaler
+	resizer   rez.Converter
+	resized   *image.RGBA
 }
 
 func (in *Input) Events() <-chan types.UpdateEvent {
@@ -42,6 +47,7 @@ type outputCaptureConfig struct {
 	subHeight int
 	subLeft   int
 	subTop    int
+	dest      *image.RGBA
 }
 
 func (in *Input) AssistedSetup() map[string]any {
@@ -79,20 +85,48 @@ func (in *Input) Start(cfg types.InputConfig) error {
 	width := in.display.Width()
 	height := in.display.Width()
 
+	in.prescaler = draw.BiLinear.NewScaler(width, height, width/8, height/8)
+
+	in.resized = image.NewRGBA(image.Rect(0, 0, in.display.Width()/8, in.display.Height()/8))
+
+	resizeCfg, err := rez.PrepareConversion(in.resized, image.NewRGBA(image.Rect(0, 0, in.display.Width(), in.display.Height())))
+	if err != nil {
+		return err
+	}
+
+	converter, err := rez.NewConverter(resizeCfg, rez.NewBilinearFilter())
+	if err != nil {
+		return err
+	}
+
+	in.resizer = converter
+
 	for _, out := range cfg.Outputs {
 		reverse := out.Config.Reverse
 
+		rect := image.Rect(out.Config.Left/8, out.Config.Top/8, (out.Config.Left+out.Config.Width)/8, (out.Config.Top+out.Config.Height)/8)
+
+		var dst *image.RGBA
+
+		if rect.Dx() > rect.Dy() {
+			// horizontal
+			dst = image.NewRGBA(image.Rect(0, 0, out.Leds, 1))
+		} else {
+			// vertical
+			dst = image.NewRGBA(image.Rect(0, 0, 1, out.Leds))
+		}
+
 		in.outputs[out.Id] = outputCaptureConfig{
-			outputId: out.Id,
-			sinkId:   out.SinkId,
-			leds:     out.Leds,
-			reverse:  reverse,
-			//scaler:   draw.ApproxBiLinear,
-			scaler:    draw.BiLinear.NewScaler(width, height, out.Config.Width, out.Config.Height),
+			outputId:  out.Id,
+			sinkId:    out.SinkId,
+			leds:      out.Leds,
+			reverse:   reverse,
+			scaler:    draw.BiLinear.NewScaler(width/8, height/8, out.Config.Width, out.Config.Height),
 			subWidth:  out.Config.Width,
 			subHeight: out.Config.Height,
 			subLeft:   out.Config.Left,
 			subTop:    out.Config.Top,
+			dest:      dst,
 		}
 	}
 
@@ -100,15 +134,6 @@ func (in *Input) Start(cfg types.InputConfig) error {
 		in.capturer.captureCancel()
 	}
 
-	//in.display.Close()
-	//in.display.Capture(in.capturer.captureCtx, cfg.Framerate)
-	//if in.started {
-	//	in.cancel()
-	//	<-in.done
-	//	return errors.New("already started")
-	//}
-	//
-	//return in.capturer.startInput(in, cfg)
 	return nil
 }
 
@@ -121,109 +146,6 @@ func (in *Input) Stop() error {
 	in.capturer.captureCancel()
 	return nil
 }
-
-//func (in *Input) StartDEPRECATED(cfg types.InputConfig) error {
-//	in.outputs = make(map[uuid.UUID]outputCaptureConfig)
-//
-//	width := in.display.Width()
-//	height := in.display.Width()
-//
-//	//for _, sinkCfg := range cfg.Outputs {
-//	for _, out := range cfg.Outputs {
-//		reverse, _ := out.Config["reverse"].(bool)
-//
-//		in.outputs[out.OutputId] = outputCaptureConfig{
-//			outputId:      out.OutputId,
-//			sinkId:  out.OutputId,
-//			leds:    out.Leds,
-//			reverse: reverse,
-//			scaler:  draw.BiLinear.NewScaler(width, height, width/80, height/80),
-//		}
-//	}
-//	//}
-//
-//	fmt.Printf("## starting screen capture with outputs config %#v\n", in.outputs)
-//
-//	//err := in.displays.Start()
-//	//if err != nil {
-//	//	return err
-//	//}
-//
-//	return nil
-//}
-
-//func (in *Input) startCapture() error {
-//	ctx, cancel := context.WithCancel(context.Background())
-//	defer cancel()
-//
-//	done := make(chan bool)
-//
-//	go func() {
-//		frames := in.display.Capture(ctx, 60) // TODO: framerate
-//
-//		for frame := range frames {
-//			fmt.Println(in.display.Resolution())
-//
-//			go in.processFrame(in.display, frame)
-//		}
-//
-//		cancel()
-//		done <- true
-//	}()
-//
-//	//displayConfigs, err := in.matchDisplays(in.displays)
-//	//if err != nil {
-//	//	return err
-//	//}
-//	//
-//	//in.scalers = make(map[int]draw.Scaler)
-//
-//	//for _, cfg := range displayConfigs {
-//	//	for _, seg := range cfg.Segments {
-//	//		rect := image.Rect(seg.From.X, seg.From.Y, seg.To.X, seg.To.Y)
-//	//
-//	//		// TODO: only allow cube (Dx == Dy) if segment is only 1 led
-//	//
-//	//		var width, height int
-//	//
-//	//		if rect.Dx() > rect.Dy() {
-//	//			// horizontal
-//	//			width = seg.Leds
-//	//			height = 2
-//	//		} else {
-//	//			// vertical
-//	//			width = 2
-//	//			height = seg.Leds
-//	//		}
-//	//
-//	//		in.scalers[seg.OutputId] = draw.BiLinear.NewScaler(width, height, cfg.Width, cfg.Height)
-//	//	}
-//	//}
-//
-//	//var wg sync.WaitGroup
-//	//wg.Add(len(displays))
-//	//
-//	//for _, d := range displays {
-//	//	//cfg := displayConfigs[d.OutputId()]
-//	//
-//	//	go func(d types2.Display) {
-//	//		defer wg.Done()
-//	//		frames := d.Capture(ctx, 60) // TODO: framerate
-//	//
-//	//		for frame := range frames {
-//	//			fmt.Println(d.Resolution())
-//	//
-//	//			go in.processFrame(d, frame)
-//	//		}
-//	//
-//	//		cancel()
-//	//	}(d)
-//	//}
-//	//
-//	//wg.Wait()
-//
-//	return nil
-//}
 
 func (in *Input) processFrame(pix []byte) {
 	now := time.Now()
@@ -240,34 +162,30 @@ func (in *Input) processFrame(pix []byte) {
 	wg.Add(len(in.outputs))
 	var outMux sync.Mutex
 
+	err := in.resizer.Convert(in.resized, src)
+	if err != nil {
+		fmt.Println("error resizing:", err)
+		return
+	}
+
 	for _, out := range in.outputs {
 		out := out
 		go func() {
 			defer wg.Done()
-			rect := image.Rect(out.subLeft, out.subTop, out.subLeft+out.subWidth, out.subTop+out.subHeight)
+			rect := image.Rect(out.subLeft/8, out.subTop/8, (out.subLeft+out.subWidth)/8, (out.subTop+out.subHeight)/8)
 
-			sub := src.SubImage(rect)
+			sub := in.resized.SubImage(rect)
 
-			var dst *image.RGBA
-
-			if rect.Dx() > rect.Dy() {
-				// horizontal
-				dst = image.NewRGBA(image.Rect(0, 0, out.leds, 1))
-			} else {
-				// vertical
-				dst = image.NewRGBA(image.Rect(0, 0, 1, out.leds))
-			}
-
-			out.scaler.Scale(dst, dst.Bounds(), sub, sub.Bounds(), draw.Over, nil)
+			out.scaler.Scale(out.dest, out.dest.Bounds(), sub, sub.Bounds(), draw.Over, nil)
 
 			var colors []color.Color
 
-			for i := 0; i < len(dst.Pix); i += 4 {
+			for i := 0; i < len(out.dest.Pix); i += 4 {
 				clr := color.NRGBA{
-					R: dst.Pix[i],
-					G: dst.Pix[i+1],
-					B: dst.Pix[i+2],
-					A: dst.Pix[i+3],
+					R: out.dest.Pix[i],
+					G: out.dest.Pix[i+1],
+					B: out.dest.Pix[i+2],
+					A: out.dest.Pix[i+3],
 				}
 
 				colors = append(colors, clr)
@@ -288,25 +206,6 @@ func (in *Input) processFrame(pix []byte) {
 
 	wg.Wait()
 
-	//wg.Wait()
-
-	//for _, out := range in.outputs {
-	//	pix := make([]color.Color, out.leds)
-	//	for i := 0; i < out.leds; i++ {
-	//		pix[i] = color.NRGBA{
-	//			R: uint8((rand.Intn(2) * 30) % 255),
-	//			G: uint8((rand.Intn(2) * 30) % 255),
-	//			B: uint8((rand.Intn(2) * 30) % 255),
-	//			A: 255,
-	//		}
-	//	}
-	//
-	//	outs[out.sinkId] = append(outs[out.sinkId], types.UpdateEventOutput{
-	//		OutputId: out.outputId,
-	//		Pix:      pix,
-	//	})
-	//}
-
 	for sinkId, outs := range outs {
 
 		in.events <- types.UpdateEvent{
@@ -314,17 +213,7 @@ func (in *Input) processFrame(pix []byte) {
 			Outputs: outs,
 			Latency: time.Since(now),
 		}
-
-		//select {
-		//case in.events <- types.UpdateEvent{
-		//	SinkId:  sinkId,
-		//	Outputs: outs,
-		//	Latency: time.Since(now),
-		//}:
-		//default:
-		//}
 	}
-
 }
 
 func reverse[S ~[]E, E any](s S) {

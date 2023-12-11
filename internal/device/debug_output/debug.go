@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"image/color"
 
-	gcolor "github.com/gookit/color"
-
 	"ledctl3/pkg/uuid"
 )
 
@@ -32,11 +30,11 @@ func (o *DebugOutput) Leds() int {
 }
 
 func (o *DebugOutput) Render(pix []color.Color) {
-	//fmt.Print(".")
-	out := ""
-	for _, c := range pix {
-		r, g, b, _ := c.RGBA()
-		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
-	}
-	fmt.Println(out)
+	fmt.Print(".")
+	//out := ""
+	//for _, c := range pix {
+	//	r, g, b, _ := c.RGBA()
+	//	out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+	//}
+	//fmt.Println(out)
 }

@@ -64,26 +64,29 @@ func (s *Device) AddInput(in common.Input) {
 			//	continue
 			//}
 
-			var outputs []event.DataOutput
-			for _, output := range e.Outputs {
-				outputs = append(outputs, event.DataOutput{
-					OutputId: output.OutputId,
-					Pix:      output.Pix,
+			e := e
+			go func() {
+				var outputs []event.DataOutput
+				for _, output := range e.Outputs {
+					outputs = append(outputs, event.DataOutput{
+						OutputId: output.OutputId,
+						Pix:      output.Pix,
+					})
+				}
+
+				if s.regAddr == "" {
+					return
+				}
+
+				err := s.write(s.regAddr, event.Data{
+					SinkId:  e.SinkId,
+					Outputs: outputs,
+					Latency: e.Latency,
 				})
-			}
-
-			if s.regAddr == "" {
-				continue
-			}
-
-			err := s.write(s.regAddr, event.Data{
-				SinkId:  e.SinkId,
-				Outputs: outputs,
-				Latency: e.Latency,
-			})
-			if err != nil {
-				fmt.Println("write error:", err)
-			}
+				if err != nil {
+					fmt.Println("write error:", err)
+				}
+			}()
 
 			//s.messages <- Message{
 			//	Addr: nil, // TODO: registry addr

@@ -1,14 +1,14 @@
 package screen
 
-import "ledctl3/internal/device/common"
+import (
+	"errors"
 
-type Capturer struct {
-}
+	"ledctl3/pkg/screencapture/types"
+)
 
-func New(reg common.InputRegistry) (*Capturer, error) {
-	return &Capturer{}, nil
-}
-
-func (c *Capturer) Start() {
-	return
+func newDisplayRepo(typ string) (types.DisplayRepository, error) {
+	switch typ {
+	default:
+		return nil, errors.New("invalid capturer type")
+	}
 }

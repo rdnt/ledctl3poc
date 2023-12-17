@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 
 	"ledctl3/event"
@@ -50,12 +51,14 @@ func main() {
 
 	// 22222222-b301-47d6-b289-2a4c3327962a
 	// 33333333-e72d-470e-a343-5c2cc2f1746f
-	screenProv, err := screensrc.New(dev)
-	if err != nil {
-		panic(err)
-	}
+	if runtime.GOOS == "windows" {
+		screenProv, err := screensrc.New(dev, "dxgi")
+		if err != nil {
+			panic(err)
+		}
 
-	screenProv.Start()
+		screenProv.Start()
+	}
 
 	out := debug_output.New(cfg.Output1Id, 40)
 	dev.AddOutput(out)

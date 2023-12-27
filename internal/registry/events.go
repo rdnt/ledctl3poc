@@ -218,7 +218,7 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 		return errors.New("invalid output")
 	}
 
-	fmt.Println("latency", e.Latency)
+	//fmt.Println("latency", e.Latency)
 
 	go func() {
 		err := r.send(sinkAddr, e)

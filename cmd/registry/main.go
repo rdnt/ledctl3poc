@@ -26,14 +26,14 @@ func (s *sh) SetState(state registry.State) error {
 		return err
 	}
 
-	return os.WriteFile("../registry.json", b, 0644)
+	return os.WriteFile("./registry.json", b, 0644)
 }
 
 func (s *sh) GetState() (registry.State, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	b, err := os.ReadFile("../registry.json")
+	b, err := os.ReadFile("./registry.json")
 	if err != nil {
 		return registry.State{}, err
 	}

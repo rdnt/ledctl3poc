@@ -9,7 +9,7 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-type Device struct {
+type Client struct {
 	id      uuid.UUID
 	mux     sync.Mutex
 	write   func(addr string, e event.Event) error
@@ -23,17 +23,26 @@ type Config struct {
 	Id uuid.UUID
 }
 
-func New(cfg Config, write func(addr string, e event.Event) error) (*Device, error) {
-	return &Device{
+func New(cfg Config, write func(addr string, e event.Event) error) (*Client, error) {
+	d := &Client{
 		id:      cfg.Id,
 		write:   write,
 		cfg:     cfg,
 		inputs:  make(map[uuid.UUID]common.Input),
 		outputs: make(map[uuid.UUID]common.Output),
-	}, nil
+	}
+
+	for _, driver := range devices {
+		err := driver.Start(d) // TODO: stop devices if one fails to start
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return d, nil
 }
 
-func (s *Device) AddInput(in common.Input) {
+func (s *Client) AddInput(in common.Input) {
 	//fmt.Println("ADD INPUT CALLED", in)
 
 	s.inputs[in.Id()] = in
@@ -100,24 +109,41 @@ func (s *Device) AddInput(in common.Input) {
 	}()
 }
 
-func (s *Device) RemoveInput(id uuid.UUID) {
+type Device interface {
+	Start(reg common.IORegistry) error
+	SetConfig(cfg []byte) error
+	Schema() ([]byte, error)
+	Config() ([]byte, error)
+}
+
+var devices []Device
+var devicesMux sync.Mutex
+
+func Register(driver Device) {
+	devicesMux.Lock()
+	defer devicesMux.Unlock()
+
+	devices = append(devices, driver)
+}
+
+func (s *Client) RemoveInput(id uuid.UUID) {
 	//fmt.Println("RemoveInput CALLED", id)
 	delete(s.inputs, id)
 }
 
-func (s *Device) AddOutput(out common.Output) {
+func (s *Client) AddOutput(out common.Output) {
 	//fmt.Println("ADD OUTPUT CALLED", out)
 
 	s.outputs[out.Id()] = out
 }
 
-func (s *Device) RemoveOutput(id uuid.UUID) {
+func (s *Client) RemoveOutput(id uuid.UUID) {
 	//fmt.Println("REMOVE OUTPUT CALLED", id)
 
 	delete(s.outputs, id)
 }
 
-func (s *Device) handleData(addr string, e event.Data) {
+func (s *Client) handleData(addr string, e event.Data) {
 	for _, out := range e.Outputs {
 		if _, ok := s.outputs[out.OutputId]; !ok {
 			fmt.Println("output not found", out.OutputId)

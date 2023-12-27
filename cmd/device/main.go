@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"sync"
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
-	"ledctl3/internal/device/debug_output"
-	screensrc "ledctl3/internal/device/screen"
+	_ "ledctl3/internal/device/screen"
+	_ "ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
@@ -25,7 +24,7 @@ type Config struct {
 }
 
 func main() {
-	b, err := os.ReadFile("../device.json")
+	b, err := os.ReadFile("./device.json")
 	if err != nil {
 		panic(err)
 	}
@@ -51,20 +50,14 @@ func main() {
 
 	// 22222222-b301-47d6-b289-2a4c3327962a
 	// 33333333-e72d-470e-a343-5c2cc2f1746f
-	if runtime.GOOS == "windows" {
-		screenProv, err := screensrc.New(dev, "dxgi")
-		if err != nil {
-			panic(err)
-		}
-
-		screenProv.Start()
-	}
-
-	out := debug_output.New(cfg.Output1Id, 40)
-	dev.AddOutput(out)
-
-	out2 := debug_output.New(cfg.Output2Id, 80)
-	dev.AddOutput(out2)
+	//if runtime.GOOS == "windows" {
+	//	screenProv, err := screensrc.New(dev, "dxgi")
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//
+	//	screenProv.Start()
+	//}
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
 		dev.ProcessEvent(addr, e)

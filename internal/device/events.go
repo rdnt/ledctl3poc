@@ -8,7 +8,7 @@ import (
 	"ledctl3/internal/device/types"
 )
 
-func (s *Device) ProcessEvent(addr string, e event.Event) {
+func (s *Client) ProcessEvent(addr string, e event.Event) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -34,7 +34,7 @@ func (s *Device) ProcessEvent(addr string, e event.Event) {
 	//fmt.Println("ProcessEvents done")
 }
 
-func (s *Device) handleConnect(addr string, e event.Connect) {
+func (s *Client) handleConnect(addr string, e event.Connect) {
 	fmt.Printf("%s: recv Connect\n", addr)
 
 	fmt.Printf("%s: send Connect\n", addr)
@@ -75,13 +75,13 @@ func (s *Device) handleConnect(addr string, e event.Connect) {
 	s.regAddr = addr
 }
 
-func (s *Device) handleDisconnect(addr string, _ event.Disconnect) {
+func (s *Client) handleDisconnect(addr string, _ event.Disconnect) {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	s.regAddr = ""
 }
 
-//func (s *Device) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
+//func (s *Client) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
 //	fmt.Printf("%s: recv ListCapabilities\n", addr)
 //
 //	e := event.Capabilities{
@@ -107,7 +107,7 @@ func (s *Device) handleDisconnect(addr string, _ event.Disconnect) {
 //	}
 //}
 
-func (s *Device) handleSetSourceActive(addr string, e event.SetSourceActive) {
+func (s *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	fmt.Printf("%s: recv SetSourceActive\n", addr)
 
 	b, err := json.Marshal(e)
@@ -147,7 +147,7 @@ func (s *Device) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	}
 }
 
-func (s *Device) handleSetInputActive(addr string, e event.SetInputActive) {
+func (s *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 	fmt.Printf("%s: recv SetInputActive\n", addr)
 
 	b, err := json.Marshal(e)

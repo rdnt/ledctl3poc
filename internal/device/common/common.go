@@ -33,3 +33,8 @@ type OutputRegistry interface {
 	AddOutput(i Output)
 	RemoveOutput(id uuid.UUID)
 }
+
+type IORegistry interface {
+	InputRegistry
+	OutputRegistry
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "display",
+  "properties": {
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type":  "string",
+            "format": "uuid"
+          },
+          "offset":{
+            "type":  "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "count": {
+            "type":  "integer",
+            "minimum": 1,
+            "default": 1
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "outputs"
+  ]
+}

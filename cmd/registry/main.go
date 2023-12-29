@@ -11,6 +11,7 @@ import (
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
+	"ledctl3/pkg/uuid"
 )
 
 type sh struct {
@@ -84,6 +85,36 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	go func() {
+		time.Sleep(5 * time.Second)
+
+		fmt.Println("Updating driver config!")
+		err = reg.SetDeviceConfig(uuid.MustParse("df5228e7-09e0-4f08-8d09-8b253f49e3d5"), uuid.MustParse("3dc0f83c-76a3-42f3-9237-7e44121627b8"), []byte(`
+{
+  "outputs": [
+    {
+      "id": "0000aaaa-0000-0000-0000-000000000000",
+      "count": 1,
+      "offset": 0
+    },
+    {
+      "id": "0000bbbb-0000-0000-0000-000000000000",
+      "count": 1,
+      "offset": 1
+    },
+    {
+      "id": "0000cccc-0000-0000-0000-000000000000",
+      "count": 1,
+      "offset": 2
+    }
+  ]
+}
+		`))
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	//go func() {
 	//	time.Sleep(10 * time.Second)

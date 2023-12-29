@@ -9,6 +9,7 @@ import (
 
 type Input interface {
 	Id() uuid.UUID
+	DriverId() uuid.UUID
 	Start(cfg types.InputConfig) error
 	Events() <-chan types.UpdateEvent
 	Stop() error
@@ -18,6 +19,7 @@ type Input interface {
 
 type Output interface {
 	Id() uuid.UUID
+	DriverId() uuid.UUID
 	Render([]color.Color)
 	Leds() int
 	//Start() error
@@ -37,4 +39,12 @@ type OutputRegistry interface {
 type IORegistry interface {
 	InputRegistry
 	OutputRegistry
+}
+
+type StateHolder interface {
+	//Id() uuid.UUID
+	SetConfig([]byte) error // TODO: only store state, and have device react to config changes instead.
+	GetConfig() ([]byte, error)
+	SetState([]byte) error
+	GetState() ([]byte, error)
 }

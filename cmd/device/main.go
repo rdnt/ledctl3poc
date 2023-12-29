@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -18,14 +19,24 @@ import (
 )
 
 type Config struct {
-	DeviceId  uuid.UUID `json:"device_id"`
-	Output1Id uuid.UUID `json:"output1_id"`
-	Output2Id uuid.UUID `json:"output2_id"`
+	DeviceId uuid.UUID `json:"device_id"`
 }
 
 func main() {
 	b, err := os.ReadFile("./device.json")
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		b, err = json.Marshal(Config{
+			DeviceId: uuid.New(),
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		err = os.WriteFile("./device.json", b, 0644)
+		if err != nil {
+			panic(err)
+		}
+	} else if err != nil {
 		panic(err)
 	}
 

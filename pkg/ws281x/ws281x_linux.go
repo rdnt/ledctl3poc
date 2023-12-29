@@ -1,15 +1,10 @@
 package ws281x
 
 import (
-	"encoding/json"
 	"errors"
-	"os"
 	"sync"
 
 	ws281x "github.com/rpi-ws281x/rpi-ws281x-go"
-
-	"ledctl3/internal/device/common"
-	"ledctl3/pkg/uuid"
 )
 
 // Engine represents a wrapper around the ws281x library.
@@ -24,25 +19,6 @@ type Engine struct {
 	wg        *sync.WaitGroup
 	stop      chan struct{}
 	rendering bool
-}
-
-type Config struct {
-	DeviceId uuid.UUID `json:"device_id"`
-}
-
-func (ws *Engine) Start(reg common.IORegistry) error {
-	b, err := os.ReadFile("../device.json")
-	if err != nil {
-		return err
-	}
-
-	var cfg Config
-	err = json.Unmarshal(b, &cfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Init initializes a new instance of the ws281x library

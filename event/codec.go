@@ -28,6 +28,9 @@ func init() {
 		OutputConnected{},
 		OutputDisconnected{},
 		color.NRGBA{},
+		DriverConfig{},
+		SetDriverConfig{},
+		[]byte{},
+		([]byte)(nil),
 	)
-
 }

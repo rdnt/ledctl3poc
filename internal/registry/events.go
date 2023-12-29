@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"ledctl3/event"
+	"ledctl3/pkg/uuid"
 )
 
 func (r *Registry) ProcessEvent(addr string, e event.Event) error {
@@ -39,10 +40,10 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	}
 
 	//fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
-	//err = r.sh.SetState(*r.State)
-	//if err != nil {
-	//	fmt.Println("error writing State", err)
-	//}
+	err = r.sh.SetState(*r.State)
+	if err != nil {
+		fmt.Println("error writing State", err)
+	}
 
 	//fmt.Println("ProcessEvents done")
 	return nil
@@ -67,16 +68,26 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 	r.conns[addr] = e.Id
 	r.connsAddr[e.Id] = addr
 
-	if dev, ok := r.State.Devices[e.Id]; ok {
+	if dev, ok := r.State.Nodes[e.Id]; ok {
 		dev.Connect()
-		r.State.Devices[e.Id] = dev
+		dev.Drivers = make(map[uuid.UUID]*Driver)
+		for _, d := range e.Drivers {
+			dev.Drivers[d.Id] = &Driver{d.Id, d.Config}
+		}
+
+		r.State.Nodes[e.Id] = dev
 
 		fmt.Println("device connected:", e.Id)
 
 		return nil
 	}
 
-	r.State.Devices[e.Id] = NewDevice(e.Id, true)
+	drivers := make(map[uuid.UUID]*Driver)
+	for _, d := range e.Drivers {
+		drivers[d.Id] = &Driver{d.Id, d.Config}
+	}
+
+	r.State.Nodes[e.Id] = NewNode(e.Id, true, drivers)
 
 	fmt.Println("device added:", e.Id)
 
@@ -91,7 +102,7 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 		return errors.New("device already disconnected")
 	}
 
-	dev := r.State.Devices[id]
+	dev := r.State.Nodes[id]
 
 	dev.Disconnect()
 
@@ -109,9 +120,9 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		return errors.New("device disconnected")
 	}
 
-	dev := r.State.Devices[srcId]
+	dev := r.State.Nodes[srcId]
 
-	dev.ConnectInput(e.Id, e.Schema, e.Config)
+	dev.ConnectInput(e.Id, e.DriverId, e.Schema, e.Config)
 
 	cfgs := r.activeInputConfigs(e.Id)
 	if len(cfgs) == 0 {
@@ -120,12 +131,13 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 
 	var evtOutCfgs []event.SetInputActiveOutput
 	for _, cfg := range cfgs {
-		sink := r.State.Devices[r.outputDeviceId(cfg.OutputId)]
+		dev := r.State.Nodes[r.outputDeviceId(cfg.OutputId)]
 
 		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
 			OutputId: cfg.OutputId,
-			SinkId:   sink.Id,
-			Leds:     sink.Outputs[cfg.OutputId].Leds,
+			SinkId:   dev.Outputs[cfg.OutputId].DriverId,
+			DeviceId: dev.Id,
+			Leds:     dev.Outputs[cfg.OutputId].Leds,
 			Config:   cfg.Config,
 		})
 	}
@@ -151,7 +163,7 @@ func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnecte
 		return errors.New("device disconnected")
 	}
 
-	dev := r.State.Devices[id]
+	dev := r.State.Nodes[id]
 
 	dev.DisconnectInput(e.Id)
 
@@ -166,9 +178,9 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 		return errors.New("device disconnected")
 	}
 
-	dev := r.State.Devices[id]
+	dev := r.State.Nodes[id]
 
-	dev.ConnectOutput(e.Id, e.Leds, e.Schema, e.Config)
+	dev.ConnectOutput(e.Id, e.DriverId, e.Leds, e.Schema, e.Config)
 
 	return nil
 }
@@ -181,7 +193,7 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 		return errors.New("device disconnected")
 	}
 
-	dev := r.State.Devices[id]
+	dev := r.State.Nodes[id]
 
 	dev.DisconnectOutput(e.Id)
 
@@ -194,7 +206,7 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 		return errors.New("device disconnected")
 	}
 
-	sinkDev := r.State.Devices[e.SinkId]
+	sinkDev := r.State.Nodes[e.SinkId]
 	if sinkDev == nil {
 		return errors.New("unknown sink device")
 	}

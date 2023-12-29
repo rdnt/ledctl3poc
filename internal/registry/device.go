@@ -1,28 +1,36 @@
 package registry
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"ledctl3/pkg/uuid"
 )
 
-type Device struct {
+type Node struct {
 	Id        uuid.UUID             `json:"id"`
 	Inputs    map[uuid.UUID]*Input  `json:"inputs"`
 	Outputs   map[uuid.UUID]*Output `json:"outputs"`
+	Drivers   map[uuid.UUID]*Driver `json:"drivers"`
 	Connected bool                  `json:"-"`
 }
 
-func NewDevice(id uuid.UUID, connected bool) *Device {
-	return &Device{
+type Driver struct {
+	Id     uuid.UUID       `json:"id"`
+	Config json.RawMessage `json:"config"`
+}
+
+func NewNode(id uuid.UUID, connected bool, drivers map[uuid.UUID]*Driver) *Node {
+	return &Node{
 		Id:        id,
 		Inputs:    make(map[uuid.UUID]*Input),
 		Outputs:   make(map[uuid.UUID]*Output),
+		Drivers:   drivers,
 		Connected: connected,
 	}
 }
 
-func (d *Device) Disconnect() {
+func (d *Node) Disconnect() {
 	for _, in := range d.Inputs {
 		in.Disconnect()
 	}
@@ -35,10 +43,10 @@ func (d *Device) Disconnect() {
 	fmt.Println("device disconnected:", d.Id)
 }
 
-func (d *Device) ConnectOutput(id uuid.UUID, leds int, schema, config map[string]any) {
+func (d *Node) ConnectOutput(id, driverId uuid.UUID, leds int, schema, config []byte) {
 	out, ok := d.Outputs[id]
 	if !ok {
-		out = NewOutput(id, leds, schema, config, true)
+		out = NewOutput(id, driverId, leds, schema, config, true)
 
 		if d.Outputs == nil {
 			d.Outputs = make(map[uuid.UUID]*Output)
@@ -50,10 +58,10 @@ func (d *Device) ConnectOutput(id uuid.UUID, leds int, schema, config map[string
 	out.Connect()
 }
 
-func (d *Device) ConnectInput(id uuid.UUID, schema, config map[string]any) {
+func (d *Node) ConnectInput(id, driverId uuid.UUID, schema, config []byte) {
 	in, ok := d.Inputs[id]
 	if !ok {
-		in = NewInput(id, schema, config, true)
+		in = NewInput(id, driverId, schema, config, true)
 
 		if d.Inputs == nil {
 			d.Inputs = make(map[uuid.UUID]*Input)
@@ -65,7 +73,7 @@ func (d *Device) ConnectInput(id uuid.UUID, schema, config map[string]any) {
 	in.Connect()
 }
 
-func (d *Device) DisconnectInput(id uuid.UUID) {
+func (d *Node) DisconnectInput(id uuid.UUID) {
 	in, ok := d.Inputs[id]
 	if !ok {
 		fmt.Println("input does not exist")
@@ -75,7 +83,7 @@ func (d *Device) DisconnectInput(id uuid.UUID) {
 	in.Disconnect()
 }
 
-func (d *Device) DisconnectOutput(id uuid.UUID) {
+func (d *Node) DisconnectOutput(id uuid.UUID) {
 	out, ok := d.Outputs[id]
 	if !ok {
 		fmt.Println("output does not exist")
@@ -85,6 +93,6 @@ func (d *Device) DisconnectOutput(id uuid.UUID) {
 	out.Disconnect()
 }
 
-func (d *Device) Connect() {
+func (d *Node) Connect() {
 	d.Connected = true
 }

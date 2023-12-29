@@ -1,17 +1,11 @@
 package ws281x
 
 import (
-	"encoding/json"
 	"fmt"
 	"image/color"
-	"os"
 	"sync"
 
 	gcolor "github.com/gookit/color"
-
-	"ledctl3/internal/device/common"
-	"ledctl3/internal/device/debug_output"
-	"ledctl3/pkg/uuid"
 )
 
 // Engine struct placeholder
@@ -21,34 +15,6 @@ type Engine struct {
 	rendering bool
 	ledsCount int
 	leds      []color.Color
-}
-
-type Config struct {
-	DeviceId  uuid.UUID `json:"device_id"`
-	Output1Id uuid.UUID `json:"output1_id"`
-	Output2Id uuid.UUID `json:"output2_id"`
-	Output3Id uuid.UUID `json:"output3_id"`
-}
-
-func (e *Engine) Start(reg common.IORegistry) error {
-	b, err := os.ReadFile("../device.json")
-	if err != nil {
-		return err
-	}
-
-	var cfg Config
-	err = json.Unmarshal(b, &cfg)
-	if err != nil {
-		return err
-	}
-
-	out := debug_output.New(cfg.Output1Id, 40)
-	reg.AddOutput(out)
-
-	out2 := debug_output.New(cfg.Output2Id, 80)
-	reg.AddOutput(out2)
-
-	return nil
 }
 
 // Init placeholder function -- initializes all waitgroup logic on windows

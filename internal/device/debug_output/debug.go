@@ -12,6 +12,11 @@ type DebugOutput struct {
 	leds int
 }
 
+func (o *DebugOutput) DriverId() uuid.UUID {
+	//TODO implement me
+	panic("implement me")
+}
+
 func New(id uuid.UUID, leds int) *DebugOutput {
 	i := &DebugOutput{
 		id:   id,

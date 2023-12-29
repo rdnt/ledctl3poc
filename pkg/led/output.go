@@ -13,11 +13,11 @@ type output struct {
 	id        uuid.UUID
 	leds      int
 	rendering bool
-	driver    *Driver
+	driver    *Device
 	offset    int
 }
 
-func newOutput(id uuid.UUID, leds int, offset int, d *Driver) *output {
+func newOutput(id uuid.UUID, leds int, offset int, d *Device) *output {
 	i := &output{
 		id:     id,
 		leds:   leds,
@@ -30,6 +30,10 @@ func newOutput(id uuid.UUID, leds int, offset int, d *Driver) *output {
 
 func (o *output) Id() uuid.UUID {
 	return o.id
+}
+
+func (o *output) DriverId() uuid.UUID {
+	return o.driver.id
 }
 
 func (o *output) Leds() int {

@@ -67,6 +67,10 @@ func (in *Input) Id() uuid.UUID {
 	return in.uuid
 }
 
+func (in *Input) DriverId() uuid.UUID {
+	return in.capturer.id
+}
+
 func (in *Input) Start(cfg types.InputConfig) error {
 	in.mux.Lock()
 	defer in.mux.Unlock()

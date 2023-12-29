@@ -1,21 +1,24 @@
 package registry
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"ledctl3/pkg/uuid"
 )
 
 type Input struct {
-	Id        uuid.UUID      `json:"id"`
-	Schema    map[string]any `json:"schema"`
-	Config    map[string]any `json:"config"`
-	Connected bool           `json:"-"`
+	Id        uuid.UUID       `json:"id"`
+	DriverId  uuid.UUID       `json:"driverId"`
+	Schema    json.RawMessage `json:"schema"`
+	Config    json.RawMessage `json:"config"`
+	Connected bool            `json:"-"`
 }
 
-func NewInput(id uuid.UUID, schema, config map[string]any, connected bool) *Input {
+func NewInput(id, driverId uuid.UUID, schema, config []byte, connected bool) *Input {
 	return &Input{
 		Id:        id,
+		DriverId:  driverId,
 		Schema:    schema,
 		Config:    config,
 		Connected: connected,

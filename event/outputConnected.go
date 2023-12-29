@@ -3,8 +3,9 @@ package event
 import "ledctl3/pkg/uuid"
 
 type OutputConnected struct {
-	Id     uuid.UUID
-	Leds   int
-	Schema map[string]any
-	Config map[string]any
+	Id       uuid.UUID
+	DriverId uuid.UUID
+	Leds     int
+	Schema   []byte
+	Config   []byte
 }

@@ -2,6 +2,7 @@ package led
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -15,8 +16,8 @@ import (
 )
 
 func init() {
-	d := &Driver{}
-	device.Register(d)
+	d := &Device{}
+	device.Register("led", d)
 }
 
 type outputConfig struct {
@@ -29,45 +30,26 @@ type config struct {
 	Outputs []outputConfig `json:"outputs"`
 }
 
-type Driver struct {
+type Device struct {
+	id        uuid.UUID
 	cfg       config
 	reg       common.IORegistry
+	store     common.StateHolder
 	engine    *ws281x.Engine
 	renderMux sync.Mutex
 	rendering bool
 }
 
-func (d *Driver) SetConfig(b []byte) error {
-	err := d.applyConfig(b)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile("./device-led.json", b, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (d *Device) SetId(id uuid.UUID) {
+	d.id = id
 }
 
-func (d *Driver) Schema() ([]byte, error) {
-	return nil, nil
+func (d *Device) Id() uuid.UUID {
+	return d.id
 }
 
-func (d *Driver) Config() ([]byte, error) {
-	b, err := json.Marshal(d.cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-func (d *Driver) Start(reg common.IORegistry) error {
-	d.reg = reg
-
-	b, err := os.ReadFile("./device-led.json")
+func (d *Device) SetConfig(b []byte) error {
+	err := d.store.SetConfig(b)
 	if err != nil {
 		return err
 	}
@@ -80,7 +62,51 @@ func (d *Driver) Start(reg common.IORegistry) error {
 	return nil
 }
 
-func (d *Driver) applyConfig(b []byte) error {
+func (d *Device) Config() ([]byte, error) {
+	b, err := json.Marshal(d.cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func defaultCfg() config {
+	return config{
+		Outputs: []outputConfig{},
+	}
+}
+
+func (d *Device) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
+	d.id = id
+	d.reg = reg
+	d.store = store
+
+	b, err := d.store.GetConfig()
+	if errors.Is(err, os.ErrNotExist) {
+		cfg := defaultCfg()
+		b, err = json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+
+		err := d.store.SetConfig(b)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	err = d.applyConfig(b)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Device) applyConfig(b []byte) error {
 	var cfg config
 	err := json.Unmarshal(b, &cfg)
 	if err != nil {
@@ -121,7 +147,7 @@ func (d *Driver) applyConfig(b []byte) error {
 	return nil
 }
 
-func (d *Driver) Render() error {
+func (d *Device) Render() error {
 	d.renderMux.Lock()
 	if d.rendering {
 		d.renderMux.Unlock()

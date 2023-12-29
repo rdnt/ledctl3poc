@@ -26,7 +26,7 @@ func init() {
 		panic(err)
 	}
 
-	device.Register(screenProv)
+	device.Register("screen", screenProv)
 }
 
 func newDisplayRepo(typ string) (types2.DisplayRepository, error) {
@@ -52,14 +52,20 @@ type config struct {
 }
 
 type Capturer struct {
+	id            uuid.UUID
+	reg           common.InputRegistry
+	store         common.StateHolder
 	repo          types2.DisplayRepository
 	inputs        map[uuid.UUID]*Input
 	capturing     bool
 	captureCtx    context.Context
 	captureCancel context.CancelFunc
 	captureWg     *sync.WaitGroup
-	reg           common.InputRegistry
 	cfg           any
+}
+
+func (c *Capturer) Id() uuid.UUID {
+	return c.id
 }
 
 func (c *Capturer) SetConfig(cfg []byte) error {
@@ -121,8 +127,10 @@ func New(typ string) (*Capturer, error) {
 	return c, nil
 }
 
-func (c *Capturer) Start(reg common.IORegistry) error {
+func (c *Capturer) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
+	c.id = id
 	c.reg = reg
+	c.store = store
 
 	for {
 		err := c.init()
@@ -169,14 +177,12 @@ func (c *Capturer) setState(v any) error {
 		return err
 	}
 
-	return os.WriteFile("./state.json", b, 0644)
+	return c.store.SetState(b)
 }
 
 func (c *Capturer) getState(v any) error {
-	b, err := os.ReadFile("./state.json")
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
+	b, err := c.store.GetState()
+	if err != nil {
 		return err
 	}
 

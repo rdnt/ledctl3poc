@@ -11,6 +11,7 @@ type SetInputActive struct {
 
 type SetInputActiveOutput struct {
 	OutputId uuid.UUID
+	DeviceId uuid.UUID
 	SinkId   uuid.UUID
 	Leds     int
 	Config   map[string]any

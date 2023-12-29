@@ -21,7 +21,7 @@ type StateHolder interface {
 }
 
 type State struct {
-	Devices        map[uuid.UUID]*Device `json:"devices"`
+	Nodes          map[uuid.UUID]*Node   `json:"nodes"`
 	Profiles       map[uuid.UUID]Profile `json:"profiles"`
 	ActiveProfiles []uuid.UUID           `json:"activeProfiles"`
 }
@@ -44,8 +44,8 @@ func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry
 		state = State{}
 	}
 
-	if state.Devices == nil {
-		state.Devices = make(map[uuid.UUID]*Device)
+	if state.Nodes == nil {
+		state.Nodes = make(map[uuid.UUID]*Node)
 	}
 
 	if state.Profiles == nil {
@@ -124,6 +124,26 @@ func (r *Registry) CreateProfile(name string, io []IOConfig) (Profile, error) {
 	return prof, nil
 }
 
+func (r *Registry) SetDeviceConfig(nodeId, driverId uuid.UUID, cfg []byte) error {
+	r.State.Nodes[nodeId].Drivers[driverId].Config = cfg
+
+	err := r.sh.SetState(*r.State)
+	if err != nil {
+		return err
+	}
+
+	err = r.send(r.connsAddr[nodeId], event.SetDriverConfig{
+		DriverId: driverId,
+		Config:   cfg,
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return err
+	}
+
+	return nil
+}
+
 func (r *Registry) EnableProfile(id uuid.UUID) error {
 	prof, ok := r.State.Profiles[id]
 	if !ok {
@@ -154,8 +174,8 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 	}
 
 	for _, io := range prof.IO {
-		srcDev := r.State.Devices[r.inputDeviceId(io.InputId)]
-		sinkDev := r.State.Devices[r.outputDeviceId(io.OutputId)]
+		srcDev := r.State.Nodes[r.inputDeviceId(io.InputId)]
+		sinkDev := r.State.Nodes[r.outputDeviceId(io.OutputId)]
 
 		err = r.send(r.connsAddr[srcDev.Id], event.SetInputActive{
 			Id: io.InputId,
@@ -229,7 +249,7 @@ func (r *Registry) activeInputConfigs(id uuid.UUID) []IOConfig {
 }
 
 func (r *Registry) outputDeviceId(id uuid.UUID) uuid.UUID {
-	for _, dev := range r.State.Devices {
+	for _, dev := range r.State.Nodes {
 		for _, out := range dev.Outputs {
 			if out.Id == id {
 				return dev.Id
@@ -240,7 +260,7 @@ func (r *Registry) outputDeviceId(id uuid.UUID) uuid.UUID {
 }
 
 func (r *Registry) inputDeviceId(id uuid.UUID) uuid.UUID {
-	for _, dev := range r.State.Devices {
+	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Inputs {
 			if in.Id == id {
 				return dev.Id

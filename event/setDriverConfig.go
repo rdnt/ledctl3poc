@@ -2,9 +2,7 @@ package event
 
 import "ledctl3/pkg/uuid"
 
-type InputConnected struct {
-	Id       uuid.UUID
+type SetDriverConfig struct {
 	DriverId uuid.UUID
-	Schema   []byte
 	Config   []byte
 }

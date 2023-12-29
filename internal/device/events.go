@@ -8,25 +8,27 @@ import (
 	"ledctl3/internal/device/types"
 )
 
-func (s *Client) ProcessEvent(addr string, e event.Event) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+func (c *Client) ProcessEvent(addr string, e event.Event) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	//fmt.Println("ProcessEvents")
 
 	switch e := e.(type) {
 	case event.Connect:
-		s.handleConnect(addr, e)
+		c.handleConnect(addr, e)
 	case event.Disconnect:
-		s.handleDisconnect(addr, e)
+		c.handleDisconnect(addr, e)
 	//case event.SetSourceActive:
-	//	s.handleSetSourceActive(addr, e)
+	//	c.handleSetSourceActive(addr, e)
 	case event.SetInputActive:
-		s.handleSetInputActive(addr, e)
+		c.handleSetInputActive(addr, e)
+	case event.SetDriverConfig:
+		c.handleSetDeviceConfig(addr, e)
 	case event.Data:
-		s.handleData(addr, e)
+		c.handleData(addr, e)
 	//case event.ListCapabilities:
-	//	s.handleListCapabilitiesEvent(addr, e)
+	//	c.handleListCapabilitiesEvent(addr, e)
 	default:
 		fmt.Printf("unknown event %#v\n", e)
 	}
@@ -34,22 +36,45 @@ func (s *Client) ProcessEvent(addr string, e event.Event) {
 	//fmt.Println("ProcessEvents done")
 }
 
-func (s *Client) handleConnect(addr string, e event.Connect) {
+func (c *Client) handleConnect(addr string, e event.Connect) {
 	fmt.Printf("%s: recv Connect\n", addr)
 
+	var drivers []event.ConnectDriver
+	for _, d := range c.drivers {
+		cfg, err := d.Config()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		schema, err := d.Schema()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		drivers = append(drivers, event.ConnectDriver{
+			Id:     d.Id(),
+			Config: cfg,
+			Schema: schema,
+		})
+	}
+
 	fmt.Printf("%s: send Connect\n", addr)
-	err := s.write(addr, event.Connect{
-		Id: s.cfg.Id,
+	err := c.write(addr, event.Connect{
+		Id:      c.cfg.Id,
+		Drivers: drivers,
 	})
 	if err != nil {
 		fmt.Println("error writing to addr", addr, err)
 	}
 
-	for _, in := range s.inputs {
+	for _, in := range c.inputs {
 		fmt.Printf("%s: send InputConnected\n", addr)
 
-		err := s.write(addr, event.InputConnected{
-			Id: in.Id(),
+		err := c.write(addr, event.InputConnected{
+			Id:       in.Id(),
+			DriverId: in.DriverId(),
 			//Type:   event.InputTypeDefault,
 			//Schema: in.Schema(),
 		})
@@ -59,12 +84,13 @@ func (s *Client) handleConnect(addr string, e event.Connect) {
 		}
 	}
 
-	for _, out := range s.outputs {
+	for _, out := range c.outputs {
 		fmt.Printf("%s: send OutputConnected\n", addr)
 
-		err := s.write(addr, event.OutputConnected{
-			Id:   out.Id(),
-			Leds: out.Leds(),
+		err := c.write(addr, event.OutputConnected{
+			Id:       out.Id(),
+			DriverId: out.DriverId(),
+			Leds:     out.Leds(),
 		})
 		if err != nil {
 			fmt.Println("error writing to addr", addr, err)
@@ -72,13 +98,13 @@ func (s *Client) handleConnect(addr string, e event.Connect) {
 		}
 	}
 
-	s.regAddr = addr
+	c.regAddr = addr
 }
 
-func (s *Client) handleDisconnect(addr string, _ event.Disconnect) {
+func (c *Client) handleDisconnect(addr string, _ event.Disconnect) {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
-	s.regAddr = ""
+	c.regAddr = ""
 }
 
 //func (s *Client) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
@@ -107,7 +133,7 @@ func (s *Client) handleDisconnect(addr string, _ event.Disconnect) {
 //	}
 //}
 
-func (s *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
+func (c *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	fmt.Printf("%s: recv SetSourceActive\n", addr)
 
 	b, err := json.Marshal(e)
@@ -118,7 +144,7 @@ func (s *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	fmt.Println(string(b))
 
 	for _, input := range e.Inputs {
-		in, ok := s.inputs[input.Id]
+		in, ok := c.inputs[input.Id]
 		if !ok {
 			fmt.Println("in not found", input.Id)
 			continue
@@ -127,7 +153,8 @@ func (s *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 		var outputCfgs []types.OutputConfig
 		for _, output := range input.Outputs {
 			outputCfgs = append(outputCfgs, types.OutputConfig{
-				Id:     output.Id,
+				Id: output.Id,
+				//DriverId: output.DriverId,
 				SinkId: output.SinkId,
 				Config: types.OutputConfigConfig{},
 				Leds:   output.Leds,
@@ -147,7 +174,7 @@ func (s *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	}
 }
 
-func (s *Client) handleSetInputActive(addr string, e event.SetInputActive) {
+func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 	fmt.Printf("%s: recv SetInputActive\n", addr)
 
 	b, err := json.Marshal(e)
@@ -157,9 +184,9 @@ func (s *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 
 	fmt.Println(string(b))
 
-	in, ok := s.inputs[e.Id]
+	in, ok := c.inputs[e.Id]
 	if !ok {
-		fmt.Println("in not found", e.Id)
+		fmt.Println("input not found", e.Id)
 		return
 	}
 
@@ -176,10 +203,11 @@ func (s *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 		}
 
 		outputCfgs = append(outputCfgs, types.OutputConfig{
-			Id:     output.OutputId,
-			SinkId: output.SinkId,
-			Leds:   output.Leds,
-			Config: outCfg,
+			Id:       output.OutputId,
+			SinkId:   output.SinkId,
+			DeviceId: c.id,
+			Leds:     output.Leds,
+			Config:   outCfg,
 		})
 	}
 
@@ -193,4 +221,33 @@ func (s *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 	}
 
 	fmt.Println("input started", e.Id)
+}
+
+func (c *Client) handleData(addr string, e event.Data) {
+	for _, out := range e.Outputs {
+		if _, ok := c.outputs[out.OutputId]; !ok {
+			fmt.Println("output not found", out.OutputId)
+			continue
+		}
+
+		go c.outputs[out.OutputId].Render(out.Pix)
+	}
+}
+
+func (c *Client) handleSetDeviceConfig(addr string, e event.SetDriverConfig) {
+	fmt.Printf("%s: recv SetDriverConfig\n", addr)
+
+	dev, ok := c.drivers[e.DriverId]
+	if !ok {
+		fmt.Println("device not found", e.DriverId)
+		return
+	}
+
+	err := dev.SetConfig(e.Config)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("device config set", e.DriverId)
 }

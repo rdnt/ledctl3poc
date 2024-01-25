@@ -10,6 +10,6 @@ import (
 //go:embed schema.json
 var schema []byte
 
-func (d *Device) Schema() ([]byte, error) {
+func (d *dev) Schema() ([]byte, error) {
 	return schema, nil
 }

@@ -20,13 +20,19 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-func init() {
-	screenProv, err := New("dxgi")
+func New(typ string) (device.Driver, error) {
+	repo, err := newDisplayRepo(typ)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	device.Register("screen", screenProv)
+	c := &Capturer{
+		repo:      repo,
+		inputs:    make(map[uuid.UUID]*Input),
+		captureWg: new(sync.WaitGroup),
+	}
+
+	return c, nil
 }
 
 func newDisplayRepo(typ string) (types2.DisplayRepository, error) {
@@ -111,22 +117,6 @@ func (c *Capturer) Config() ([]byte, error) {
 
 	return b, nil
 }
-
-func New(typ string) (*Capturer, error) {
-	repo, err := newDisplayRepo(typ)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Capturer{
-		repo:      repo,
-		inputs:    make(map[uuid.UUID]*Input),
-		captureWg: new(sync.WaitGroup),
-	}
-
-	return c, nil
-}
-
 func (c *Capturer) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
 	c.id = id
 	c.reg = reg

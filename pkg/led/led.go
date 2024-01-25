@@ -15,9 +15,8 @@ import (
 	"ledctl3/pkg/ws281x"
 )
 
-func init() {
-	d := &Device{}
-	device.Register("led", d)
+func New() device.Driver {
+	return &dev{}
 }
 
 type outputConfig struct {
@@ -30,7 +29,7 @@ type config struct {
 	Outputs []outputConfig `json:"outputs"`
 }
 
-type Device struct {
+type dev struct {
 	id        uuid.UUID
 	cfg       config
 	reg       common.IORegistry
@@ -40,15 +39,15 @@ type Device struct {
 	rendering bool
 }
 
-func (d *Device) SetId(id uuid.UUID) {
+func (d *dev) SetId(id uuid.UUID) {
 	d.id = id
 }
 
-func (d *Device) Id() uuid.UUID {
+func (d *dev) Id() uuid.UUID {
 	return d.id
 }
 
-func (d *Device) SetConfig(b []byte) error {
+func (d *dev) SetConfig(b []byte) error {
 	err := d.store.SetConfig(b)
 	if err != nil {
 		return err
@@ -62,7 +61,7 @@ func (d *Device) SetConfig(b []byte) error {
 	return nil
 }
 
-func (d *Device) Config() ([]byte, error) {
+func (d *dev) Config() ([]byte, error) {
 	b, err := json.Marshal(d.cfg)
 	if err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func defaultCfg() config {
 	}
 }
 
-func (d *Device) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
+func (d *dev) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
 	d.id = id
 	d.reg = reg
 	d.store = store
@@ -106,7 +105,7 @@ func (d *Device) Start(id uuid.UUID, reg common.IORegistry, store common.StateHo
 	return nil
 }
 
-func (d *Device) applyConfig(b []byte) error {
+func (d *dev) applyConfig(b []byte) error {
 	var cfg config
 	err := json.Unmarshal(b, &cfg)
 	if err != nil {
@@ -147,7 +146,7 @@ func (d *Device) applyConfig(b []byte) error {
 	return nil
 }
 
-func (d *Device) Render() error {
+func (d *dev) Render() error {
 	d.renderMux.Lock()
 	if d.rendering {
 		d.renderMux.Unlock()

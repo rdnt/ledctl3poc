@@ -11,8 +11,8 @@ import (
 
 	"ledctl3/event"
 	"ledctl3/internal/device"
-	_ "ledctl3/internal/device/screen"
-	_ "ledctl3/pkg/led"
+	"ledctl3/internal/device/screen"
+	"ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
@@ -23,6 +23,14 @@ type Config struct {
 }
 
 func main() {
+	scr, err := screen.New("dxgi")
+	if err != nil {
+		panic(err)
+	}
+	device.Register("screen", scr)
+
+	device.Register("led", led.New())
+
 	b, err := os.ReadFile("./device.json")
 	if errors.Is(err, os.ErrNotExist) {
 		b, err = json.Marshal(Config{

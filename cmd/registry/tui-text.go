@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -76,10 +78,13 @@ type modelText struct {
 	//Cmd string
 	//textInput textinput.Model
 	//hint  string
-	debug    string
+	debug string
+	//args     []string
 	curr     string
 	profName string
 	lex      []string
+	added    bool
+	removed  bool
 }
 
 func (m modelText) Init() tea.Cmd {
@@ -101,35 +106,103 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	prev := m.input.Value()
 
+	//prev := m.input.Value()
+
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	cmds = append(cmds, cmd)
 
 	curr := m.input.Value()
 
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case
+			key.Matches(msg, m.input.KeyMap.DeleteWordBackward),
+			key.Matches(msg, m.input.KeyMap.DeleteWordForward),
+			key.Matches(msg, m.input.KeyMap.DeleteAfterCursor),
+			key.Matches(msg, m.input.KeyMap.DeleteBeforeCursor),
+			key.Matches(msg, m.input.KeyMap.DeleteCharacterBackward),
+			key.Matches(msg, m.input.KeyMap.DeleteCharacterForward):
+			m.added = false
+			m.removed = true
+		default:
+			if len(curr) > len(prev) {
+				m.added = true
+				m.removed = false
+			}
+		}
+	}
+
+	m.debug = fmt.Sprintf("added %t removed %t", m.added, m.removed)
+
+	//curr := m.input.Value()
+
+	//m.added = false
+	//m.removed = false
+
 	//var push bool
-	if !strings.HasSuffix(prev, " ") && strings.HasSuffix(curr, " ") {
-		//push = true
-		//m.debug = "SPACE"
-	} else {
-		//m.debug = ""
+	//if len(prev) < len(curr) {
+	//	m.added = true
+	//	m.removed = false
+	//	//push = true
+	//	//m.debug = "SPACE"
+	//} else if len(prev) > len(curr) {
+	//	m.added = false
+	//	m.removed = true
+	//	//m.debug = ""
+	//}
+
+	//var push bool
+	//var pop bool
+
+	//if m.added && strings.HasSuffix(m.input.Value(), " ") {
+	//	// you just added a space!
+	//	push = true
+	//} else if m.removed && m.input.Value() == "" {
+	//	pop = true
+	//}
+
+	if m.added && strings.HasSuffix(m.input.Value(), " ") {
+		//m.args = append(m.args, strings.TrimSuffix(m.input.Value(), " "))
+		//m.input.SetValue("")
+	} else if m.removed && prev == "" {
+		//if len(m.args) > 0 {
+		//	m.input.SetValue(m.args[len(m.args)-1] + " ")
+		//	m.args = m.args[:len(m.args)-1]
+		//}
 	}
 
 	//var pop bool
-	if len(prev) > 0 && len(curr) == 0 {
-		//pop = true
-	}
+	//if len(prev) > 0 && len(curr) == 0 {
+	//	//pop = true
+	//}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEnter, tea.KeyCtrlC, tea.KeyEsc:
-			//if m.profName == "" {
-			//	fmt.Println("Invalid prof name")
-			//} else {
-			//	fmt.Println("Creating profile with name:", m.profName)
-			//}
+		case tea.KeyEnter:
+			args, err := shlex.Split(m.input.Value())
+			if err != nil {
+				panic(err)
+			}
 
+			cobrautil.ResetSubCommandFlagValues(m.root)
+
+			buf := new(bytes.Buffer)
+			m.root.SetOut(buf)
+			m.root.SetErr(buf)
+			m.root.SetArgs(args)
+
+			err = m.root.Execute()
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Print(buf.String())
+
+			return m, tea.Quit
+		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		}
 		//case gotReposSuccessMsg:
@@ -159,8 +232,22 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.lex = args
 
 	//curr, suggs, hint, err := cobrautil.Completion(m.root, append(m.args, m.input.Value()))
-
 	curr, suggs, hint, err := cobrautil.Completion(m.root, args...)
+	//curr, suggs, hint, err := cobrautil.Completion(m.root, append(m.args, args...)...)
+	_ = curr
+	_ = hint
+
+	//if len(m.args) == 2 {
+	//	idx := lo.IndexOf(m.args, curr)
+	//	if idx > 0 {
+	//		rem := len(m.args) - idx - 1
+	//		segs := strings.Split(hint, " ")
+	//		segs = segs[rem:]
+	//	}
+	//
+	//}
+
+	//hint = strings.Join(segs, " ")
 
 	matched := args
 	if len(args) > 0 {
@@ -177,8 +264,18 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//if curr != "" {
 	//	curr += " "
 	//}
-	m.debug = fmt.Sprintf("## cur: %#v, match: %#v . --", curr, match)
-	m.setSuggestions(match, suggs...)
+	//m.debug = fmt.Sprintf("## cur: %#v, match: %#v . --", curr, match)
+	//m.input.Placeholder = hint
+
+	if len(m.lex) > 0 && m.lex[len(m.lex)-1] != "" {
+		m.setSuggestions(match, suggs...)
+		//m.input.Placeholder = ""
+		//m.input.Placeholder = ""
+	} else {
+		//m.setSuggestions(match)
+		m.setSuggestions(match, suggs...)
+	}
+
 	if err == nil {
 
 		//idx := lo.IndexOf(m.args, curr)
@@ -187,12 +284,10 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//segs = segs[rem:]
 		//hint = strings.Join(segs, " ")
 		//m.debug = fmt.Sprint(rem)
-		m.input.Placeholder = hint
+		//m.input.Placeholder = hint
 	} else {
-		m.input.Placeholder = "" //err.Error()
+		//m.input.Placeholder = "" //err.Error()
 	}
-
-	m.input.Placeholder = ""
 
 	//m.input.Placeholder = strings.Join(hints, " ")
 
@@ -305,9 +400,9 @@ var frame int
 func (m modelText) View() string {
 	var v strings.Builder
 
-	v.WriteString("\n>")
+	v.WriteString(">")
 	//if len(m.args) > 0 {
-	//	v.WriteString(" ")
+	v.WriteString(" ")
 	//}
 
 	//command := lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Render(strings.Join(m.args, " "))
@@ -340,9 +435,17 @@ func (m modelText) View() string {
 	//}
 	v.WriteString(inp)
 
-	v.WriteString("\n ")
+	v.WriteString("\n  ")
 
-	v.WriteString(strings.Join(m.input.AvailableSuggestions(), "    "))
+	var suggs []string
+	for _, sug := range m.input.AvailableSuggestions() {
+		segs := strings.Split(sug, " ")
+		if len(segs) > 0 && segs[len(segs)-1] != "" {
+			suggs = append(suggs, segs[len(segs)-1])
+		}
+	}
+
+	v.WriteString(strings.Join(suggs, "  "))
 
 	//if m.input.Value() == " " && m.input.Placeholder != "" {
 	//	v.WriteString(" " + m.input.Placeholder)
@@ -357,8 +460,8 @@ func (m modelText) View() string {
 	//	v.WriteString(l)
 	//	//v.WriteString(in.View())
 	//}
-	v.WriteString("\n\n\n")
-	v.WriteString(fmt.Sprintf("input: %#v \nsuggs: %#v \nsugg: %#v \nlex: %#v\n", m.input.Value(), m.input.AvailableSuggestions(), m.input.CurrentSuggestion(), m.lex))
+	//v.WriteString("\n\n")
+	//v.WriteString(fmt.Sprintf("input: %#v \nsuggs: %#v \nselected: %#v \nhint: %#v \nlex: %#v\ndebug: %#v\n", m.input.Value(), m.input.AvailableSuggestions(), m.input.CurrentSuggestion(), m.input.Placeholder, m.lex, m.debug))
 	frame++
 	//v.WriteString("\n")
 

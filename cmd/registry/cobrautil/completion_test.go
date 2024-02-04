@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	assert2 "github.com/stretchr/testify/assert"
 	"gotest.tools/v3/assert"
+
+	"ledctl3/cmd/cli"
 )
 
 func TestCompletion(t *testing.T) {
@@ -117,4 +119,73 @@ func TestCompletion(t *testing.T) {
 		assert.Equal(t, hint, "COMMAND")
 		assert2.ElementsMatch(t, sugg, []string{})
 	})
+}
+
+func TestCompletionRoot(t *testing.T) {
+	root := cli.Root()
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"help", "link"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "he")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"help"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "li")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"link"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "link")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl link")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"link"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "link", "")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl link")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"create", "delete"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "link", "cr")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl link")
+		assert.Equal(t, hint, "COMMAND")
+		assert2.ElementsMatch(t, sugg, []string{"create"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "link", "create")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl link create")
+		assert.Equal(t, hint, "INPUT OUTPUT")
+		assert2.ElementsMatch(t, sugg, []string{"create"})
+	})
+
+	t.Run("", func(t *testing.T) {
+		curr, sugg, hint, err := Completion(root, "link", "create", "")
+		assert.NilError(t, err)
+		assert.Equal(t, curr, "ledctl link create")
+		assert.Equal(t, hint, "INPUT OUTPUT")
+		assert2.ElementsMatch(t, sugg, []string{"input1", "input2", "input3"})
+	})
+
 }

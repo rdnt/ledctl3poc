@@ -11,7 +11,7 @@ import (
 
 func Completion(root *cobra.Command, a ...string) (name string, sugg []string, hint string, err error) {
 
-	//fmt.Printf("ARGS %#v\n", a)
+	//fmt.Printf("ARGS %#v %#v\n", root.Use, a)
 
 	compArgs := append([]string{cobra.ShellCompNoDescRequestCmd}, a...)
 	//compArgs = append(compArgs, "")
@@ -62,10 +62,12 @@ func Completion(root *cobra.Command, a ...string) (name string, sugg []string, h
 	//fmt.Printf("NAME:\n%s\n", c.Name())
 	//fmt.Printf("HINT:\n%s\n", strings.TrimLeft(c.Use, c.Name()+" "))
 
-	return strings.TrimPrefix(strings.TrimPrefix(c.CommandPath(), "ledctl"), " "), sugg, hint, nil
+	return strings.TrimPrefix(c.CommandPath(), " "), sugg, hint, nil
 }
 
 func execute(root *cobra.Command, args []string) (c *cobra.Command, output string, err error) {
+	ResetSubCommandFlagValues(root)
+
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
 	root.SetErr(ioutil.Discard)

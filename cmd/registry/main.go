@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"ledctl3/cmd/cli"
 	"ledctl3/event"
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
@@ -49,6 +53,31 @@ func (s *sh) GetState() (registry.State, error) {
 }
 
 func main() {
+	root := cli.Root()
+
+	//root.Execute()
+
+	buf := new(bytes.Buffer)
+	root.SetOut(buf)
+	root.SetErr(buf)
+
+	root.Run = func(cmd *cobra.Command, args []string) {
+		runTUIText(root)
+	}
+
+	os.Stderr = nil
+	if err := root.Execute(); err != nil {
+		fmt.Println(err)
+		fmt.Println("LOGS:", buf.String())
+		os.Exit(1)
+	}
+
+	fmt.Println("LOGS:", buf.String())
+
+	//runTUI()
+
+	return
+
 	s := netserver.New[event.Event](1337, event.Codec)
 
 	sh := &sh{}
@@ -168,5 +197,5 @@ func main() {
 	//	}
 	//}()
 
-	select {}
+	//select {}
 }

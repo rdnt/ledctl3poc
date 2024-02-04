@@ -5,4 +5,5 @@ toolchain go1.21.4
 use (
 	.
 	pkg/screencapture_kirides
+	../charmbracelet-bubbles
 )

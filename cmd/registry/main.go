@@ -68,7 +68,7 @@ func main() {
 	os.Stderr = nil
 	if err := root.Execute(); err != nil {
 		fmt.Println(err)
-		fmt.Println("LOGS:", buf.String())
+		fmt.Println("LOGS1:", buf.String())
 		os.Exit(1)
 	}
 

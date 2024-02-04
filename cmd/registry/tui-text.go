@@ -70,12 +70,10 @@ func runTUIText(root *cobra.Command) {
 }
 
 type modelText struct {
-	root   *cobra.Command
-	inputs []textinput.Model
-	input  textinput.Model
+	root  *cobra.Command
+	input textinput.Model
 
 	//Cmd string
-	args []string
 	//textInput textinput.Model
 	//hint  string
 	debug    string
@@ -109,7 +107,7 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	curr := m.input.Value()
 
-	var push bool
+	//var push bool
 	if !strings.HasSuffix(prev, " ") && strings.HasSuffix(curr, " ") {
 		//push = true
 		//m.debug = "SPACE"
@@ -117,7 +115,7 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//m.debug = ""
 	}
 
-	var pop bool
+	//var pop bool
 	if len(prev) > 0 && len(curr) == 0 {
 		//pop = true
 	}
@@ -150,14 +148,15 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	args, err := shlex.Split(m.input.Value())
 	if err != nil {
-		m.lex = nil
+		//args = nil
+		m.lex = append(m.lex, "ERR")
 	} else {
 		if strings.HasSuffix(m.input.Value(), " ") || m.input.Value() == "" {
 			args = append(args, "")
 		}
-
-		m.lex = args
 	}
+
+	m.lex = args
 
 	//curr, suggs, hint, err := cobrautil.Completion(m.root, append(m.args, m.input.Value()))
 
@@ -251,14 +250,14 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//	m.input.Placeholder = ""
 	//}
 
-	if push && strings.TrimSpace(m.input.Value()) != "" {
-		m.args = append(m.args, strings.TrimSpace(m.input.Value()))
-		m.input.SetValue("")
-		m.debug = "PUSH"
-		cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-			return t
-		}))
-	}
+	//if push && strings.TrimSpace(m.input.Value()) != "" {
+	//	m.args = append(m.args, strings.TrimSpace(m.input.Value()))
+	//	m.input.SetValue("")
+	//	m.debug = "PUSH"
+	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
+	//		return t
+	//	}))
+	//}
 
 	//if strings.HasSuffix(m.input.Value(), " ") && m.input.Value() != " " {
 	//
@@ -273,18 +272,18 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//	m.input.SetValue(" ")
 	//}
 
-	if len(m.args) > 0 && pop {
-		m.debug = "POP"
-		//m.debug += "pop"
-		val := m.args[len(m.args)-1:][0]
-		m.input.SetValue("" + val)
-		m.input.SetCursor(len(val) + 1)
-		m.args = m.args[:len(m.args)-1]
-
-		cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-			return t
-		}))
-	}
+	//if len(m.args) > 0 && pop {
+	//	m.debug = "POP"
+	//	//m.debug += "pop"
+	//	val := m.args[len(m.args)-1:][0]
+	//	m.input.SetValue("" + val)
+	//	m.input.SetCursor(len(val) + 1)
+	//	m.args = m.args[:len(m.args)-1]
+	//
+	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
+	//		return t
+	//	}))
+	//}
 	//if m.input.Value() == "" && len(m.args) > 0 {
 	//	//m.debug += "unshift"
 	//
@@ -307,12 +306,12 @@ func (m modelText) View() string {
 	var v strings.Builder
 
 	v.WriteString("\n>")
-	if len(m.args) > 0 {
-		v.WriteString(" ")
-	}
+	//if len(m.args) > 0 {
+	//	v.WriteString(" ")
+	//}
 
-	command := lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Render(strings.Join(m.args, " "))
-	v.WriteString(command)
+	//command := lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Render(strings.Join(m.args, " "))
+	//v.WriteString(command)
 
 	//if m.input.Placeholder != "" {
 	//	cur := m.input.Cursor
@@ -321,17 +320,17 @@ func (m modelText) View() string {
 	//	m.input.Cursor = cur
 	//}
 
-	if len(m.args) > 0 {
-		v.WriteString(" ")
-	}
+	//if len(m.args) > 0 {
+	//	v.WriteString(" ")
+	//}
 
 	var restore bool
-	if m.input.Value() == " " && m.input.Placeholder != "" && len(m.args) > 0 {
-		//m.input.SetValue("")
-		//v.WriteString(" ")
-
-		restore = true
-	}
+	//if m.input.Value() == " " && m.input.Placeholder != "" && len(m.args) > 0 {
+	//	//m.input.SetValue("")
+	//	//v.WriteString(" ")
+	//
+	//	restore = true
+	//}
 	inp := m.input.View()
 	if restore {
 		//m.input.SetValue(" ")

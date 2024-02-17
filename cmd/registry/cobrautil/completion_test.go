@@ -1,11 +1,11 @@
 package cobrautil
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/spf13/cobra"
-	assert2 "github.com/stretchr/testify/assert"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 
 	"ledctl3/cmd/cli"
 )
@@ -27,8 +27,9 @@ func TestCompletion(t *testing.T) {
 	}
 
 	gammaOne := &cobra.Command{
-		Use: "gamma-one COMMAND",
-		Run: func(cmd *cobra.Command, args []string) {},
+		Use:       "gamma-one COMMAND",
+		ValidArgs: []string{"argument one", "argument two"},
+		Run:       func(cmd *cobra.Command, args []string) {},
 	}
 
 	gammaTwo := &cobra.Command{
@@ -41,83 +42,69 @@ func TestCompletion(t *testing.T) {
 	gamma.AddCommand(gammaOne, gammaTwo)
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "error")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{})
+		suggs, err := CompletionSuggestions(alpha, "error")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"beta", "gamma", "completion", "help"})
+		suggs, err := CompletionSuggestions(alpha, "")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"beta", "gamma", "completion", "help"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "be")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"beta"})
+		suggs, err := CompletionSuggestions(alpha, "be")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"beta"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gam")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma"})
+		suggs, err := CompletionSuggestions(alpha, "gam")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma-one", "gamma-two"})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma-one", "gamma-two"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "ga")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma-one", "gamma-two"})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "ga")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma-one", "gamma-two"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "gamma-")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma-one", "gamma-two"})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "gamma-")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma-one", "gamma-two"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "gamma-o")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma-one"})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "gamma-o")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma-one"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "gamma-one")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma gamma-one")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"gamma-one"})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "gamma-one")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"gamma-one"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(alpha, "gamma", "gamma-onee")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "alpha gamma")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{})
+		suggs, err := CompletionSuggestions(alpha, "gamma", "gamma-onee")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{})
+	})
+
+	t.Run("double quote", func(t *testing.T) {
+		suggs, err := CompletionSuggestions(alpha, "gamma", "gamma-one", "argument o")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"argument one"})
 	})
 }
 
@@ -125,67 +112,137 @@ func TestCompletionRoot(t *testing.T) {
 	root := cli.Root()
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"help", "link"})
+		suggs, err := CompletionSuggestions(root, "")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"help", "link"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "he")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"help"})
+		suggs, err := CompletionSuggestions(root, "he")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"help"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "li")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"link"})
+		suggs, err := CompletionSuggestions(root, "li")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"link"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "link")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl link")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"link"})
+		suggs, err := CompletionSuggestions(root, "link")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"link"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "link", "")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl link")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"create", "delete"})
+		suggs, err := CompletionSuggestions(root, "link", "")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"create", "delete"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "link", "cr")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl link")
-		assert.Equal(t, hint, "COMMAND")
-		assert2.ElementsMatch(t, sugg, []string{"create"})
+		suggs, err := CompletionSuggestions(root, "link", "cr")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"create"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "link", "create")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl link create")
-		assert.Equal(t, hint, "INPUT OUTPUT")
-		assert2.ElementsMatch(t, sugg, []string{"create"})
+		suggs, err := CompletionSuggestions(root, "link", "create")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"create"})
 	})
 
 	t.Run("", func(t *testing.T) {
-		curr, sugg, hint, err := Completion(root, "link", "create", "")
-		assert.NilError(t, err)
-		assert.Equal(t, curr, "ledctl link create")
-		assert.Equal(t, hint, "INPUT OUTPUT")
-		assert2.ElementsMatch(t, sugg, []string{"input1", "input2", "input3"})
+		suggs, err := CompletionSuggestions(root, "link", "create", "")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, suggs, []string{"input1", "input2", "input3"})
 	})
 
+}
+
+func Test_parseSuggestions(t *testing.T) {
+	type args struct {
+		res string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "Completions",
+			args: args{res: `sugg1
+sugg2
+sugg3
+:4
+details`},
+			want: []string{"sugg1", "sugg2", "sugg3"},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.NoError(t, err)
+				return err == nil
+			},
+		},
+		{
+			name: "Empty completions",
+			args: args{res: `:4
+details`},
+			want: []string{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.NoError(t, err)
+				return err == nil
+			},
+		},
+		{
+			name: "Error directive",
+			args: args{res: `:1
+details`},
+			want: []string{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.NoError(t, err)
+				return err == nil
+			},
+		},
+		{
+			name: "Error directive with completions",
+			args: args{res: `sugg1
+sugg2
+:1
+details`},
+			want: []string{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.NoError(t, err)
+				return err == nil
+			},
+		},
+		{
+			name: "Invalid response",
+			args: args{res: `:4`},
+			want: []string{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.Error(t, err)
+				return err == nil
+			},
+		},
+		{
+			name: "Empty response",
+			args: args{res: ``},
+			want: []string{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.Error(t, err)
+				return err == nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseSuggestions(tt.args.res)
+			if !tt.wantErr(t, err, fmt.Sprintf("parseSuggestions(%v)", tt.args.res)) {
+				return
+			}
+			assert.ElementsMatch(t, got, tt.want, "parseSuggestions(%v)", tt.args.res)
+		})
+	}
 }

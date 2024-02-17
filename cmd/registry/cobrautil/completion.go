@@ -9,63 +9,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Completion(root *cobra.Command, a ...string) (name string, sugg []string, hint string, err error) {
-
-	//fmt.Printf("ARGS %#v %#v\n", root.Use, a)
-
+func CompletionSuggestions(root *cobra.Command, a ...string) (suggestions []string, err error) {
 	compArgs := append([]string{cobra.ShellCompNoDescRequestCmd}, a...)
-	//compArgs = append(compArgs, "")
 
-	// Output from stderr must be ignored by the completion script.
-	c, out, err := execute(root, compArgs)
+	out, err := execute(root, compArgs)
 	if err != nil {
-		return "", nil, "", err
+		return nil, err
 	}
 
-	footerLines := 2
-	sugg = strings.Split(out, "\n")
-	directive := sugg[len(sugg)-footerLines : len(sugg)-footerLines+1][0]
-	if directive != ":1" {
-		sugg = sugg[:len(sugg)-footerLines]
-	} else {
-		return "", nil, "", errors.New("invalid")
-	}
-
-	if len(sugg) == 0 {
-		// try without appended ""
-
-		//compArgs := append([]string{cobra.ShellCompNoDescRequestCmd}, a...)
-		//
-		//// Output from stderr must be ignored by the completion script.
-		//c, out, err = execute(root, compArgs)
-		//if err != nil {
-		//	return "", nil, "", err
-		//}
-		//
-		//footerLines := 2
-		//sugg = strings.Split(out, "\n")
-		//directive := sugg[len(sugg)-footerLines : len(sugg)-footerLines+1][0]
-		//if directive != ":1" {
-		//	sugg = sugg[:len(sugg)-footerLines]
-		//} else {
-		//	return "", nil, "", errors.New("invalid")
-		//}
-	}
-
-	if root.TraverseChildren {
-		c, _, err = root.Traverse(a)
-	} else {
-		c, _, err = root.Find(a)
-	}
-	hint = strings.TrimPrefix(c.Use, c.Name()+" ")
-
-	//fmt.Printf("NAME:\n%s\n", c.Name())
-	//fmt.Printf("HINT:\n%s\n", strings.TrimLeft(c.Use, c.Name()+" "))
-
-	return strings.TrimPrefix(c.CommandPath(), " "), sugg, hint, nil
+	return parseSuggestions(out)
 }
 
-func execute(root *cobra.Command, args []string) (c *cobra.Command, output string, err error) {
+const epilogueLen = 2
+
+func parseSuggestions(res string) ([]string, error) {
+	lines := strings.Split(res, "\n")
+	if len(lines) < epilogueLen {
+		return nil, errors.New("invalid completion response")
+	}
+
+	directive := lines[len(lines)-epilogueLen : len(lines)-epilogueLen+1][0]
+	if directive == ":1" {
+		return nil, nil
+	}
+
+	return lines[:len(lines)-epilogueLen], nil
+}
+
+func execute(root *cobra.Command, args []string) (output string, err error) {
 	ResetSubCommandFlagValues(root)
 
 	buf := new(bytes.Buffer)
@@ -73,7 +44,7 @@ func execute(root *cobra.Command, args []string) (c *cobra.Command, output strin
 	root.SetErr(ioutil.Discard)
 	root.SetArgs(args)
 
-	c, err = root.ExecuteC()
+	err = root.Execute()
 
-	return c, buf.String(), err
+	return buf.String(), err
 }

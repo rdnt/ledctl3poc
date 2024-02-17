@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -72,19 +71,9 @@ func runTUIText(root *cobra.Command) {
 }
 
 type modelText struct {
-	root  *cobra.Command
-	input textinput.Model
-
-	//Cmd string
-	//textInput textinput.Model
-	//hint  string
-	debug string
-	//args     []string
-	curr     string
-	profName string
-	lex      []string
-	added    bool
-	removed  bool
+	root            *cobra.Command
+	input           textinput.Model
+	parsedShellArgs []string
 }
 
 func (m modelText) Init() tea.Cmd {
@@ -93,90 +82,38 @@ func (m modelText) Init() tea.Cmd {
 }
 
 func (m *modelText) setSuggestions(curr string, cmds ...string) {
-	commands := make([]string, len(cmds))
 	for i, cmd := range cmds {
-		commands[i] = curr + "" + strings.TrimPrefix(cmd, curr) + ""
+		//commands[i] = cmd
+
+		//for i, ch := range curr {
+		//	for j, cmd := range cmds {
+		//		var offset int
+		//		if i <= len(cmd) {
+		//			//cmd = curr + strings.TrimPrefix(cmd, curr)
+		//			if ch == '"' || ch == '\'' {
+		//				var cmdr []rune
+		//				cmdr = append(cmdr, []rune(cmd)[:i]...)
+		//				cmdr = append(cmdr, ch)
+		//				cmdr = append(cmdr, []rune(cmd)[i:]...)
+		//				cmds[j] = string(cmdr)
+		//				offset++
+		//			}
+		//		}
+		//	}
+		//}
+
+		cmds[i] = curr + "" + strings.TrimPrefix(cmd, "") + ""
 	}
 
-	m.input.SetSuggestions(commands)
+	m.input.SetSuggestions(cmds)
 }
 
 func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	prev := m.input.Value()
-
-	//prev := m.input.Value()
-
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	cmds = append(cmds, cmd)
-
-	curr := m.input.Value()
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch {
-		case
-			key.Matches(msg, m.input.KeyMap.DeleteWordBackward),
-			key.Matches(msg, m.input.KeyMap.DeleteWordForward),
-			key.Matches(msg, m.input.KeyMap.DeleteAfterCursor),
-			key.Matches(msg, m.input.KeyMap.DeleteBeforeCursor),
-			key.Matches(msg, m.input.KeyMap.DeleteCharacterBackward),
-			key.Matches(msg, m.input.KeyMap.DeleteCharacterForward):
-			m.added = false
-			m.removed = true
-		default:
-			if len(curr) > len(prev) {
-				m.added = true
-				m.removed = false
-			}
-		}
-	}
-
-	m.debug = fmt.Sprintf("added %t removed %t", m.added, m.removed)
-
-	//curr := m.input.Value()
-
-	//m.added = false
-	//m.removed = false
-
-	//var push bool
-	//if len(prev) < len(curr) {
-	//	m.added = true
-	//	m.removed = false
-	//	//push = true
-	//	//m.debug = "SPACE"
-	//} else if len(prev) > len(curr) {
-	//	m.added = false
-	//	m.removed = true
-	//	//m.debug = ""
-	//}
-
-	//var push bool
-	//var pop bool
-
-	//if m.added && strings.HasSuffix(m.input.Value(), " ") {
-	//	// you just added a space!
-	//	push = true
-	//} else if m.removed && m.input.Value() == "" {
-	//	pop = true
-	//}
-
-	if m.added && strings.HasSuffix(m.input.Value(), " ") {
-		//m.args = append(m.args, strings.TrimSuffix(m.input.Value(), " "))
-		//m.input.SetValue("")
-	} else if m.removed && prev == "" {
-		//if len(m.args) > 0 {
-		//	m.input.SetValue(m.args[len(m.args)-1] + " ")
-		//	m.args = m.args[:len(m.args)-1]
-		//}
-	}
-
-	//var pop bool
-	//if len(prev) > 0 && len(curr) == 0 {
-	//	//pop = true
-	//}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -205,191 +142,42 @@ func (m modelText) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		}
-		//case gotReposSuccessMsg:
-		//	var suggestions []string
-		//	for _, r := range msg {
-		//		suggestions = append(suggestions, r.Name)
-		//	}
 	}
 
-	//suggs, hints := cmdtree.Suggestions(m.args)
+	args, _ := shlex.Split(m.input.Value())
 
-	//var args []string
-	//for _, arg := range m.args {
-	//	args = append(args, strings.TrimLeft(arg, " "))
+	if strings.HasSuffix(m.input.Value(), " ") || m.input.Value() == "" {
+		args = append(args, "")
+	}
+
+	//m.parsedShellArgs = args
+
+	suggs, _ := cobrautil.CompletionSuggestions(m.root, args...)
+
+	//matched := args
+	//if len(args) > 0 {
+	//	matched = args[:len(args)-1]
 	//}
 
-	args, err := shlex.Split(m.input.Value())
-	if err != nil {
-		//args = nil
-		m.lex = append(m.lex, "ERR")
+	val := m.input.Value()
+	idx := strings.LastIndex(val, " ")
+	if idx != -1 {
+		val = val[:idx]
 	} else {
-		if strings.HasSuffix(m.input.Value(), " ") || m.input.Value() == "" {
-			args = append(args, "")
-		}
+		val = ""
 	}
 
-	m.lex = args
-
-	//curr, suggs, hint, err := cobrautil.Completion(m.root, append(m.args, m.input.Value()))
-	curr, suggs, hint, err := cobrautil.Completion(m.root, args...)
-	//curr, suggs, hint, err := cobrautil.Completion(m.root, append(m.args, args...)...)
-	_ = curr
-	_ = hint
-
-	//if len(m.args) == 2 {
-	//	idx := lo.IndexOf(m.args, curr)
-	//	if idx > 0 {
-	//		rem := len(m.args) - idx - 1
-	//		segs := strings.Split(hint, " ")
-	//		segs = segs[rem:]
-	//	}
-	//
-	//}
-
-	//hint = strings.Join(segs, " ")
-
-	matched := args
-	if len(args) > 0 {
-		matched = args[:len(args)-1]
+	//match := strings.Join(matched, " ")
+	if len(val) > 0 {
+		val += " "
 	}
 
-	match := strings.Join(matched, " ")
-	if len(match) > 0 {
-		match += " "
-	}
-	//if curr == strings.TrimSpace(m.input.Value()) {
-	//	curr = ""
-	//}
-	//if curr != "" {
-	//	curr += " "
-	//}
-	//m.debug = fmt.Sprintf("## cur: %#v, match: %#v . --", curr, match)
-	//m.input.Placeholder = hint
+	m.setSuggestions(val, suggs...)
 
-	if len(m.lex) > 0 && m.lex[len(m.lex)-1] != "" {
-		m.setSuggestions(match, suggs...)
-		//m.input.Placeholder = ""
-		//m.input.Placeholder = ""
-	} else {
-		//m.setSuggestions(match)
-		m.setSuggestions(match, suggs...)
-	}
-
-	if err == nil {
-
-		//idx := lo.IndexOf(m.args, curr)
-		//rem := len(m.args) - idx - 1
-		//segs := strings.Split(hint, " ")
-		//segs = segs[rem:]
-		//hint = strings.Join(segs, " ")
-		//m.debug = fmt.Sprint(rem)
-		//m.input.Placeholder = hint
-	} else {
-		//m.input.Placeholder = "" //err.Error()
-	}
-
-	//m.input.Placeholder = strings.Join(hints, " ")
-
-	//switch len(m.args) {
-	//case 0:
-	//	m.setSuggestions(
-	//		"node",
-	//		"profile",
-	//		"link",
-	//		"links",
-	//		"profiles",
-	//	)
-	//	m.input.Placeholder = ""
-	//case 1:
-	//	switch {
-	//	case m.args[0] == "node":
-	//		m.setSuggestions(
-	//			"status",
-	//		)
-	//		m.input.Placeholder = ""
-	//	case m.args[0] == "profile":
-	//		m.setSuggestions(
-	//			"create",
-	//			"delete",
-	//			"links",
-	//		)
-	//		m.input.Placeholder = ""
-	//	case m.args[0] == "link":
-	//		m.setSuggestions(
-	//			"create",
-	//			"delete",
-	//		)
-	//		m.input.Placeholder = ""
-	//	default:
-	//		m.setSuggestions()
-	//		m.input.Placeholder = ""
-	//	}
-	//case 2:
-	//	switch {
-	//	case m.args[0] == "node" && m.args[1] == "status":
-	//		m.setSuggestions()
-	//		m.input.Placeholder = "<name>"
-	//	case m.args[0] == "profile" && (m.args[1] == "create" || m.args[1] == "delete"):
-	//		m.setSuggestions()
-	//		m.input.Placeholder = "<name>"
-	//	case m.args[0] == "link" && (m.args[1] == "create" || m.args[1] == "delete"):
-	//		m.setSuggestions()
-	//		m.input.Placeholder = "<input> <output>"
-	//	default:
-	//		m.setSuggestions()
-	//		m.input.Placeholder = ""
-	//	}
-	//default:
-	//	m.setSuggestions()
-	//	m.input.Placeholder = ""
-	//}
-
-	//if push && strings.TrimSpace(m.input.Value()) != "" {
-	//	m.args = append(m.args, strings.TrimSpace(m.input.Value()))
-	//	m.input.SetValue("")
-	//	m.debug = "PUSH"
-	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-	//		return t
-	//	}))
-	//}
-
-	//if strings.HasSuffix(m.input.Value(), " ") && m.input.Value() != " " {
-	//
-	//	//m.debug += "match"
-	//
-	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-	//		return t
-	//	}))
-	//}
-
-	//if m.input.Value() == "" && len(m.args) == 0 {
-	//	m.input.SetValue(" ")
-	//}
-
-	//if len(m.args) > 0 && pop {
-	//	m.debug = "POP"
-	//	//m.debug += "pop"
-	//	val := m.args[len(m.args)-1:][0]
-	//	m.input.SetValue("" + val)
-	//	m.input.SetCursor(len(val) + 1)
-	//	m.args = m.args[:len(m.args)-1]
-	//
-	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-	//		return t
-	//	}))
-	//}
-	//if m.input.Value() == "" && len(m.args) > 0 {
-	//	//m.debug += "unshift"
-	//
-	//	val := m.args[len(m.args)-1:][0]
-	//	m.input.SetValue(" " + val)
-	//	m.input.SetCursor(len(val) + 1)
-	//	m.args = m.args[:len(m.args)-1]
-	//
-	//	cmds = append(cmds, tea.Tick(0*time.Second, func(t time.Time) tea.Msg {
-	//		return t
-	//	}))
+	//if len(m.parsedShellArgs) > 0 && m.parsedShellArgs[len(m.parsedShellArgs)-1] != "" {
+	//	m.setSuggestions(match, suggs...)
+	//} else {
+	//	m.setSuggestions(match, suggs...)
 	//}
 
 	return m, tea.Batch(cmds...)
@@ -438,13 +226,13 @@ func (m modelText) View() string {
 	v.WriteString("\n  ")
 
 	var suggs []string
-	for _, sug := range m.input.AvailableSuggestions() {
-		segs := strings.Split(sug, " ")
-		if len(segs) > 0 && segs[len(segs)-1] != "" {
-			suggs = append(suggs, segs[len(segs)-1])
-		}
-	}
-
+	suggs = m.input.AvailableSuggestions()
+	//for _, sug := range m.input.AvailableSuggestions() {
+	//	segs := strings.Split(sug, " ")
+	//	if len(segs) > 0 && segs[len(segs)-1] != "" {
+	//		suggs = append(suggs, segs[len(segs)-1])
+	//	}
+	//}
 	v.WriteString(strings.Join(suggs, "  "))
 
 	//if m.input.Value() == " " && m.input.Placeholder != "" {
@@ -460,8 +248,8 @@ func (m modelText) View() string {
 	//	v.WriteString(l)
 	//	//v.WriteString(in.View())
 	//}
-	//v.WriteString("\n\n")
-	//v.WriteString(fmt.Sprintf("input: %#v \nsuggs: %#v \nselected: %#v \nhint: %#v \nlex: %#v\ndebug: %#v\n", m.input.Value(), m.input.AvailableSuggestions(), m.input.CurrentSuggestion(), m.input.Placeholder, m.lex, m.debug))
+	v.WriteString("\n\n")
+	v.WriteString(fmt.Sprintf("input: %#v \nsuggs: %#v \nselected: %#v \nhint: %#v \nparsedShellArgs: %#v\n", m.input.Value(), m.input.AvailableSuggestions(), m.input.CurrentSuggestion(), m.input.Placeholder, m.parsedShellArgs))
 	frame++
 	//v.WriteString("\n")
 

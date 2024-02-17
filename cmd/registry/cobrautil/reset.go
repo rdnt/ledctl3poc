@@ -5,12 +5,14 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// ref https://github.com/golang/debug/pull/8, https://github.com/authzed/zed/pull/188
+// ResetSubCommandFlagValues resets the flag of all commands, recursively
+// ref https://github.com/golang/debug/pull/8
+// ref https://github.com/authzed/zed/pull/188
 func ResetSubCommandFlagValues(root *cobra.Command) {
 	for _, c := range root.Commands() {
 		c.Flags().VisitAll(func(f *pflag.Flag) {
 			if f.Changed {
-				f.Value.Set(f.DefValue)
+				_ = f.Value.Set(f.DefValue)
 				f.Changed = false
 			}
 		})

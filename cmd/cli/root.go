@@ -1,4 +1,4 @@
-package cli
+package main
 
 import (
 	"errors"
@@ -54,13 +54,13 @@ var linkCreateCmd = &cobra.Command{
 	//DisableFlagParsing: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			if !slices.Contains([]string{"input1", "input2", "input3"}, args[0]) {
+			if !slices.Contains([]string{"input1", "input2", "input3", "input four"}, args[0]) {
 				return errors.New("invalid input")
 			}
 		}
 
 		if len(args) > 1 {
-			if !slices.Contains([]string{"output1", "output2"}, args[1]) {
+			if !slices.Contains([]string{"output1", "output2", "output three"}, args[1]) {
 				return errors.New("invalid output")
 			}
 		}
@@ -73,9 +73,9 @@ var linkCreateCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) == 0 {
-			return []string{"input1", "input2", "input3"}, cobra.ShellCompDirectiveNoFileComp
+			return []string{"input1", "input2", "input3", "input four"}, cobra.ShellCompDirectiveNoFileComp
 		} else if len(args) == 1 && slices.Contains([]string{"input1", "input2", "input3"}, args[0]) {
-			return []string{"output1", "output2"}, cobra.ShellCompDirectiveNoFileComp
+			return []string{"output1", "output2", "output three"}, cobra.ShellCompDirectiveNoFileComp
 		} else {
 			return nil, cobra.ShellCompDirectiveError
 		}
@@ -89,13 +89,13 @@ var linkDeleteCmd = &cobra.Command{
 	//DisableFlagParsing: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			if !slices.Contains([]string{"input1", "input2", "input3"}, args[0]) {
+			if !slices.Contains([]string{"input1", "input2", "input3", "input four"}, args[0]) {
 				return errors.New("invalid input")
 			}
 		}
 
 		if len(args) > 1 {
-			if !slices.Contains([]string{"output1", "output2"}, args[1]) {
+			if !slices.Contains([]string{"output1", "output2", "output three"}, args[1]) {
 				return errors.New("invalid output")
 			}
 		}
@@ -108,9 +108,9 @@ var linkDeleteCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) == 0 {
-			return []string{"input1", "input2", "input3"}, cobra.ShellCompDirectiveNoFileComp
+			return []string{"input1", "input2", "input3", "input four"}, cobra.ShellCompDirectiveNoFileComp
 		} else if len(args) == 1 && slices.Contains([]string{"input1", "input2", "input3"}, args[0]) {
-			return []string{"output1", "output2"}, cobra.ShellCompDirectiveNoFileComp
+			return []string{"output1", "output2", "output three"}, cobra.ShellCompDirectiveNoFileComp
 		} else {
 			return nil, cobra.ShellCompDirectiveError
 		}

@@ -8,7 +8,7 @@ require (
 	github.com/mattn/go-mjpeg v0.0.3
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d
-	golang.org/x/sys v0.10.0
+	golang.org/x/sys v0.13.0
 )
 
 require (

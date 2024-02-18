@@ -9,10 +9,11 @@ import (
 
 type Node struct {
 	Id        uuid.UUID             `json:"id"`
+	Name      string                `json:"name"`
 	Inputs    map[uuid.UUID]*Input  `json:"inputs"`
 	Outputs   map[uuid.UUID]*Output `json:"outputs"`
 	Drivers   map[uuid.UUID]*Driver `json:"drivers"`
-	Connected bool                  `json:"-"`
+	Connected bool                  `json:"connected"`
 }
 
 type Driver struct {

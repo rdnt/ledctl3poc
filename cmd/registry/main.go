@@ -1,16 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/spf13/cobra"
-
-	"ledctl3/cmd/cli"
 	"ledctl3/event"
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
@@ -53,31 +49,6 @@ func (s *sh) GetState() (registry.State, error) {
 }
 
 func main() {
-	root := cli.Root()
-
-	//root.Execute()
-
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
-
-	root.Run = func(cmd *cobra.Command, args []string) {
-		runTUIText(root)
-	}
-
-	os.Stderr = nil
-	if err := root.Execute(); err != nil {
-		fmt.Println(err)
-		fmt.Println("LOGS1:", buf.String())
-		os.Exit(1)
-	}
-
-	fmt.Println("LOGS:", buf.String())
-
-	//runTUI()
-
-	return
-
 	s := netserver.New[event.Event](1337, event.Codec)
 
 	sh := &sh{}
@@ -119,7 +90,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 
 		fmt.Println("Updating driver config!")
-		err = reg.SetDeviceConfig(uuid.MustParse("df5228e7-09e0-4f08-8d09-8b253f49e3d5"), uuid.MustParse("3dc0f83c-76a3-42f3-9237-7e44121627b8"), []byte(`
+		err = reg.SetDeviceConfig(uuid.MustParse("faf5dc1b-0001-4654-bec8-9eecc18f38a0"), uuid.MustParse("f8b279f7-a39c-43df-87c8-9fe7ffadc51d"), []byte(`
 {
   "outputs": [
     {
@@ -141,7 +112,8 @@ func main() {
 }
 		`))
 		if err != nil {
-			panic(err)
+			fmt.Println("ERR!", err)
+			//panic(err)
 		}
 	}()
 
@@ -197,5 +169,5 @@ func main() {
 	//	}
 	//}()
 
-	//select {}
+	select {}
 }

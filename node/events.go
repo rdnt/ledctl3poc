@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"ledctl3/event"
-	"ledctl3/internal/node/types"
+	"ledctl3/node/types"
 )
 
 func (c *Client) ProcessEvent(addr string, e event.Event) {

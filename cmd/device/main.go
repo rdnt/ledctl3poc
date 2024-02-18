@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"ledctl3/event"
-	"ledctl3/internal/node"
-	"ledctl3/internal/node/screen"
+	"ledctl3/node"
+	"ledctl3/node/screen"
 	"ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"

@@ -13,7 +13,7 @@ import (
 
 	"github.com/bamiaux/rez"
 
-	"ledctl3/internal/node/types"
+	"ledctl3/node/types"
 	types2 "ledctl3/pkg/screencapture/types"
 )
 

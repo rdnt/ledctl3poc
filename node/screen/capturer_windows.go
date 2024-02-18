@@ -12,9 +12,9 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/internal/node"
-	"ledctl3/internal/node/common"
-	"ledctl3/internal/node/types"
+	"ledctl3/node"
+	"ledctl3/node/common"
+	"ledctl3/node/types"
 	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"
 	"ledctl3/pkg/uuid"

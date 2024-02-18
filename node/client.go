@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"ledctl3/event"
-	"ledctl3/internal/node/common"
+	"ledctl3/node/common"
 	"ledctl3/pkg/uuid"
 )
 

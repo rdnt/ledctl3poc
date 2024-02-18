@@ -9,8 +9,8 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/internal/node"
-	"ledctl3/internal/node/common"
+	"ledctl3/node"
+	"ledctl3/node/common"
 	"ledctl3/pkg/uuid"
 	"ledctl3/pkg/ws281x"
 )

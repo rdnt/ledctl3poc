@@ -9,10 +9,10 @@ import (
 
 	"ledctl3/cmd/registry/state"
 	"ledctl3/event"
-	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
+	"ledctl3/registry"
 )
 
 func main() {

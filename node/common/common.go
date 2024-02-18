@@ -3,7 +3,7 @@ package common
 import (
 	"image/color"
 
-	"ledctl3/internal/device/types"
+	"ledctl3/internal/node/types"
 	"ledctl3/pkg/uuid"
 )
 

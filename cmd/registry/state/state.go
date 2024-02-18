@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"ledctl3/internal/registry"
 	"ledctl3/pkg/uuid"
+	registry2 "ledctl3/registry"
 )
 
 type Holder struct {
@@ -17,7 +17,7 @@ func NewHolder() *Holder {
 	return &Holder{}
 }
 
-func (s *Holder) SetState(state registry.State) error {
+func (s *Holder) SetState(state registry2.State) error {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
@@ -38,28 +38,28 @@ func (s *Holder) Stop() error {
 	return s.SetState(st)
 }
 
-func (s *Holder) GetState() (registry.State, error) {
+func (s *Holder) GetState() (registry2.State, error) {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
 	b, err := os.ReadFile("./registry.json")
 	if err != nil {
-		return registry.State{}, err
+		return registry2.State{}, err
 	}
 
 	var state State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
-		return registry.State{}, err
+		return registry2.State{}, err
 	}
 
 	return ToRegistryState(state), nil
 }
 
 type State struct {
-	Nodes          map[uuid.UUID]Node             `json:"nodes"`
-	Profiles       map[uuid.UUID]registry.Profile `json:"profiles"`
-	ActiveProfiles []uuid.UUID                    `json:"activeProfiles"`
+	Nodes          map[uuid.UUID]Node              `json:"nodes"`
+	Profiles       map[uuid.UUID]registry2.Profile `json:"profiles"`
+	ActiveProfiles []uuid.UUID                     `json:"activeProfiles"`
 }
 
 type Node struct {
@@ -90,7 +90,7 @@ type Output struct {
 	Config   json.RawMessage `json:"config"`
 }
 
-func ToState(s registry.State) State {
+func ToState(s registry2.State) State {
 	state := State{
 		Nodes:          make(map[uuid.UUID]Node, len(s.Nodes)),
 		Profiles:       s.Profiles,
@@ -139,17 +139,17 @@ func ToState(s registry.State) State {
 	return state
 }
 
-func ToRegistryState(p State) registry.State {
-	state := registry.State{
-		Nodes:          make(map[uuid.UUID]*registry.Node, len(p.Nodes)),
+func ToRegistryState(p State) registry2.State {
+	state := registry2.State{
+		Nodes:          make(map[uuid.UUID]*registry2.Node, len(p.Nodes)),
 		Profiles:       p.Profiles,
 		ActiveProfiles: p.ActiveProfiles,
 	}
 
 	for id, node := range p.Nodes {
-		inputs := make(map[uuid.UUID]*registry.Input, len(node.Inputs))
+		inputs := make(map[uuid.UUID]*registry2.Input, len(node.Inputs))
 		for _, in := range node.Inputs {
-			inputs[in.Id] = &registry.Input{
+			inputs[in.Id] = &registry2.Input{
 				Id:       in.Id,
 				DriverId: in.DriverId,
 				Schema:   in.Schema,
@@ -157,9 +157,9 @@ func ToRegistryState(p State) registry.State {
 			}
 		}
 
-		outputs := make(map[uuid.UUID]*registry.Output, len(node.Outputs))
+		outputs := make(map[uuid.UUID]*registry2.Output, len(node.Outputs))
 		for _, out := range node.Outputs {
-			outputs[out.Id] = &registry.Output{
+			outputs[out.Id] = &registry2.Output{
 				Id:       out.Id,
 				DriverId: out.DriverId,
 				Leds:     out.Leds,
@@ -168,15 +168,15 @@ func ToRegistryState(p State) registry.State {
 			}
 		}
 
-		drivers := make(map[uuid.UUID]*registry.Driver, len(node.Drivers))
+		drivers := make(map[uuid.UUID]*registry2.Driver, len(node.Drivers))
 		for _, driver := range node.Drivers {
-			drivers[driver.Id] = &registry.Driver{
+			drivers[driver.Id] = &registry2.Driver{
 				Id:     driver.Id,
 				Config: driver.Config,
 			}
 		}
 
-		state.Nodes[id] = &registry.Node{
+		state.Nodes[id] = &registry2.Node{
 			Id:      node.Id,
 			Name:    node.Name,
 			Inputs:  inputs,

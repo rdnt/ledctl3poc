@@ -12,15 +12,15 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/internal/device"
-	"ledctl3/internal/device/common"
-	"ledctl3/internal/device/types"
+	"ledctl3/internal/node"
+	"ledctl3/internal/node/common"
+	"ledctl3/internal/node/types"
 	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"
 	"ledctl3/pkg/uuid"
 )
 
-func New(typ string) (device.Driver, error) {
+func New(typ string) (node.Driver, error) {
 	repo, err := newDisplayRepo(typ)
 	if err != nil {
 		return nil, err

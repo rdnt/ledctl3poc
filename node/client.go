@@ -1,4 +1,4 @@
-package device
+package node
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"ledctl3/event"
-	"ledctl3/internal/device/common"
+	"ledctl3/internal/node/common"
 	"ledctl3/pkg/uuid"
 )
 

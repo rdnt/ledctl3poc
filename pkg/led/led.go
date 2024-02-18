@@ -9,13 +9,13 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/internal/device"
-	"ledctl3/internal/device/common"
+	"ledctl3/internal/node"
+	"ledctl3/internal/node/common"
 	"ledctl3/pkg/uuid"
 	"ledctl3/pkg/ws281x"
 )
 
-func New() device.Driver {
+func New() node.Driver {
 	return &dev{}
 }
 

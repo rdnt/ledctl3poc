@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"ledctl3/event"
-	"ledctl3/internal/device"
-	"ledctl3/internal/device/screen"
+	"ledctl3/internal/node"
+	"ledctl3/internal/node/screen"
 	"ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
@@ -27,9 +27,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	device.Register("screen", scr)
+	node.Register("screen", scr)
 
-	device.Register("led", led.New())
+	node.Register("led", led.New())
 
 	b, err := os.ReadFile("./device.json")
 	if errors.Is(err, os.ErrNotExist) {
@@ -56,8 +56,8 @@ func main() {
 
 	s := netserver.New[event.Event](-1, event.Codec)
 
-	dev, err := device.New(
-		device.Config{
+	dev, err := node.New(
+		node.Config{
 			Id: cfg.DeviceId,
 		},
 		func(addr string, e event.Event) error {

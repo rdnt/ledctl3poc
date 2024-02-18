@@ -1,11 +1,11 @@
-package device
+package node
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"ledctl3/event"
-	"ledctl3/internal/device/types"
+	"ledctl3/internal/node/types"
 )
 
 func (c *Client) ProcessEvent(addr string, e event.Event) {

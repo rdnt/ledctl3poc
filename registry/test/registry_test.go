@@ -8,8 +8,8 @@ import (
 	"gotest.tools/v3/assert"
 
 	"ledctl3/event"
-	"ledctl3/internal/registry"
 	"ledctl3/pkg/uuid"
+	"ledctl3/registry"
 )
 
 type mockStateHolder struct{}

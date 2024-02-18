@@ -7,6 +7,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+
+	"ledctl3/cmd/cli/table"
 )
 
 func Root() *cobra.Command {
@@ -44,19 +46,18 @@ var nodesCmd = &cobra.Command{
 			panic(err)
 		}
 
-		columns := []Column{
-			{Title: "Id", Width: 2 + 4},
-			{Title: "Name", Width: 4 + 4},
-			{Title: "Connected", Width: 9 + 4},
-			{Title: "Inputs", Width: 6 + 4},
-			{Title: "Outputs", Width: 7 + 4},
+		headers := []string{
+			"Id",
+			"Name",
+			"Connected",
+			"Inputs",
+			"Outputs",
 		}
 
-		var rows []Row
+		var rows [][]string
 
 		if len(state.Nodes) == 0 {
 			rows = append(rows, []string{"(empty)"})
-			columns[0].Width = min(max(columns[0].Width, 7+4), 40)
 		}
 
 		ids := lo.Keys(state.Nodes)
@@ -73,19 +74,13 @@ var nodesCmd = &cobra.Command{
 			inputs := fmt.Sprintf("%d", len(node.Inputs))
 			outputs := fmt.Sprintf("%d", len(node.Outputs))
 
-			columns[0].Width = min(max(columns[0].Width, len(id)+4), 40)
-			columns[1].Width = min(max(columns[1].Width, len(name)+4), 40)
-			columns[2].Width = min(max(columns[2].Width, len(connected)+4), 40)
-			columns[3].Width = min(max(columns[3].Width, len(inputs)+4), 40)
-			columns[4].Width = min(max(columns[4].Width, len(outputs)+4), 40)
-
 			rows = append(rows, []string{id, name, connected, inputs, outputs})
 		}
 
-		t := Table{
-			cols: columns,
-			rows: rows,
-		}
+		t := table.New().
+			WithHeaders(headers).
+			WithRows(rows).
+			WithPadding(4)
 
 		fmt.Println(t.String())
 	},

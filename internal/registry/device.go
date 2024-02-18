@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 
 	"ledctl3/pkg/uuid"
 )
@@ -10,15 +11,17 @@ import (
 type Node struct {
 	Id        uuid.UUID             `json:"id"`
 	Name      string                `json:"name"`
+	Connected bool                  `json:"connected"`
+	Address   net.Addr              `json:"address"`
 	Inputs    map[uuid.UUID]*Input  `json:"inputs"`
 	Outputs   map[uuid.UUID]*Output `json:"outputs"`
 	Drivers   map[uuid.UUID]*Driver `json:"drivers"`
-	Connected bool                  `json:"connected"`
 }
 
 type Driver struct {
 	Id     uuid.UUID       `json:"id"`
 	Config json.RawMessage `json:"config"`
+	Active bool            `json:"active"`
 }
 
 func NewNode(id uuid.UUID, connected bool, drivers map[uuid.UUID]*Driver) *Node {

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"ledctl3/cmd/registry/state"
 	"ledctl3/event"
 	"ledctl3/internal/registry"
 	"ledctl3/pkg/mdns"
@@ -14,44 +15,10 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-type sh struct {
-	mux sync.Mutex
-}
-
-func (s *sh) SetState(state registry.State) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	b, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile("./registry.json", b, 0644)
-}
-
-func (s *sh) GetState() (registry.State, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	b, err := os.ReadFile("./registry.json")
-	if err != nil {
-		return registry.State{}, err
-	}
-
-	var state registry.State
-	err = json.Unmarshal(b, &state)
-	if err != nil {
-		return registry.State{}, err
-	}
-
-	return state, nil
-}
-
 func main() {
 	s := netserver.New[event.Event](1337, event.Codec)
 
-	sh := &sh{}
+	sh := state.NewHolder()
 	reg := registry.New(sh, func(addr string, e event.Event) error {
 		return s.Write(addr, e)
 	})
@@ -90,7 +57,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 
 		fmt.Println("Updating driver config!")
-		err = reg.SetDeviceConfig(uuid.MustParse("faf5dc1b-0001-4654-bec8-9eecc18f38a0"), uuid.MustParse("f8b279f7-a39c-43df-87c8-9fe7ffadc51d"), []byte(`
+		err = reg.SetDeviceConfig(uuid.MustParse("ffffffff-0000-0000-0000-000000000000"), uuid.MustParse("f8b279f7-a39c-43df-87c8-9fe7ffadc51d"), []byte(`
 {
   "outputs": [
     {
@@ -169,5 +136,9 @@ func main() {
 	//	}
 	//}()
 
-	select {}
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	<-interrupt
+
+	sh.Stop()
 }

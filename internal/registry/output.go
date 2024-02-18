@@ -13,7 +13,7 @@ type Output struct {
 	Leds      int             `json:"leds"`
 	Schema    json.RawMessage `json:"schema"`
 	Config    json.RawMessage `json:"config"`
-	Connected bool            `json:"-"`
+	Connected bool            `json:"connected"`
 }
 
 func NewOutput(id, driverId uuid.UUID, leds int, schema, config []byte, connected bool) *Output {

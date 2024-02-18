@@ -72,7 +72,7 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 		dev.Connect()
 		dev.Drivers = make(map[uuid.UUID]*Driver)
 		for _, d := range e.Drivers {
-			dev.Drivers[d.Id] = &Driver{d.Id, d.Config}
+			dev.Drivers[d.Id] = &Driver{d.Id, d.Config, true}
 		}
 
 		r.State.Nodes[e.Id] = dev
@@ -84,7 +84,7 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 
 	drivers := make(map[uuid.UUID]*Driver)
 	for _, d := range e.Drivers {
-		drivers[d.Id] = &Driver{d.Id, d.Config}
+		drivers[d.Id] = &Driver{d.Id, d.Config, true}
 	}
 
 	r.State.Nodes[e.Id] = NewNode(e.Id, true, drivers)

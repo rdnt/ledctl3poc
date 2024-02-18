@@ -12,7 +12,7 @@ type Input struct {
 	DriverId  uuid.UUID       `json:"driverId"`
 	Schema    json.RawMessage `json:"schema"`
 	Config    json.RawMessage `json:"config"`
-	Connected bool            `json:"-"`
+	Connected bool            `json:"connected"`
 }
 
 func NewInput(id, driverId uuid.UUID, schema, config []byte, connected bool) *Input {

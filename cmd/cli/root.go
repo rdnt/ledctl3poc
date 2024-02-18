@@ -4,21 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
-
-	"ledctl3/cmd/cli/table"
-	"ledctl3/pkg/uuid"
 )
 
 func Root() *cobra.Command {
 	rootCmd.AddCommand(nodesCmd)
 
-	rootCmd.AddCommand(completionCmd)
-	rootCmd.AddCommand(linkCmd)
+	rootCmd.AddCommand(nodeCmd)
+	nodeCmd.AddCommand(nodeStatusCmd)
 
+	rootCmd.AddCommand(sourceCmd)
+	sourceCmd.AddCommand(sourceConfigCmd)
+	sourceConfigCmd.AddCommand(sourceConfigSetCmd)
+
+	rootCmd.AddCommand(completionCmd)
+
+	rootCmd.AddCommand(linkCmd)
 	linkCmd.AddCommand(linkCreateCmd)
 	linkCmd.AddCommand(linkDeleteCmd)
 
@@ -38,55 +40,6 @@ var rootCmd = &cobra.Command{
 var helpCmd = &cobra.Command{
 	Use: "help",
 	//DisableFlagParsing: true,
-}
-
-var nodesCmd = &cobra.Command{
-	Use: "nodes",
-	Run: func(cmd *cobra.Command, args []string) {
-		state, err := getState()
-		if err != nil {
-			panic(err)
-		}
-
-		headers := []string{
-			"Id",
-			"Name",
-			"Connected",
-			"Inputs",
-			"Outputs",
-		}
-
-		var rows [][]string
-
-		ids := lo.Keys(state.Nodes)
-		slices.SortStableFunc(ids, func(a, b uuid.UUID) int {
-			cmp := strings.Compare(state.Nodes[a].Name, state.Nodes[b].Name)
-			if cmp != 0 {
-				return cmp
-			}
-
-			return strings.Compare(a.String(), b.String())
-		})
-
-		for _, id := range ids {
-			node := state.Nodes[id]
-
-			rows = append(rows, []string{
-				node.Id.String(),
-				node.Name,
-				fmt.Sprintf("%t", node.Connected),
-				fmt.Sprintf("%d", len(node.Inputs)),
-				fmt.Sprintf("%d", len(node.Outputs)),
-			})
-		}
-
-		t := table.New().
-			WithHeaders(headers).
-			WithRows(rows).
-			WithPadding(4)
-
-		fmt.Println(t.String())
-	},
 }
 
 var linkCmd = &cobra.Command{

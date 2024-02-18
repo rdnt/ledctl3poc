@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"ledctl3/cmd/cli/table"
+	"ledctl3/pkg/uuid"
 )
 
 func Root() *cobra.Command {
@@ -56,25 +58,26 @@ var nodesCmd = &cobra.Command{
 
 		var rows [][]string
 
-		if len(state.Nodes) == 0 {
-			rows = append(rows, []string{"(empty)"})
-		}
-
 		ids := lo.Keys(state.Nodes)
-		slices.Sort(ids)
+		slices.SortStableFunc(ids, func(a, b uuid.UUID) int {
+			cmp := strings.Compare(state.Nodes[a].Name, state.Nodes[b].Name)
+			if cmp != 0 {
+				return cmp
+			}
+
+			return strings.Compare(a.String(), b.String())
+		})
 
 		for _, id := range ids {
 			node := state.Nodes[id]
-			id := node.Id.String()
-			name := node.Name
-			if name == "" {
-				name = "-"
-			}
-			connected := fmt.Sprintf("%t", node.Connected)
-			inputs := fmt.Sprintf("%d", len(node.Inputs))
-			outputs := fmt.Sprintf("%d", len(node.Outputs))
 
-			rows = append(rows, []string{id, name, connected, inputs, outputs})
+			rows = append(rows, []string{
+				node.Id.String(),
+				node.Name,
+				fmt.Sprintf("%t", node.Connected),
+				fmt.Sprintf("%d", len(node.Inputs)),
+				fmt.Sprintf("%d", len(node.Outputs)),
+			})
 		}
 
 		t := table.New().

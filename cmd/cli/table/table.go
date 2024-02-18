@@ -66,6 +66,9 @@ func (t *Table) String() string {
 func (t *Table) renderRow(cols []string) string {
 	var s = make([]string, 0, len(cols))
 	for i, value := range cols {
+		if value == "" {
+			value = "-"
+		}
 		style := lipgloss.NewStyle().Width(t.width[i]).MaxWidth(t.width[i]).Inline(true)
 		renderedCell := lipgloss.NewStyle().Render(style.Render(runewidth.Truncate(value, t.width[i], "…")))
 		s = append(s, renderedCell)

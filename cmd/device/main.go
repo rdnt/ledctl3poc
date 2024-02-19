@@ -27,9 +27,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	node.Register("screen", scr)
+	node.RegisterSource("screen", scr)
 
-	node.Register("led", led.New())
+	node.RegisterSink("led", led.New())
 
 	b, err := os.ReadFile("./device.json")
 	if errors.Is(err, os.ErrNotExist) {

@@ -117,6 +117,7 @@ func (c *Capturer) Config() ([]byte, error) {
 
 	return b, nil
 }
+
 func (c *Capturer) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolder) error {
 	c.id = id
 	c.reg = reg

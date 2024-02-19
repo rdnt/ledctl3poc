@@ -19,7 +19,8 @@ type Client struct {
 	cfg     Config
 	inputs  map[uuid.UUID]common.Input
 	outputs map[uuid.UUID]common.Output
-	drivers map[uuid.UUID]Driver
+	sources map[uuid.UUID]Driver
+	sinks   map[uuid.UUID]Driver
 	regAddr string
 }
 
@@ -146,10 +147,11 @@ func New(cfg Config, write func(addr string, e event.Event) error) (*Client, err
 		cfg:     cfg,
 		inputs:  make(map[uuid.UUID]common.Input),
 		outputs: make(map[uuid.UUID]common.Output),
-		drivers: make(map[uuid.UUID]Driver),
+		sources: make(map[uuid.UUID]Driver),
+		sinks:   make(map[uuid.UUID]Driver),
 	}
 
-	for name, drv := range drivers {
+	for name, drv := range sources {
 		sh := newDriverStateHolder(name)
 		id, err := sh.getId()
 		if err != nil {
@@ -161,7 +163,22 @@ func New(cfg Config, write func(addr string, e event.Event) error) (*Client, err
 			return nil, err
 		}
 
-		d.drivers[id] = drv
+		d.sources[id] = drv
+	}
+
+	for name, drv := range sinks {
+		sh := newDriverStateHolder(name)
+		id, err := sh.getId()
+		if err != nil {
+			return nil, err
+		}
+
+		err = drv.Start(id, d, sh) // TODO: stop drivers if one fails to start
+		if err != nil {
+			return nil, err
+		}
+
+		d.sinks[id] = drv
 	}
 
 	return d, nil
@@ -240,16 +257,26 @@ type Driver interface {
 	SetConfig(cfg []byte) error
 	Schema() ([]byte, error)
 	Config() ([]byte, error)
+	//SchemaAny() (any, error)
+	//ConfigAny() (any, error)
 }
 
-var drivers = map[string]Driver{}
+var sources = map[string]Driver{}
+var sinks = map[string]Driver{}
 var driversMux sync.Mutex
 
-func Register(name string, driver Driver) {
+func RegisterSource(name string, driver Driver) {
 	driversMux.Lock()
 	defer driversMux.Unlock()
 
-	drivers[name] = driver
+	sources[name] = driver
+}
+
+func RegisterSink(name string, driver Driver) {
+	driversMux.Lock()
+	defer driversMux.Unlock()
+
+	sinks[name] = driver
 }
 
 func (c *Client) RemoveInput(id uuid.UUID) {

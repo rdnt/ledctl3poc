@@ -23,8 +23,10 @@ func (c *Client) ProcessEvent(addr string, e event.Event) {
 	//	c.handleSetSourceActive(addr, e)
 	case event.SetInputActive:
 		c.handleSetInputActive(addr, e)
-	case event.SetDriverConfig:
-		c.handleSetDeviceConfig(addr, e)
+	case event.SetSourceConfig:
+		c.handleSetSourceConfig(addr, e)
+	case event.SetSinkConfig:
+		c.handleSetSinkConfig(addr, e)
 	case event.Data:
 		c.handleData(addr, e)
 	//case event.ListCapabilities:
@@ -39,8 +41,8 @@ func (c *Client) ProcessEvent(addr string, e event.Event) {
 func (c *Client) handleConnect(addr string, e event.Connect) {
 	fmt.Printf("%s: recv Connect\n", addr)
 
-	var drivers []event.ConnectDriver
-	for _, d := range c.drivers {
+	var sources []event.ConnectSource
+	for _, d := range c.sources {
 		cfg, err := d.Config()
 		if err != nil {
 			fmt.Println(err)
@@ -53,7 +55,28 @@ func (c *Client) handleConnect(addr string, e event.Connect) {
 			return
 		}
 
-		drivers = append(drivers, event.ConnectDriver{
+		sources = append(sources, event.ConnectSource{
+			Id:     d.Id(),
+			Config: cfg,
+			Schema: schema,
+		})
+	}
+
+	var sinks []event.ConnectSink
+	for _, d := range c.sinks {
+		cfg, err := d.Config()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		schema, err := d.Schema()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		sinks = append(sinks, event.ConnectSink{
 			Id:     d.Id(),
 			Config: cfg,
 			Schema: schema,
@@ -63,7 +86,8 @@ func (c *Client) handleConnect(addr string, e event.Connect) {
 	fmt.Printf("%s: send Connect\n", addr)
 	err := c.write(addr, event.Connect{
 		Id:      c.cfg.Id,
-		Drivers: drivers,
+		Sources: sources,
+		Sinks:   sinks,
 	})
 	if err != nil {
 		fmt.Println("error writing to addr", addr, err)
@@ -234,12 +258,12 @@ func (c *Client) handleData(addr string, e event.Data) {
 	}
 }
 
-func (c *Client) handleSetDeviceConfig(addr string, e event.SetDriverConfig) {
-	fmt.Printf("%s: recv SetDriverConfig\n", addr)
+func (c *Client) handleSetSourceConfig(addr string, e event.SetSourceConfig) {
+	fmt.Printf("%s: recv SetSourceConfig\n", addr)
 
-	dev, ok := c.drivers[e.DriverId]
+	dev, ok := c.sources[e.SourceId]
 	if !ok {
-		fmt.Println("device not found", e.DriverId)
+		fmt.Println("source not found", e.SourceId)
 		return
 	}
 
@@ -249,5 +273,23 @@ func (c *Client) handleSetDeviceConfig(addr string, e event.SetDriverConfig) {
 		return
 	}
 
-	fmt.Println("device config set", e.DriverId)
+	fmt.Println("source config set", e.SourceId)
+}
+
+func (c *Client) handleSetSinkConfig(addr string, e event.SetSinkConfig) {
+	fmt.Printf("%s: recv SetSinkConfig\n", addr)
+
+	dev, ok := c.sinks[e.SinkId]
+	if !ok {
+		fmt.Println("sink not found", e.SinkId)
+		return
+	}
+
+	err := dev.SetConfig(e.Config)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("sink config set", e.SinkId)
 }

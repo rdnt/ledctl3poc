@@ -124,17 +124,17 @@ func (r *Registry) CreateProfile(name string, io []IOConfig) (Profile, error) {
 	return prof, nil
 }
 
-func (r *Registry) SetDeviceConfig(nodeId, driverId uuid.UUID, cfg []byte) error {
-	r.State.Nodes[nodeId].Drivers[driverId].Config = cfg
+func (r *Registry) SetSinkConfig(nodeId, sinkId uuid.UUID, cfg []byte) error {
+	r.State.Nodes[nodeId].Sinks[sinkId].Config = cfg
 
 	err := r.sh.SetState(*r.State)
 	if err != nil {
 		return err
 	}
 
-	err = r.send(r.connsAddr[nodeId], event.SetDriverConfig{
-		DriverId: driverId,
-		Config:   cfg,
+	err = r.send(r.connsAddr[nodeId], event.SetSinkConfig{
+		SinkId: sinkId,
+		Config: cfg,
 	})
 	if err != nil {
 		fmt.Println("error sending event:", err)

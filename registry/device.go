@@ -15,21 +15,29 @@ type Node struct {
 	Address   net.Addr              `json:"address"`
 	Inputs    map[uuid.UUID]*Input  `json:"inputs"`
 	Outputs   map[uuid.UUID]*Output `json:"outputs"`
-	Drivers   map[uuid.UUID]*Driver `json:"drivers"`
+	Sources   map[uuid.UUID]*Source `json:"sources"`
+	Sinks     map[uuid.UUID]*Sink   `json:"sinks"`
 }
 
-type Driver struct {
+type Source struct {
 	Id     uuid.UUID       `json:"id"`
 	Config json.RawMessage `json:"config"`
 	Active bool            `json:"active"`
 }
 
-func NewNode(id uuid.UUID, connected bool, drivers map[uuid.UUID]*Driver) *Node {
+type Sink struct {
+	Id     uuid.UUID       `json:"id"`
+	Config json.RawMessage `json:"config"`
+	Active bool            `json:"active"`
+}
+
+func NewNode(id uuid.UUID, connected bool, sources map[uuid.UUID]*Source, sinks map[uuid.UUID]*Sink) *Node {
 	return &Node{
 		Id:        id,
 		Inputs:    make(map[uuid.UUID]*Input),
 		Outputs:   make(map[uuid.UUID]*Output),
-		Drivers:   drivers,
+		Sources:   sources,
+		Sinks:     sinks,
 		Connected: connected,
 	}
 }

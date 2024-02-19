@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"ledctl3/pkg/uuid"
-	registry2 "ledctl3/registry"
+	"ledctl3/registry"
 )
 
 type Holder struct {
@@ -17,7 +17,7 @@ func NewHolder() *Holder {
 	return &Holder{}
 }
 
-func (s *Holder) SetState(state registry2.State) error {
+func (s *Holder) SetState(state registry.State) error {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
@@ -38,28 +38,28 @@ func (s *Holder) Stop() error {
 	return s.SetState(st)
 }
 
-func (s *Holder) GetState() (registry2.State, error) {
+func (s *Holder) GetState() (registry.State, error) {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
 	b, err := os.ReadFile("./registry.json")
 	if err != nil {
-		return registry2.State{}, err
+		return registry.State{}, err
 	}
 
 	var state State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
-		return registry2.State{}, err
+		return registry.State{}, err
 	}
 
 	return ToRegistryState(state), nil
 }
 
 type State struct {
-	Nodes          map[uuid.UUID]Node              `json:"nodes"`
-	Profiles       map[uuid.UUID]registry2.Profile `json:"profiles"`
-	ActiveProfiles []uuid.UUID                     `json:"activeProfiles"`
+	Nodes          map[uuid.UUID]Node             `json:"nodes"`
+	Profiles       map[uuid.UUID]registry.Profile `json:"profiles"`
+	ActiveProfiles []uuid.UUID                    `json:"activeProfiles"`
 }
 
 type Node struct {
@@ -67,10 +67,16 @@ type Node struct {
 	Name    string               `json:"name"`
 	Inputs  map[uuid.UUID]Input  `json:"inputs"`
 	Outputs map[uuid.UUID]Output `json:"outputs"`
-	Drivers map[uuid.UUID]Driver `json:"drivers"`
+	Sources map[uuid.UUID]Source `json:"sources"`
+	Sinks   map[uuid.UUID]Sink   `json:"sinks"`
 }
 
-type Driver struct {
+type Source struct {
+	Id     uuid.UUID       `json:"id"`
+	Config json.RawMessage `json:"config"`
+}
+
+type Sink struct {
 	Id     uuid.UUID       `json:"id"`
 	Config json.RawMessage `json:"config"`
 }
@@ -90,66 +96,17 @@ type Output struct {
 	Config   json.RawMessage `json:"config"`
 }
 
-func ToState(s registry2.State) State {
-	state := State{
-		Nodes:          make(map[uuid.UUID]Node, len(s.Nodes)),
-		Profiles:       s.Profiles,
-		ActiveProfiles: s.ActiveProfiles,
-	}
-
-	for id, node := range s.Nodes {
-		inputs := make(map[uuid.UUID]Input, len(node.Inputs))
-		for _, in := range node.Inputs {
-			inputs[in.Id] = Input{
-				Id:       in.Id,
-				DriverId: in.DriverId,
-				Schema:   in.Schema,
-				Config:   in.Config,
-			}
-		}
-
-		outputs := make(map[uuid.UUID]Output, len(node.Outputs))
-		for _, out := range node.Outputs {
-			outputs[out.Id] = Output{
-				Id:       out.Id,
-				DriverId: out.DriverId,
-				Leds:     out.Leds,
-				Schema:   out.Schema,
-				Config:   out.Config,
-			}
-		}
-
-		drivers := make(map[uuid.UUID]Driver, len(node.Drivers))
-		for _, driver := range node.Drivers {
-			drivers[driver.Id] = Driver{
-				Id:     driver.Id,
-				Config: driver.Config,
-			}
-		}
-
-		state.Nodes[id] = Node{
-			Id:      node.Id,
-			Name:    node.Name,
-			Inputs:  inputs,
-			Outputs: outputs,
-			Drivers: drivers,
-		}
-	}
-
-	return state
-}
-
-func ToRegistryState(p State) registry2.State {
-	state := registry2.State{
-		Nodes:          make(map[uuid.UUID]*registry2.Node, len(p.Nodes)),
+func ToRegistryState(p State) registry.State {
+	state := registry.State{
+		Nodes:          make(map[uuid.UUID]*registry.Node, len(p.Nodes)),
 		Profiles:       p.Profiles,
 		ActiveProfiles: p.ActiveProfiles,
 	}
 
 	for id, node := range p.Nodes {
-		inputs := make(map[uuid.UUID]*registry2.Input, len(node.Inputs))
+		inputs := make(map[uuid.UUID]*registry.Input, len(node.Inputs))
 		for _, in := range node.Inputs {
-			inputs[in.Id] = &registry2.Input{
+			inputs[in.Id] = &registry.Input{
 				Id:       in.Id,
 				DriverId: in.DriverId,
 				Schema:   in.Schema,
@@ -157,9 +114,9 @@ func ToRegistryState(p State) registry2.State {
 			}
 		}
 
-		outputs := make(map[uuid.UUID]*registry2.Output, len(node.Outputs))
+		outputs := make(map[uuid.UUID]*registry.Output, len(node.Outputs))
 		for _, out := range node.Outputs {
-			outputs[out.Id] = &registry2.Output{
+			outputs[out.Id] = &registry.Output{
 				Id:       out.Id,
 				DriverId: out.DriverId,
 				Leds:     out.Leds,
@@ -168,20 +125,29 @@ func ToRegistryState(p State) registry2.State {
 			}
 		}
 
-		drivers := make(map[uuid.UUID]*registry2.Driver, len(node.Drivers))
-		for _, driver := range node.Drivers {
-			drivers[driver.Id] = &registry2.Driver{
-				Id:     driver.Id,
-				Config: driver.Config,
+		sources := make(map[uuid.UUID]*registry.Source, len(node.Sources))
+		for _, source := range node.Sources {
+			sources[source.Id] = &registry.Source{
+				Id:     source.Id,
+				Config: source.Config,
 			}
 		}
 
-		state.Nodes[id] = &registry2.Node{
+		sinks := make(map[uuid.UUID]*registry.Sink, len(node.Sinks))
+		for _, sink := range node.Sinks {
+			sinks[sink.Id] = &registry.Sink{
+				Id:     sink.Id,
+				Config: sink.Config,
+			}
+		}
+
+		state.Nodes[id] = &registry.Node{
 			Id:      node.Id,
 			Name:    node.Name,
 			Inputs:  inputs,
 			Outputs: outputs,
-			Drivers: drivers,
+			Sources: sources,
+			Sinks:   sinks,
 		}
 	}
 

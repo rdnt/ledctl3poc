@@ -1,14 +1,25 @@
 package event
 
-import "ledctl3/pkg/uuid"
+import (
+	"encoding/json"
+
+	"ledctl3/pkg/uuid"
+)
 
 type Connect struct {
 	Id      uuid.UUID
-	Drivers []ConnectDriver
+	Sources []ConnectSource
+	Sinks   []ConnectSink
 }
 
-type ConnectDriver struct {
+type ConnectSource struct {
 	Id     uuid.UUID
-	Config []byte
-	Schema []byte
+	Config json.RawMessage
+	Schema json.RawMessage
+}
+
+type ConnectSink struct {
+	Id     uuid.UUID
+	Config json.RawMessage
+	Schema json.RawMessage
 }

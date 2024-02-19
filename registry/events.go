@@ -70,9 +70,15 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 
 	if dev, ok := r.State.Nodes[e.Id]; ok {
 		dev.Connect()
-		dev.Drivers = make(map[uuid.UUID]*Driver)
-		for _, d := range e.Drivers {
-			dev.Drivers[d.Id] = &Driver{d.Id, d.Config, true}
+
+		dev.Sources = make(map[uuid.UUID]*Source)
+		for _, d := range e.Sources {
+			dev.Sources[d.Id] = &Source{d.Id, d.Config, true}
+		}
+
+		dev.Sinks = make(map[uuid.UUID]*Sink)
+		for _, d := range e.Sinks {
+			dev.Sinks[d.Id] = &Sink{d.Id, d.Config, true}
 		}
 
 		r.State.Nodes[e.Id] = dev
@@ -82,12 +88,17 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 		return nil
 	}
 
-	drivers := make(map[uuid.UUID]*Driver)
-	for _, d := range e.Drivers {
-		drivers[d.Id] = &Driver{d.Id, d.Config, true}
+	sources := make(map[uuid.UUID]*Source)
+	for _, d := range e.Sources {
+		sources[d.Id] = &Source{d.Id, d.Config, true}
 	}
 
-	r.State.Nodes[e.Id] = NewNode(e.Id, true, drivers)
+	sinks := make(map[uuid.UUID]*Sink)
+	for _, d := range e.Sinks {
+		sinks[d.Id] = &Sink{d.Id, d.Config, true}
+	}
+
+	r.State.Nodes[e.Id] = NewNode(e.Id, true, sources, sinks)
 
 	fmt.Println("device added:", e.Id)
 

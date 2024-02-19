@@ -18,6 +18,10 @@ func Root() *cobra.Command {
 	sourceCmd.AddCommand(sourceConfigCmd)
 	sourceConfigCmd.AddCommand(sourceConfigSetCmd)
 
+	rootCmd.AddCommand(sinkCmd)
+	sinkCmd.AddCommand(sinkConfigCmd)
+	sinkConfigCmd.AddCommand(sinkConfigSetCmd)
+
 	rootCmd.AddCommand(completionCmd)
 
 	rootCmd.AddCommand(linkCmd)

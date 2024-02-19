@@ -20,6 +20,15 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
+func init() {
+	scr, err := New("dxgi")
+	if err != nil {
+		panic(err)
+	}
+
+	node.RegisterSource("screen", scr)
+}
+
 func New(typ string) (node.Driver, error) {
 	repo, err := newDisplayRepo(typ)
 	if err != nil {

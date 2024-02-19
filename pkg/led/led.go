@@ -15,6 +15,10 @@ import (
 	"ledctl3/pkg/ws281x"
 )
 
+func init() {
+	node.RegisterSink("led", New())
+}
+
 func New() node.Driver {
 	return &dev{}
 }

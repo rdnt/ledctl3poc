@@ -57,7 +57,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 
 		fmt.Println("Updating driver config!")
-		err = reg.SetSinkConfig(uuid.MustParse("ffffffff-0000-0000-0000-000000000000"), uuid.MustParse("f8b279f7-a39c-43df-87c8-9fe7ffadc51d"), []byte(`
+		err = reg.SetSinkConfig(uuid.MustParse("ffffffff-0000-0000-0000-000000000000"), uuid.MustParse("2b599945-732d-4a1c-afc2-4ffd07c4131b"), []byte(`
 {
   "outputs": [
     {

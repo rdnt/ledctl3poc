@@ -62,6 +62,13 @@ var sourceCmd = &cobra.Command{
 	},
 }
 
+var sinkCmd = &cobra.Command{
+	Use: "sink COMMAND",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("sink %s\n", args)
+	},
+}
+
 var nodeStatusCmd = &cobra.Command{
 	Use: "status NODE",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -74,6 +81,14 @@ var sourceConfigCmd = &cobra.Command{
 	Use: "config COMMAND",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("source config %s\n", args)
+	},
+	Args: cobra.MinimumNArgs(1),
+}
+
+var sinkConfigCmd = &cobra.Command{
+	Use: "config COMMAND",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("sink config %s\n", args)
 	},
 	Args: cobra.MinimumNArgs(1),
 }
@@ -93,17 +108,17 @@ var sourceConfigSetCmd = &cobra.Command{
 
 			names := []string{}
 			nodeIds := []string{}
-			driverIds := []string{}
+			sourceIds := []string{}
 
 			for _, node := range state.Nodes {
-				for _, driver := range node.Drivers {
+				for _, source := range node.Sources {
 					names = append(names, node.Name)
 					nodeIds = append(nodeIds, node.Id.String())
-					driverIds = append(driverIds, driver.Id.String())
+					sourceIds = append(sourceIds, source.Id.String())
 				}
 			}
 
-			compls := [][]string{names, nodeIds, driverIds}
+			compls := [][]string{names, nodeIds, sourceIds}
 
 			return lo.Flatten(compls), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		} else if len(args) == 1 {
@@ -119,8 +134,61 @@ var sourceConfigSetCmd = &cobra.Command{
 					continue
 				}
 
-				for _, driver := range node.Drivers {
-					compls = append(compls, driver.Id.String())
+				for _, source := range node.Sources {
+					compls = append(compls, source.Id.String())
+				}
+			}
+
+			return compls, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+		}
+
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
+}
+
+var sinkConfigSetCmd = &cobra.Command{
+	Use: "set [NODE] SINK CONFIG",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("sink config set %s\n", args)
+	},
+	Args: cobra.RangeArgs(2, 3),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			state, err := getState()
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			names := []string{}
+			nodeIds := []string{}
+			sinkIds := []string{}
+
+			for _, node := range state.Nodes {
+				for _, sink := range node.Sinks {
+					names = append(names, node.Name)
+					nodeIds = append(nodeIds, node.Id.String())
+					sinkIds = append(sinkIds, sink.Id.String())
+				}
+			}
+
+			compls := [][]string{names, nodeIds, sinkIds}
+
+			return lo.Flatten(compls), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+		} else if len(args) == 1 {
+			state, err := getState()
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			compls := []string{}
+
+			for _, node := range state.Nodes {
+				if node.Id.String() != args[0] && node.Name != args[0] {
+					continue
+				}
+
+				for _, sink := range node.Sinks {
+					compls = append(compls, sink.Id.String())
 				}
 			}
 

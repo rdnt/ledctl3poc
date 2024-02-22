@@ -133,7 +133,9 @@ func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
 			n, err := conn.Read(sizeBuf[bytlen:])
 			if err != nil {
 				_ = conn.Close()
-				fmt.Println("error during read: ", err)
+				if !errors.Is(err, io.EOF) {
+					fmt.Println("error during read: ", err)
+				}
 				return
 			}
 

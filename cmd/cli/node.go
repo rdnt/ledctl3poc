@@ -1,12 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"ledctl3/cmd/cli/table"
+	"ledctl3/event"
+	"ledctl3/pkg/uuid"
 )
 
 var nodesCmd = &cobra.Command{
@@ -97,6 +101,40 @@ var sourceConfigSetCmd = &cobra.Command{
 	Use: "set [NODE] SOURCE CONFIG",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("source config set %s\n", args)
+
+		if len(args) == 3 {
+			args = args[1:]
+		}
+
+		sourceId, err := uuid.Parse(args[0])
+		if err != nil {
+			panic(err)
+		}
+
+		b := []byte(args[1])
+		valid := json.Valid(b)
+		if !valid {
+			panic("invalid json")
+		}
+
+		c, err := newClient()
+		if err != nil {
+			panic(err)
+		}
+
+		e := event.SetSourceConfig{
+			SourceId: sourceId,
+			Config:   b,
+		}
+
+		err = c.Write(e)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Config updated.")
+
+		time.Sleep(1 * time.Second)
 	},
 	Args: cobra.RangeArgs(2, 3),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

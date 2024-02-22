@@ -31,6 +31,8 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 		err = r.handleOutputDisconnected(addr, e)
 	case event.Data:
 		err = r.handleData(addr, e)
+	case event.SetSourceConfig:
+		err = r.handleSetSourceConfig(addr, e)
 	default:
 		fmt.Printf("unknown event %#v\n", e)
 	}
@@ -249,6 +251,55 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 			fmt.Println(err)
 		}
 	}()
+
+	return nil
+}
+
+func (r *Registry) handleSetSourceConfig(addr string, e event.SetSourceConfig) error {
+	fmt.Printf("%s: recv SetSourceConfig\n", addr)
+
+	var node *Node
+	for _, nod := range r.State.Nodes {
+		_, ok := nod.Sources[e.SourceId]
+		if ok {
+			node = nod
+			break
+		}
+	}
+
+	if node == nil {
+		return errors.New("unknown source")
+	}
+
+	_, ok := r.connsAddr[node.Id]
+	if !ok {
+		return errors.New("node disconnected")
+	}
+
+	source, ok := node.Sources[e.SourceId]
+	if !ok {
+		return errors.New("unknown source")
+	}
+
+	return r.setSourceConfig(node.Id, source.Id, e.Config)
+}
+
+func (r *Registry) setSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
+	r.State.Nodes[nodeId].Sources[sourceId].Config = cfg
+
+	err := r.sh.SetState(*r.State)
+	if err != nil {
+		return err
+	}
+
+	err = r.send(r.connsAddr[nodeId], event.SetSourceConfig{
+		SourceId: sourceId,
+		Config:   cfg,
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return err
+	}
 
 	return nil
 }

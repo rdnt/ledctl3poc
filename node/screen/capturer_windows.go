@@ -84,12 +84,12 @@ func (c *Capturer) Id() uuid.UUID {
 }
 
 func (c *Capturer) SetConfig(cfg []byte) error {
-	err := c.applyConfig(b)
+	err := c.applyConfig(cfg)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile("./device-screen.json", b, 0644)
+	err = os.WriteFile("./device-screen.json", cfg, 0644)
 	if err != nil {
 		return err
 	}

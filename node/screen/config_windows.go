@@ -9,11 +9,11 @@ import (
 //go:generate go run github.com/atombender/go-jsonschema/cmd/gojsonschema -p screen --tags json -o schema.gen.go schema.json
 
 //go:embed schema.json
-var b []byte
+var schemaBin []byte
 var schema map[string]any
 
 func init() {
-	_ = json.Unmarshal(b, &schema)
+	_ = json.Unmarshal(schemaBin, &schema)
 }
 
 func (in *Input) Schema() map[string]any {

@@ -26,7 +26,12 @@ func (c *client) handleEvent(addr string, e event.Event) {
 }
 
 func newClient() (*client, error) {
-	c := &client{}
+	allAddrs := make([]net.Addr, 0)
+	localAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:1337")
+	if err == nil {
+		allAddrs = append(allAddrs, localAddr)
+	}
+	c := &client{allAddrs: allAddrs}
 
 	c.client = netserver.New[event.Event](-1, event.Codec)
 
@@ -76,21 +81,18 @@ func (c *client) Write(e event.Event) error {
 	return c.client.Write(regId, e)
 }
 
+var once bool
+
+var connected = make(chan bool)
+
 func (c *client) connect() {
+	//fmt.Println("connect")
 	c.addrsMux.Lock()
 	addrs := c.allAddrs
+	//fmt.Println(addrs)
 	c.addrsMux.Unlock()
 
-	if len(addrs) == 0 {
-		time.Sleep(1 * time.Second)
-		c.connect()
-		return
-	}
-
-	connected := make(chan bool)
-
 	go func() {
-		var once bool
 
 		for _, addr := range addrs {
 			//fmt.Println("connecting to", addr)
@@ -113,9 +115,11 @@ func (c *client) connect() {
 			//fmt.Println("disconnected from", addr)
 
 			_ = conn.Close()
-
-			c.connect()
+			break
 		}
+
+		time.Sleep(10 * time.Millisecond)
+		c.connect()
 	}()
 
 	<-connected

@@ -8,9 +8,9 @@ type InputConfig struct {
 }
 
 type OutputConfig struct {
-	Id       uuid.UUID
-	DeviceId uuid.UUID
-	SinkId   uuid.UUID
+	Id     uuid.UUID
+	NodeId uuid.UUID
+	SinkId uuid.UUID
 	//Config map[string]any
 	Config OutputConfigConfig
 	Leds   int

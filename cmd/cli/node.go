@@ -100,7 +100,7 @@ var sinkConfigCmd = &cobra.Command{
 var sourceConfigSetCmd = &cobra.Command{
 	Use: "set [NODE] SOURCE CONFIG",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("source config set %s\n", args)
+		//fmt.Printf("source config set %s\n", args)
 
 		if len(args) == 3 {
 			args = args[1:]
@@ -134,7 +134,7 @@ var sourceConfigSetCmd = &cobra.Command{
 
 		fmt.Println("Config updated.")
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Millisecond)
 	},
 	Args: cobra.RangeArgs(2, 3),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

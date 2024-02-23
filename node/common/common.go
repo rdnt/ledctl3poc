@@ -43,7 +43,7 @@ type IORegistry interface {
 
 type StateHolder interface {
 	//Id() uuid.UUID
-	SetConfig([]byte) error // TODO: only store state, and have device react to config changes instead.
+	SetConfig([]byte) error // TODO: only store state, and have the node react to config changes instead.
 	GetConfig() ([]byte, error)
 	SetState([]byte) error
 	GetState() ([]byte, error)

@@ -41,7 +41,7 @@ func New[E any](port int, codec codec.Codec[E]) *Server[E] {
 func (s *Server[E]) Connect(addr net.Addr) (net.Conn, error) {
 	c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
 	if err != nil {
-		fmt.Println("error during dial: ", err)
+		//fmt.Println("error during dial: ", err)
 		return nil, err
 	}
 

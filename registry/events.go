@@ -54,7 +54,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 func (r *Registry) send(addr string, e any) error {
 	_, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	return r.write(addr, e)
@@ -64,7 +64,7 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 	fmt.Printf("%s: recv Connect\n", addr)
 
 	if _, ok := r.conns[addr]; ok {
-		return errors.New("device already connected")
+		return errors.New("node already connected")
 	}
 
 	r.conns[addr] = e.Id
@@ -85,7 +85,7 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 
 		r.State.Nodes[e.Id] = dev
 
-		fmt.Println("device connected:", e.Id)
+		fmt.Println("node connected:", e.Id)
 
 		return nil
 	}
@@ -102,7 +102,7 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 
 	r.State.Nodes[e.Id] = NewNode(e.Id, true, sources, sinks)
 
-	fmt.Println("device added:", e.Id)
+	fmt.Println("node added:", e.Id)
 
 	return nil
 }
@@ -112,7 +112,7 @@ func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device already disconnected")
+		return errors.New("node already disconnected")
 	}
 
 	dev := r.State.Nodes[id]
@@ -130,7 +130,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 
 	srcId, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	dev := r.State.Nodes[srcId]
@@ -144,12 +144,12 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 
 	var evtOutCfgs []event.SetInputActiveOutput
 	for _, cfg := range cfgs {
-		dev := r.State.Nodes[r.outputDeviceId(cfg.OutputId)]
+		dev := r.State.Nodes[r.outputNodeId(cfg.OutputId)]
 
 		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
 			OutputId: cfg.OutputId,
 			SinkId:   dev.Outputs[cfg.OutputId].DriverId,
-			DeviceId: dev.Id,
+			NodeId:   dev.Id,
 			Leds:     dev.Outputs[cfg.OutputId].Leds,
 			Config:   cfg.Config,
 		})
@@ -173,7 +173,7 @@ func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnecte
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	dev := r.State.Nodes[id]
@@ -188,7 +188,7 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	dev := r.State.Nodes[id]
@@ -203,7 +203,7 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 
 	id, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	dev := r.State.Nodes[id]
@@ -216,7 +216,7 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 func (r *Registry) handleData(addr string, e event.Data) error {
 	srcId, ok := r.conns[addr]
 	if !ok {
-		return errors.New("device disconnected")
+		return errors.New("node disconnected")
 	}
 
 	sinkDev := r.State.Nodes[e.SinkId]

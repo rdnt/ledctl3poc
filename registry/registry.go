@@ -174,8 +174,8 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 	}
 
 	for _, io := range prof.IO {
-		srcDev := r.State.Nodes[r.inputDeviceId(io.InputId)]
-		sinkDev := r.State.Nodes[r.outputDeviceId(io.OutputId)]
+		srcDev := r.State.Nodes[r.inputNodeId(io.InputId)]
+		sinkDev := r.State.Nodes[r.outputNodeId(io.OutputId)]
 
 		err = r.send(r.connsAddr[srcDev.Id], event.SetInputActive{
 			Id: io.InputId,
@@ -217,7 +217,7 @@ func (r *Registry) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
 	for _, profId := range r.State.ActiveProfiles {
 		prof := r.State.Profiles[profId]
 		for _, io := range prof.IO {
-			srcId := r.inputDeviceId(io.InputId)
+			srcId := r.inputNodeId(io.InputId)
 
 			if srcId != id {
 				continue
@@ -248,7 +248,7 @@ func (r *Registry) activeInputConfigs(id uuid.UUID) []IOConfig {
 	return cfgs
 }
 
-func (r *Registry) outputDeviceId(id uuid.UUID) uuid.UUID {
+func (r *Registry) outputNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, out := range dev.Outputs {
 			if out.Id == id {
@@ -259,7 +259,7 @@ func (r *Registry) outputDeviceId(id uuid.UUID) uuid.UUID {
 	return uuid.Nil
 }
 
-func (r *Registry) inputDeviceId(id uuid.UUID) uuid.UUID {
+func (r *Registry) inputNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Inputs {
 			if in.Id == id {

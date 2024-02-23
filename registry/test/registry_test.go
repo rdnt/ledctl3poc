@@ -41,7 +41,7 @@ func TestConnect(t *testing.T) {
 	addr := uuid.New().String()
 	id := uuid.New()
 
-	t.Run("device connected", func(t *testing.T) {
+	t.Run("node connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Connect{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
@@ -49,17 +49,17 @@ func TestConnect(t *testing.T) {
 
 	t.Run("noop if connect is sent again", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Connect{Id: id})
-		assert.Error(t, err, "device already connected")
+		assert.Error(t, err, "node already connected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
-	t.Run("device disconnected", func(t *testing.T) {
+	t.Run("node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Disconnect{})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
-	t.Run("device reconnected", func(t *testing.T) {
+	t.Run("node reconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Connect{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
@@ -84,7 +84,7 @@ func TestDisconnect(t *testing.T) {
 	addr := uuid.New().String()
 	id := uuid.New()
 
-	t.Run("unknown device disconnected", func(t *testing.T) {
+	t.Run("unknown node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.Disconnect{})
 		assert.Error(t, err, "device already disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 0)

@@ -194,14 +194,14 @@ func (c *Client) AddInput(in common.Input) {
 		// forward messages from input to the network
 		for e := range in.Events() {
 
-			// TODO: synchronized render won't work for same-device i/o.
+			// TODO: synchronized render won't work for same-node i/o.
 			//  possible solution: instead of sending data to registry, send
-			//  directly to sink device, and calculate and send to registry
+			//  directly to sink node, and calculate and send to registry
 			//  the RTT from source to sink. the registry can then calculate
 			//  how much the sink should offset its render time to match the
-			//  latency of the slowest device on the network.
+			//  latency of the slowest node on the network.
 			//if e.DriverId == c.id {
-			//	// deliver to local device outputs
+			//	// deliver to local node outputs
 			//
 			//	for _, out := range e.Outputs {
 			//		if _, ok := c.outputs[out.OutputId]; !ok {

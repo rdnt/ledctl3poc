@@ -28,7 +28,7 @@ func main() {
 	})
 
 	s.SetConnectHandler(func(addr string) {
-		//fmt.Println("device connected")
+		//fmt.Println("node connected")
 	})
 
 	s.SetDisconnectHandler(func(addr string) {

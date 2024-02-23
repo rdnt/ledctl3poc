@@ -227,11 +227,11 @@ func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 		}
 
 		outputCfgs = append(outputCfgs, types.OutputConfig{
-			Id:       output.OutputId,
-			SinkId:   output.SinkId,
-			DeviceId: c.id,
-			Leds:     output.Leds,
-			Config:   outCfg,
+			Id:     output.OutputId,
+			SinkId: output.SinkId,
+			NodeId: c.id,
+			Leds:   output.Leds,
+			Config: outCfg,
 		})
 	}
 

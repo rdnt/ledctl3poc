@@ -89,7 +89,7 @@ func (c *Capturer) SetConfig(cfg []byte) error {
 		return err
 	}
 
-	err = os.WriteFile("./device-screen.json", cfg, 0644)
+	err = os.WriteFile("./node-screen.json", cfg, 0644)
 	if err != nil {
 		return err
 	}

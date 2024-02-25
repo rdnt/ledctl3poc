@@ -6,19 +6,19 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
-type Connect struct {
+type NodeConnected struct {
 	Id      uuid.UUID
-	Sources []ConnectSource
-	Sinks   []ConnectSink
+	Sources []ConnectedSource
+	Sinks   []ConnectedSink
 }
 
-type ConnectSource struct {
+type ConnectedSource struct {
 	Id     uuid.UUID
 	Config json.RawMessage
 	Schema json.RawMessage
 }
 
-type ConnectSink struct {
+type ConnectedSink struct {
 	Id     uuid.UUID
 	Config json.RawMessage
 	Schema json.RawMessage

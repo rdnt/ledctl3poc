@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -17,10 +18,15 @@ type Server[E any] struct {
 	codec             codec.Codec[E]
 	ln                net.Listener
 	port              int
-	handler           func(string, E)
+	messageHandler    func(string, E)
+	requestHandler    func(string, E, func(E) error)
 	conns             map[connId]net.Conn
 	connectHandler    func(string)
 	disconnectHandler func(string)
+	state             int
+	lastid            uint8
+
+	requests map[uint8]func(E)
 }
 
 type connId struct {
@@ -30,9 +36,10 @@ type connId struct {
 
 func New[E any](port int, codec codec.Codec[E]) *Server[E] {
 	s := &Server[E]{
-		port:  port,
-		codec: codec,
-		conns: map[connId]net.Conn{},
+		port:     port,
+		codec:    codec,
+		conns:    map[connId]net.Conn{},
+		requests: map[uint8]func(E){},
 	}
 
 	return s
@@ -86,7 +93,7 @@ func (s *Server[E]) Start() error {
 			s.conns[id] = c
 			s.mux.Unlock()
 
-			go s.ProcessEvents(c.RemoteAddr(), c)
+			go s.HandleConnection(c.RemoteAddr(), c)
 		}
 	}()
 
@@ -97,95 +104,310 @@ func (s *Server[E]) Stop() {
 	_ = s.ln.Close()
 }
 
-func (s *Server[E]) ProcessEvents(addr net.Addr, conn net.Conn) {
-	//fmt.Println("PROCESSING EVENTS FROM", addr)
-	//defer fmt.Println("HANDLE CONN DONE")
+const (
+	StateType uint8 = iota
+	StateReqId
+	StateResId
+	StateLen
+	StateData
+)
 
-	if s.disconnectHandler != nil {
-		defer func() {
-			s.disconnectHandler(addr.String())
-		}()
+const (
+	TypDefault uint8 = iota
+	TypReq
+	TypRes
+)
+
+type connState struct {
+	state uint8
+
+	typbuf [1]byte
+	idbuf  [1]byte
+	lenbuf [4]byte
+	msgbuf []byte
+
+	typ   uint8
+	reqId uint8
+	len   uint32
+
+	//reqs map[[16]byte]
+}
+
+func newconnState() connState {
+	return connState{
+		state:  StateType,
+		lenbuf: [4]byte{},
+		typbuf: [1]byte{},
+		msgbuf: make([]byte, 0),
+
+		typ: 0,
 	}
+}
+
+func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
+	fmt.Println("HandleConnection")
 
 	if s.connectHandler != nil {
 		s.connectHandler(addr.String())
 	}
 
-	defer func() {
-		id := connId{
-			netw: addr.Network(),
-			addr: addr.String(),
-		}
+	defer s.cleanupConn(addr)
 
-		s.mux.Lock()
-		s.conns[id] = nil
-		s.mux.Unlock()
-	}()
+	st := newconnState()
 
-	var foundLength bool
-	var msglen uint32
-	sizeBuf := make([]byte, 4)
-	var bytlen int
-	var readBuf []byte
+	//var foundLength bool
+	//var msglen uint32
+	//sizeBuf := make([]byte, 4)
+	var tmplen int
+	//var tmpbuf []byte
 
 	for {
-		if !foundLength {
-			n, err := conn.Read(sizeBuf[bytlen:])
+		fmt.Println("loop")
+
+		switch st.state {
+
+		case StateType:
+			n, err := conn.Read(st.typbuf[:])
 			if err != nil {
 				_ = conn.Close()
-				if !errors.Is(err, io.EOF) {
-					fmt.Println("error during read: ", err)
+				return err
+			}
+
+			if n != 1 {
+				continue
+			}
+
+			fmt.Printf("reading: t %d\n", st.typ)
+
+			fmt.Printf("state %d -> %d\n", st.state, st.typbuf[0])
+
+			switch st.typbuf[0] {
+			case TypDefault:
+				st.state = StateLen
+			case TypReq:
+				st.state = StateReqId
+			case TypRes:
+				st.state = StateResId
+			}
+
+			st.typ = st.typbuf[0]
+
+		case StateReqId:
+
+			n, err := conn.Read(st.idbuf[:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			if n != 1 {
+				continue
+			}
+
+			st.reqId = st.idbuf[0]
+			st.state = StateLen
+
+			fmt.Printf("reading: req id %d\n", st.reqId)
+
+		case StateResId:
+
+			n, err := conn.Read(st.idbuf[:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			if n != 1 {
+				continue
+			}
+
+			st.reqId = st.idbuf[0]
+			st.state = StateLen
+
+			fmt.Printf("reading: res id %d\n", st.reqId)
+
+		case StateLen:
+
+			n, err := conn.Read(st.lenbuf[tmplen:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != 4 {
+				continue
+			}
+
+			st.len = binary.LittleEndian.Uint32(st.lenbuf[:])
+			st.state = StateData
+			tmplen = 0
+			if int(st.len) > cap(st.msgbuf) {
+				st.msgbuf = make([]byte, st.len)
+			}
+
+			fmt.Printf("reading: l %d\n", st.len)
+
+		case StateData:
+
+			n, err := conn.Read(st.msgbuf[tmplen:st.len])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != int(st.len) {
+				continue
+			}
+
+			fmt.Printf("reading: m %d\n", st.len)
+
+			if st.typ == TypDefault {
+				if s.messageHandler != nil {
+					var e E
+					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					s.messageHandler(addr.String(), e)
 				}
-				return
+			} else if st.typ == TypReq {
+				if s.requestHandler != nil {
+					var e E
+					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					go s.requestHandler(addr.String(), e, func(e E) error {
+						return s.writeResponse(addr.String(), e, st.reqId)
+					})
+				}
+			} else if st.typ == TypRes {
+				if s.requests[st.reqId] != nil {
+					var e E
+					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					go s.requests[st.reqId](e)
+					delete(s.requests, st.reqId)
+				}
 			}
 
-			bytlen += n
+			st.state = StateType
+			tmplen = 0
 
-			if bytlen != 4 {
-				continue
-			}
-
-			msglen = binary.LittleEndian.Uint32(sizeBuf)
-
-			foundLength = true
-			bytlen = 0
-			if cap(readBuf) < int(msglen) {
-				readBuf = make([]byte, msglen)
-			}
-		} else {
-			n, err := conn.Read(readBuf[bytlen:msglen])
-			if err != nil {
-				_ = conn.Close()
-				fmt.Println("error during read: ", err)
-				return
-			}
-
-			bytlen += n
-
-			if bytlen != int(msglen) {
-				continue
-			}
-
-			var e E
-			err = s.codec.UnmarshalEvent(readBuf[:msglen], &e)
-			if err != nil {
-				fmt.Println("error during unmarshal: ", err)
-				continue
-			}
-
-			//fmt.Println("received msg")
-
-			if s.handler != nil {
-				s.handler(addr.String(), e)
-			}
-
-			foundLength = false
-			bytlen = 0
+		default:
+			st.state = StateType
 		}
 	}
 }
 
+func (s *Server[E]) cleanupConn(addr net.Addr) {
+	fmt.Println("cleanupConn")
+
+	id := connId{
+		netw: addr.Network(),
+		addr: addr.String(),
+	}
+
+	s.mux.Lock()
+	s.conns[id] = nil
+	s.mux.Unlock()
+
+	if s.disconnectHandler != nil {
+		s.disconnectHandler(addr.String())
+	}
+}
+
+func (s *Server[E]) Request(addr string, e E) (E, error) {
+	fmt.Println("Request")
+
+	id := connId{
+		netw: "tcp",
+		addr: addr,
+	}
+
+	s.mux.Lock()
+	conn, ok := s.conns[id]
+	s.mux.Unlock()
+
+	var zero E
+
+	if !ok {
+		fmt.Println("no connection for addr", addr)
+		return zero, io.ErrClosedPipe
+	}
+
+	if conn == nil {
+		fmt.Println("conn nil for addr", addr)
+		return zero, io.ErrClosedPipe
+	}
+
+	buf, err := s.codec.MarshalEvent(e)
+	if err != nil {
+		fmt.Println("error during marshal: ", err)
+		return zero, err
+	}
+
+	var reqId uint8
+	s.mux.Lock()
+	s.lastid++
+	reqId = s.lastid
+	s.mux.Unlock()
+
+	header := [6]byte{}
+	header[0] = TypReq
+	header[1] = reqId
+	binary.LittleEndian.PutUint32(header[2:], uint32(len(buf)))
+	fmt.Printf("writing: t %d id %d l %d m %d\n", header[0], header[1], binary.LittleEndian.Uint32(header[2:]), len(buf))
+	buf = append(header[:], buf...)
+
+	res := make(chan E, 1)
+	s.requests[reqId] = func(e E) {
+		res <- e
+		close(res)
+	}
+
+	n, err := conn.Write(buf)
+	if err != nil {
+		delete(s.requests, reqId)
+		close(res)
+
+		fmt.Println("error during write: ", err)
+		_ = conn.Close()
+		return zero, err
+	}
+
+	fmt.Println("wrote!")
+
+	if n != len(buf) {
+		delete(s.requests, reqId)
+		close(res)
+
+		fmt.Println("short write")
+		return zero, io.ErrShortWrite
+	}
+
+	fmt.Println("waiting for response for request id", reqId)
+	r := <-res
+	fmt.Println("got response for request id", reqId)
+
+	return r, nil
+}
+
 func (s *Server[E]) Write(addr string, e E) error {
+	fmt.Println("Write")
+
 	id := connId{
 		netw: "tcp",
 		addr: addr,
@@ -211,9 +433,11 @@ func (s *Server[E]) Write(addr string, e E) error {
 		return err
 	}
 
-	length := make([]byte, 4)
-	binary.LittleEndian.PutUint32(length, uint32(len(buf)))
-	buf = append(length, buf...)
+	typlen := [5]byte{}
+	typlen[0] = uint8(rand.Intn(255))
+	binary.LittleEndian.PutUint32(typlen[1:], uint32(len(buf)))
+	fmt.Printf("writing: t %d l %d m %d\n", typlen[0], binary.LittleEndian.Uint32(typlen[1:]), len(buf))
+	buf = append(typlen[:], buf...)
 
 	n, err := conn.Write(buf)
 	if err != nil {
@@ -221,6 +445,8 @@ func (s *Server[E]) Write(addr string, e E) error {
 		_ = conn.Close()
 		return err
 	}
+
+	fmt.Println("wrote!")
 
 	if n != len(buf) {
 		fmt.Println("short write")
@@ -230,8 +456,64 @@ func (s *Server[E]) Write(addr string, e E) error {
 	return nil
 }
 
+func (s *Server[E]) writeResponse(addr string, e E, resId uint8) error {
+	fmt.Println("writeResponse")
+
+	id := connId{
+		netw: "tcp",
+		addr: addr,
+	}
+
+	s.mux.Lock()
+	conn, ok := s.conns[id]
+	s.mux.Unlock()
+
+	if !ok {
+		fmt.Println("no connection for addr", addr)
+		return io.ErrClosedPipe
+	}
+
+	if conn == nil {
+		fmt.Println("conn nil for addr", addr)
+		return io.ErrClosedPipe
+	}
+
+	buf, err := s.codec.MarshalEvent(e)
+	if err != nil {
+		fmt.Println("error during marshal: ", err)
+		return err
+	}
+
+	header := [6]byte{}
+	header[0] = TypRes
+	header[1] = resId
+	binary.LittleEndian.PutUint32(header[2:], uint32(len(buf)))
+	fmt.Printf("writing: t %d id %d l %d m %d\n", header[0], header[1], binary.LittleEndian.Uint32(header[2:]), len(buf))
+	buf = append(header[:], buf...)
+
+	n, err := conn.Write(buf)
+	if err != nil {
+		fmt.Println("error during write: ", err)
+		_ = conn.Close()
+		return err
+	}
+
+	fmt.Println("wrote!")
+
+	if n != len(buf) {
+		fmt.Println("short write")
+		return io.ErrShortWrite
+	}
+
+	return nil
+}
+
+func (s *Server[E]) SetRequestHandler(h func(addr string, e E, respond func(E) error)) {
+	s.requestHandler = h
+}
+
 func (s *Server[E]) SetMessageHandler(h func(addr string, e E)) {
-	s.handler = h
+	s.messageHandler = h
 }
 
 func (s *Server[E]) SetConnectHandler(h func(addr string)) {

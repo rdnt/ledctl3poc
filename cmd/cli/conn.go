@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -99,7 +100,9 @@ func (c *client) connect() {
 
 			conn, err := c.client.Connect(addr)
 			if err != nil {
-				fmt.Println(err)
+				if !errors.Is(err, io.EOF) {
+					fmt.Println("error during read: ", err)
+				}
 				continue
 			}
 
@@ -110,7 +113,7 @@ func (c *client) connect() {
 				connected <- true
 			}
 
-			c.client.ProcessEvents(addr, conn)
+			c.client.HandleConnection(addr, conn)
 
 			//fmt.Println("disconnected from", addr)
 

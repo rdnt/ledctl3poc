@@ -76,12 +76,12 @@ func main() {
 
 	s.SetConnectHandler(func(addr string) {
 		//fmt.Println("CONNECT CALLED")
-		dev.ProcessEvent(addr, event.Connect{})
+		dev.ProcessEvent(addr, node.ConnectedEvent{})
 	})
 
 	s.SetDisconnectHandler(func(addr string) {
 		//fmt.Println("DISCONNECT CALLED")
-		dev.ProcessEvent(addr, event.Disconnect{})
+		dev.ProcessEvent(addr, node.DisconnectedEvent{})
 	})
 
 	fmt.Println(cfg.NodeId, "started")
@@ -119,7 +119,7 @@ func main() {
 				continue
 			}
 
-			s.ProcessEvents(addr, conn)
+			s.HandleConnection(addr, conn)
 
 			_ = conn.Close()
 

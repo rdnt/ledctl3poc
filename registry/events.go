@@ -9,18 +9,24 @@ import (
 	"ledctl3/pkg/uuid"
 )
 
+type ConnectedEvent struct{}
+
+type DisconnectedEvent struct{}
+
 func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	//fmt.Println("ProcessEvents")
+	//fmt.Println("HandleConnection")
 
 	var err error
 	switch e := e.(type) {
-	case event.Connect:
-		err = r.handleConnect(addr, e)
-	case event.Disconnect:
-		err = r.handleDisconnect(addr, e)
+	case ConnectedEvent:
+		err = r.handleConnected(addr)
+	case DisconnectedEvent:
+		err = r.handleDisconnected(addr)
+	case event.NodeConnected:
+		err = r.handleNodeConnected(addr, e)
 	case event.InputConnected:
 		err = r.handleInputConnected(addr, e)
 	case event.InputDisconnected:
@@ -47,7 +53,7 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 		fmt.Println("error writing State", err)
 	}
 
-	//fmt.Println("ProcessEvents done")
+	//fmt.Println("HandleConnection done")
 	return nil
 }
 
@@ -60,8 +66,8 @@ func (r *Registry) send(addr string, e any) error {
 	return r.write(addr, e)
 }
 
-func (r *Registry) handleConnect(addr string, e event.Connect) error {
-	fmt.Printf("%s: recv Connect\n", addr)
+func (r *Registry) handleNodeConnected(addr string, e event.NodeConnected) error {
+	fmt.Printf("%s: recv NodeConnected\n", addr)
 
 	if _, ok := r.conns[addr]; ok {
 		return errors.New("node already connected")
@@ -107,8 +113,26 @@ func (r *Registry) handleConnect(addr string, e event.Connect) error {
 	return nil
 }
 
-func (r *Registry) handleDisconnect(addr string, _ event.Disconnect) error {
-	fmt.Printf("%s: recv Disconnect\n", addr)
+func (r *Registry) handleConnected(addr string) error {
+	fmt.Printf("%s: recv Connected\n", addr)
+
+	id, ok := r.conns[addr]
+	if !ok {
+		return errors.New("node already disconnected")
+	}
+
+	dev := r.State.Nodes[id]
+
+	dev.Disconnect()
+
+	delete(r.conns, addr)
+	delete(r.connsAddr, id)
+
+	return nil
+}
+
+func (r *Registry) handleDisconnected(addr string) error {
+	fmt.Printf("%s: recv Disconnected\n", addr)
 
 	id, ok := r.conns[addr]
 	if !ok {

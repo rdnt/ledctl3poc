@@ -24,15 +24,33 @@ func main() {
 	})
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
-		reg.ProcessEvent(addr, e)
+		err := reg.ProcessEvent(addr, e)
+		if err != nil {
+			fmt.Println("error processing event:", err)
+		}
+	})
+
+	s.SetRequestHandler(func(addr string, e event.Event, respond func(event.Event) error) {
+		err := reg.ProcessEvent(addr, e)
+
+		err2 := respond(err)
+		if err2 != nil {
+			fmt.Println("error responding to request:", err2)
+		}
 	})
 
 	s.SetConnectHandler(func(addr string) {
-		//fmt.Println("node connected")
+		err := reg.ProcessEvent(addr, registry.ConnectedEvent{})
+		if err != nil {
+			fmt.Println("error processing event:", err)
+		}
 	})
 
 	s.SetDisconnectHandler(func(addr string) {
-		reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
+		if err != nil {
+			fmt.Println("error processing event:", err)
+		}
 	})
 
 	time.Sleep(1 * time.Second)

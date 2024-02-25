@@ -42,13 +42,13 @@ func TestConnect(t *testing.T) {
 	id := uuid.New()
 
 	t.Run("node connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: id})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
 	t.Run("noop if connect is sent again", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: id})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
 		assert.Error(t, err, "node already connected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -60,7 +60,7 @@ func TestConnect(t *testing.T) {
 	})
 
 	t.Run("node reconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: id})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -91,7 +91,7 @@ func TestDisconnect(t *testing.T) {
 	})
 
 	t.Run("device connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: id})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -139,7 +139,7 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("device connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: devId})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 		assert.Equal(t, len(reg.State.Nodes[devId].Inputs), 0)
@@ -215,7 +215,7 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("device connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: devId})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 		assert.Equal(t, len(reg.State.Nodes[devId].Outputs), 0)
@@ -281,7 +281,7 @@ func TestCreateProfile(t *testing.T) {
 	outId := uuid.New()
 
 	t.Run("device with input and output connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: devId})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 
 		err = reg.ProcessEvent(addr, event.InputConnected{
@@ -354,7 +354,7 @@ func TestEnableProfile(t *testing.T) {
 	})
 
 	t.Run("device with input and output connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Connect{Id: devId})
+		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 
 		err = reg.ProcessEvent(addr, event.InputConnected{
@@ -463,7 +463,7 @@ func TestData(t *testing.T) {
 	})
 
 	t.Run("device 1 connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr1, event.Connect{Id: devId1})
+		err := reg.ProcessEvent(addr1, event.NodeConnected{Id: devId1})
 		assert.NilError(t, err)
 
 		err = reg.ProcessEvent(addr1, event.InputConnected{
@@ -487,7 +487,7 @@ func TestData(t *testing.T) {
 	})
 
 	t.Run("device 2 connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr2, event.Connect{Id: devId2})
+		err := reg.ProcessEvent(addr2, event.NodeConnected{Id: devId2})
 		assert.NilError(t, err)
 
 		err = reg.ProcessEvent(addr2, event.InputConnected{
@@ -542,7 +542,7 @@ func TestData(t *testing.T) {
 	})
 
 	t.Run("device connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr2, event.Connect{Id: devId2})
+		err := reg.ProcessEvent(addr2, event.NodeConnected{Id: devId2})
 		assert.NilError(t, err)
 	})
 

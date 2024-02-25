@@ -8,17 +8,21 @@ import (
 	"ledctl3/node/types"
 )
 
+type ConnectedEvent struct{}
+
+type DisconnectedEvent struct{}
+
 func (c *Client) ProcessEvent(addr string, e event.Event) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	//fmt.Println("ProcessEvents")
+	//fmt.Println("HandleConnection")
 
 	switch e := e.(type) {
-	case event.Connect:
-		c.handleConnect(addr, e)
-	case event.Disconnect:
-		c.handleDisconnect(addr, e)
+	case ConnectedEvent:
+		c.handleConnected(addr)
+	case DisconnectedEvent:
+		c.handleDisconnected(addr)
 	//case event.SetSourceActive:
 	//	c.handleSetSourceActive(addr, e)
 	case event.SetInputActive:
@@ -35,13 +39,13 @@ func (c *Client) ProcessEvent(addr string, e event.Event) {
 		fmt.Printf("unknown event %#v\n", e)
 	}
 
-	//fmt.Println("ProcessEvents done")
+	//fmt.Println("HandleConnection done")
 }
 
-func (c *Client) handleConnect(addr string, e event.Connect) {
-	fmt.Printf("%s: recv Connect\n", addr)
+func (c *Client) handleConnected(addr string) {
+	fmt.Printf("%s: recv Connected\n", addr)
 
-	var sources []event.ConnectSource
+	var sources []event.ConnectedSource
 	for _, d := range c.sources {
 		cfg, err := d.Config()
 		if err != nil {
@@ -55,14 +59,14 @@ func (c *Client) handleConnect(addr string, e event.Connect) {
 			return
 		}
 
-		sources = append(sources, event.ConnectSource{
+		sources = append(sources, event.ConnectedSource{
 			Id:     d.Id(),
 			Config: cfg,
 			Schema: schema,
 		})
 	}
 
-	var sinks []event.ConnectSink
+	var sinks []event.ConnectedSink
 	for _, d := range c.sinks {
 		cfg, err := d.Config()
 		if err != nil {
@@ -76,15 +80,15 @@ func (c *Client) handleConnect(addr string, e event.Connect) {
 			return
 		}
 
-		sinks = append(sinks, event.ConnectSink{
+		sinks = append(sinks, event.ConnectedSink{
 			Id:     d.Id(),
 			Config: cfg,
 			Schema: schema,
 		})
 	}
 
-	fmt.Printf("%s: send Connect\n", addr)
-	err := c.write(addr, event.Connect{
+	fmt.Printf("%s: send NodeConnected\n", addr)
+	err := c.write(addr, event.NodeConnected{
 		Id:      c.cfg.Id,
 		Sources: sources,
 		Sinks:   sinks,
@@ -125,7 +129,7 @@ func (c *Client) handleConnect(addr string, e event.Connect) {
 	c.regAddr = addr
 }
 
-func (c *Client) handleDisconnect(addr string, _ event.Disconnect) {
+func (c *Client) handleDisconnected(addr string) {
 	fmt.Printf("%s: recv Disconnect\n", addr)
 
 	c.regAddr = ""

@@ -1,0 +1,34 @@
+vars: {
+    d2-config: {
+#         layout-engine: dagre
+        layout-engine: elk
+#         layout-engine: tala
+    }
+}
+
+direction: down
+
+# req: {
+#     shape: "class"
+#     typ: req
+#     id: 0
+#     len: n
+#     msg: bin
+# }
+#
+# res: {
+#     shape: "class"
+#     typ: res
+#     id: 0
+#     len: n
+#     msg: bin
+# }
+
+set driver config command: {
+    shape: sequence_diagram
+
+    client -> registry: setDriverConfig
+    registry -> node: setDriverConfig
+    node -> registry: driverConfigUpdated
+    registry -> client: driverConfigUpdated
+}

@@ -7,7 +7,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"ledctl3/event"
+	"ledctl3/node/event"
 	"ledctl3/pkg/uuid"
 	"ledctl3/registry"
 )
@@ -54,7 +54,7 @@ func TestConnect(t *testing.T) {
 	})
 
 	t.Run("node disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -85,7 +85,7 @@ func TestDisconnect(t *testing.T) {
 	id := uuid.New()
 
 	t.Run("unknown node disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.Error(t, err, "device already disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 0)
 	})
@@ -97,13 +97,13 @@ func TestDisconnect(t *testing.T) {
 	})
 
 	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
 	t.Run("noop if disconnect is sent again", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.Error(t, err, "device already disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -168,7 +168,7 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -244,7 +244,7 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.Disconnect{})
+		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
@@ -524,7 +524,7 @@ func TestData(t *testing.T) {
 	})
 
 	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr2, event.Disconnect{})
+		err := reg.ProcessEvent(addr2, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 	})
 

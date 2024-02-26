@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"slices"
 
-	"ledctl3/event"
+	nodeevent "ledctl3/node/event"
 	"ledctl3/pkg/uuid"
+	"ledctl3/registry/event"
 )
 
 type ConnectedEvent struct{}
 
 type DisconnectedEvent struct{}
 
-func (r *Registry) ProcessEvent(addr string, e event.Event) error {
+func (r *Registry) ProcessEvent(addr string, e any) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -25,20 +26,22 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 		err = r.handleConnected(addr)
 	case DisconnectedEvent:
 		err = r.handleDisconnected(addr)
-	case event.NodeConnected:
+	case nodeevent.NodeConnected:
 		err = r.handleNodeConnected(addr, e)
-	case event.InputConnected:
+	case nodeevent.InputConnected:
 		err = r.handleInputConnected(addr, e)
-	case event.InputDisconnected:
+	case nodeevent.InputDisconnected:
 		err = r.handleInputDisconnected(addr, e)
-	case event.OutputConnected:
+	case nodeevent.OutputConnected:
 		err = r.handleOutputConnected(addr, e)
-	case event.OutputDisconnected:
+	case nodeevent.OutputDisconnected:
 		err = r.handleOutputDisconnected(addr, e)
-	case event.Data:
+	case nodeevent.Data:
 		err = r.handleData(addr, e)
+
 	case event.SetSourceConfig:
 		err = r.handleSetSourceConfig(addr, e)
+
 	default:
 		fmt.Printf("unknown event %#v\n", e)
 	}
@@ -66,7 +69,16 @@ func (r *Registry) send(addr string, e any) error {
 	return r.write(addr, e)
 }
 
-func (r *Registry) handleNodeConnected(addr string, e event.NodeConnected) error {
+func (r *Registry) req(addr string, e any) (any, error) {
+	_, ok := r.conns[addr]
+	if !ok {
+		return nil, errors.New("node disconnected")
+	}
+
+	return r.request(addr, e)
+}
+
+func (r *Registry) handleNodeConnected(addr string, e nodeevent.NodeConnected) error {
 	fmt.Printf("%s: recv NodeConnected\n", addr)
 
 	if _, ok := r.conns[addr]; ok {
@@ -116,18 +128,6 @@ func (r *Registry) handleNodeConnected(addr string, e event.NodeConnected) error
 func (r *Registry) handleConnected(addr string) error {
 	fmt.Printf("%s: recv Connected\n", addr)
 
-	id, ok := r.conns[addr]
-	if !ok {
-		return errors.New("node already disconnected")
-	}
-
-	dev := r.State.Nodes[id]
-
-	dev.Disconnect()
-
-	delete(r.conns, addr)
-	delete(r.connsAddr, id)
-
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (r *Registry) handleDisconnected(addr string) error {
 	return nil
 }
 
-func (r *Registry) handleInputConnected(addr string, e event.InputConnected) error {
+func (r *Registry) handleInputConnected(addr string, e nodeevent.InputConnected) error {
 	fmt.Printf("%s: recv InputConnected\n", addr)
 
 	srcId, ok := r.conns[addr]
@@ -166,11 +166,11 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		return nil
 	}
 
-	var evtOutCfgs []event.SetInputActiveOutput
+	var evtOutCfgs []nodeevent.SetInputActiveOutput
 	for _, cfg := range cfgs {
 		dev := r.State.Nodes[r.outputNodeId(cfg.OutputId)]
 
-		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
+		evtOutCfgs = append(evtOutCfgs, nodeevent.SetInputActiveOutput{
 			OutputId: cfg.OutputId,
 			SinkId:   dev.Outputs[cfg.OutputId].DriverId,
 			NodeId:   dev.Id,
@@ -179,7 +179,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		})
 	}
 
-	err := r.send(addr, event.SetInputActive{
+	err := r.send(addr, nodeevent.SetInputActive{
 		Id:      e.Id,
 		Outputs: evtOutCfgs,
 	})
@@ -192,7 +192,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 	return nil
 }
 
-func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) error {
+func (r *Registry) handleInputDisconnected(addr string, e nodeevent.InputDisconnected) error {
 	fmt.Printf("%s: recv InputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -207,7 +207,7 @@ func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnecte
 	return nil
 }
 
-func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) error {
+func (r *Registry) handleOutputConnected(addr string, e nodeevent.OutputConnected) error {
 	fmt.Printf("%s: recv OutputConnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -222,7 +222,7 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 	return nil
 }
 
-func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnected) error {
+func (r *Registry) handleOutputDisconnected(addr string, e nodeevent.OutputDisconnected) error {
 	fmt.Printf("%s: recv OutputDisconnected\n", addr)
 
 	id, ok := r.conns[addr]
@@ -237,7 +237,7 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 	return nil
 }
 
-func (r *Registry) handleData(addr string, e event.Data) error {
+func (r *Registry) handleData(addr string, e nodeevent.Data) error {
 	srcId, ok := r.conns[addr]
 	if !ok {
 		return errors.New("node disconnected")
@@ -275,55 +275,6 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 			fmt.Println(err)
 		}
 	}()
-
-	return nil
-}
-
-func (r *Registry) handleSetSourceConfig(addr string, e event.SetSourceConfig) error {
-	fmt.Printf("%s: recv SetSourceConfig\n", addr)
-
-	var node *Node
-	for _, nod := range r.State.Nodes {
-		_, ok := nod.Sources[e.SourceId]
-		if ok {
-			node = nod
-			break
-		}
-	}
-
-	if node == nil {
-		return errors.New("unknown source")
-	}
-
-	_, ok := r.connsAddr[node.Id]
-	if !ok {
-		return errors.New("node disconnected")
-	}
-
-	source, ok := node.Sources[e.SourceId]
-	if !ok {
-		return errors.New("unknown source")
-	}
-
-	return r.setSourceConfig(node.Id, source.Id, e.Config)
-}
-
-func (r *Registry) setSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
-	r.State.Nodes[nodeId].Sources[sourceId].Config = cfg
-
-	err := r.sh.SetState(*r.State)
-	if err != nil {
-		return err
-	}
-
-	err = r.send(r.connsAddr[nodeId], event.SetSourceConfig{
-		SourceId: sourceId,
-		Config:   cfg,
-	})
-	if err != nil {
-		fmt.Println("error sending event:", err)
-		return err
-	}
 
 	return nil
 }

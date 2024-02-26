@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"ledctl3/event"
+	"ledctl3/node/event"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 )

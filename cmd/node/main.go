@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/color"
 	"net"
 	"os"
 	"sync"
 
-	"ledctl3/event"
 	"ledctl3/node"
+	"ledctl3/node/event"
 	_ "ledctl3/node/screen"
+	"ledctl3/pkg/codec"
 	_ "ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
@@ -20,6 +22,23 @@ import (
 
 type Config struct {
 	NodeId uuid.UUID `json:"node_id"`
+}
+
+var events = []interface{}{
+	[]any{},
+	map[string]any{},
+	color.NRGBA{},
+	[]byte{},
+	([]byte)(nil),
+
+	event.NodeConnected{},
+	event.Data{},
+	event.SetSourceActive{},
+	event.SetInputActive{},
+	event.InputConnected{},
+	event.InputDisconnected{},
+	event.OutputConnected{},
+	event.OutputDisconnected{},
 }
 
 func main() {
@@ -46,13 +65,13 @@ func main() {
 		panic(err)
 	}
 
-	s := netserver.New[event.Event](-1, event.Codec)
+	s := netserver.New(-1, codec.NewGobCodec(events))
 
 	dev, err := node.New(
 		node.Config{
 			Id: cfg.NodeId,
 		},
-		func(addr string, e event.Event) error {
+		func(addr string, e any) error {
 			return s.Write(addr, e)
 		})
 	if err != nil {
@@ -70,7 +89,7 @@ func main() {
 	//	screenProv.Start()
 	//}
 
-	s.SetMessageHandler(func(addr string, e event.Event) {
+	s.SetMessageHandler(func(addr string, e any) {
 		dev.ProcessEvent(addr, e)
 	})
 

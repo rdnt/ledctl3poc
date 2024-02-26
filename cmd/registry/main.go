@@ -2,38 +2,77 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"ledctl3/cmd/registry/state"
-	"ledctl3/event"
+	nodeevent "ledctl3/node/event"
+	"ledctl3/pkg/codec"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
 	"ledctl3/registry"
+	"ledctl3/registry/event"
 )
 
+var events = []interface{}{
+	[]any{},
+	map[string]any{},
+	color.NRGBA{},
+	[]byte{},
+	([]byte)(nil),
+
+	nodeevent.NodeConnected{},
+	nodeevent.Data{},
+	nodeevent.SetSourceActive{},
+	nodeevent.SetInputActive{},
+	nodeevent.InputConnected{},
+	nodeevent.InputDisconnected{},
+	nodeevent.OutputConnected{},
+	nodeevent.OutputDisconnected{},
+
+	event.SetSourceConfig{},
+	event.SetSinkConfig{},
+}
+
 func main() {
-	s := netserver.New[event.Event](1337, event.Codec)
+	s := netserver.New(1337, codec.NewGobCodec(events))
 
 	sh := state.NewHolder()
-	reg := registry.New(sh, func(addr string, e event.Event) error {
+	reg := registry.New(sh, func(addr string, e any) error {
 		return s.Write(addr, e)
 	})
 
-	s.SetMessageHandler(func(addr string, e event.Event) {
+	s.SetMessageHandler(func(addr string, e any) {
 		err := reg.ProcessEvent(addr, e)
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}
 	})
 
-	s.SetRequestHandler(func(addr string, e event.Event, respond func(event.Event) error) {
-		err := reg.ProcessEvent(addr, e)
+	s.SetRequestHandler(func(addr string, e any, respond func(any) error) {
+		//ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		//defer cancel()
 
-		err2 := respond(err)
+		err := reg.ProcessEvent(addr, e)
+		if err != nil {
+			fmt.Println("error processing event:", err)
+		}
+
+		var errorResponse *string
+		if err != nil {
+			errStr := err.Error()
+			errorResponse = &errStr
+		}
+
+		err2 := respond(event.Response{
+			Success: err == nil,
+			Error:   errorResponse,
+		})
+
 		if err2 != nil {
 			fmt.Println("error responding to request:", err2)
 		}

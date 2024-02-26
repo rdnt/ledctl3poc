@@ -5,28 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"ledctl3/pkg/codec"
 )
 
-type Server[E any] struct {
+type Server struct {
 	mux               sync.Mutex
-	codec             codec.Codec[E]
+	codec             codec.Codec
 	ln                net.Listener
 	port              int
-	messageHandler    func(string, E)
-	requestHandler    func(string, E, func(E) error)
+	messageHandler    func(string, any)
+	requestHandler    func(string, any, func(any) error)
 	conns             map[connId]net.Conn
 	connectHandler    func(string)
 	disconnectHandler func(string)
 	state             int
-	lastid            uint8
 
-	requests map[uint8]func(E)
+	requests map[uuid.UUID]func(any)
 }
 
 type connId struct {
@@ -34,18 +34,18 @@ type connId struct {
 	addr string
 }
 
-func New[E any](port int, codec codec.Codec[E]) *Server[E] {
-	s := &Server[E]{
+func New(port int, codec codec.Codec) *Server {
+	s := &Server{
 		port:     port,
 		codec:    codec,
 		conns:    map[connId]net.Conn{},
-		requests: map[uint8]func(E){},
+		requests: map[uuid.UUID]func(any){},
 	}
 
 	return s
 }
 
-func (s *Server[E]) Connect(addr net.Addr) (net.Conn, error) {
+func (s *Server) Connect(addr net.Addr) (net.Conn, error) {
 	c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
 	if err != nil {
 		//fmt.Println("error during dial: ", err)
@@ -64,7 +64,7 @@ func (s *Server[E]) Connect(addr net.Addr) (net.Conn, error) {
 	return c, nil
 }
 
-func (s *Server[E]) Start() error {
+func (s *Server) Start() error {
 	if s.port == -1 {
 		return errors.New("server disabled")
 	}
@@ -100,7 +100,7 @@ func (s *Server[E]) Start() error {
 	return nil
 }
 
-func (s *Server[E]) Stop() {
+func (s *Server) Stop() {
 	_ = s.ln.Close()
 }
 
@@ -122,12 +122,12 @@ type connState struct {
 	state uint8
 
 	typbuf [1]byte
-	idbuf  [1]byte
+	idbuf  uuid.UUID
 	lenbuf [4]byte
 	msgbuf []byte
 
 	typ   uint8
-	reqId uint8
+	reqId uuid.UUID
 	len   uint32
 
 	//reqs map[[16]byte]
@@ -135,17 +135,18 @@ type connState struct {
 
 func newconnState() connState {
 	return connState{
-		state:  StateType,
-		lenbuf: [4]byte{},
-		typbuf: [1]byte{},
+		state: StateType,
+		//idbuf:  [16]byte{},
+		//lenbuf: [4]byte{},
+		//typbuf: [1]byte{},
 		msgbuf: make([]byte, 0),
 
 		typ: 0,
 	}
 }
 
-func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
-	fmt.Println("HandleConnection")
+func (s *Server) HandleConnection(addr net.Addr, conn net.Conn) error {
+	//fmt.Println("HandleConnection")
 
 	if s.connectHandler != nil {
 		s.connectHandler(addr.String())
@@ -162,7 +163,7 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 	//var tmpbuf []byte
 
 	for {
-		fmt.Println("loop")
+		//fmt.Println("loop")
 
 		switch st.state {
 
@@ -177,9 +178,9 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 				continue
 			}
 
-			fmt.Printf("reading: t %d\n", st.typ)
+			//fmt.Printf("reading: t %d\n", st.typ)
 
-			fmt.Printf("state %d -> %d\n", st.state, st.typbuf[0])
+			//fmt.Printf("state %d -> %d\n", st.state, st.typbuf[0])
 
 			switch st.typbuf[0] {
 			case TypDefault:
@@ -194,37 +195,43 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 
 		case StateReqId:
 
-			n, err := conn.Read(st.idbuf[:])
+			n, err := conn.Read(st.idbuf[tmplen:])
 			if err != nil {
 				_ = conn.Close()
 				return err
 			}
 
-			if n != 1 {
+			tmplen += n
+
+			if tmplen != 16 {
 				continue
 			}
 
-			st.reqId = st.idbuf[0]
+			st.reqId = st.idbuf
 			st.state = StateLen
+			tmplen = 0
 
-			fmt.Printf("reading: req id %d\n", st.reqId)
+			//fmt.Printf("reading: req id %d\n", st.reqId)
 
 		case StateResId:
 
-			n, err := conn.Read(st.idbuf[:])
+			n, err := conn.Read(st.idbuf[tmplen:])
 			if err != nil {
 				_ = conn.Close()
 				return err
 			}
 
-			if n != 1 {
+			tmplen += n
+
+			if tmplen != 16 {
 				continue
 			}
 
-			st.reqId = st.idbuf[0]
+			st.reqId = st.idbuf
 			st.state = StateLen
+			tmplen = 0
 
-			fmt.Printf("reading: res id %d\n", st.reqId)
+			//fmt.Printf("reading: res id %d\n", st.reqId)
 
 		case StateLen:
 
@@ -247,7 +254,7 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 				st.msgbuf = make([]byte, st.len)
 			}
 
-			fmt.Printf("reading: l %d\n", st.len)
+			//fmt.Printf("reading: l %d\n", st.len)
 
 		case StateData:
 
@@ -263,11 +270,11 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 				continue
 			}
 
-			fmt.Printf("reading: m %d\n", st.len)
+			//fmt.Printf("reading: m %d\n", st.len)
 
 			if st.typ == TypDefault {
 				if s.messageHandler != nil {
-					var e E
+					var e any
 					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
@@ -278,20 +285,20 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 				}
 			} else if st.typ == TypReq {
 				if s.requestHandler != nil {
-					var e E
+					var e any
 					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
 						continue
 					}
 
-					go s.requestHandler(addr.String(), e, func(e E) error {
+					go s.requestHandler(addr.String(), e, func(e any) error {
 						return s.writeResponse(addr.String(), e, st.reqId)
 					})
 				}
 			} else if st.typ == TypRes {
 				if s.requests[st.reqId] != nil {
-					var e E
+					var e any
 					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
@@ -312,8 +319,8 @@ func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 	}
 }
 
-func (s *Server[E]) cleanupConn(addr net.Addr) {
-	fmt.Println("cleanupConn")
+func (s *Server) cleanupConn(addr net.Addr) {
+	//fmt.Println("cleanupConn")
 
 	id := connId{
 		netw: addr.Network(),
@@ -329,8 +336,8 @@ func (s *Server[E]) cleanupConn(addr net.Addr) {
 	}
 }
 
-func (s *Server[E]) Request(addr string, e E) (E, error) {
-	fmt.Println("Request")
+func (s *Server) Request(addr string, e any) (any, error) {
+	//fmt.Println("Request")
 
 	id := connId{
 		netw: "tcp",
@@ -341,7 +348,7 @@ func (s *Server[E]) Request(addr string, e E) (E, error) {
 	conn, ok := s.conns[id]
 	s.mux.Unlock()
 
-	var zero E
+	var zero any
 
 	if !ok {
 		fmt.Println("no connection for addr", addr)
@@ -353,32 +360,30 @@ func (s *Server[E]) Request(addr string, e E) (E, error) {
 		return zero, io.ErrClosedPipe
 	}
 
-	buf, err := s.codec.MarshalEvent(e)
+	evt, err := s.codec.MarshalEvent(e)
 	if err != nil {
 		fmt.Println("error during marshal: ", err)
 		return zero, err
 	}
 
-	var reqId uint8
-	s.mux.Lock()
-	s.lastid++
-	reqId = s.lastid
-	s.mux.Unlock()
+	reqId := uuid.New()
 
-	header := [6]byte{}
-	header[0] = TypReq
-	header[1] = reqId
-	binary.LittleEndian.PutUint32(header[2:], uint32(len(buf)))
-	fmt.Printf("writing: t %d id %d l %d m %d\n", header[0], header[1], binary.LittleEndian.Uint32(header[2:]), len(buf))
-	buf = append(header[:], buf...)
+	b := make([]byte, 0, 1+16+4+len(evt))
+	b = append(b, TypReq)
+	b = append(b, reqId[:]...)
+	length := make([]byte, 4)
+	binary.LittleEndian.PutUint32(length, uint32(len(evt)))
+	b = append(b, length...)
+	//fmt.Printf("writing: t %d id %d l %d m %d\n", length[0], length[1], binary.LittleEndian.Uint32(header[2:]), len(evt))
+	b = append(b, evt...)
 
-	res := make(chan E, 1)
-	s.requests[reqId] = func(e E) {
+	res := make(chan any, 1)
+	s.requests[reqId] = func(e any) {
 		res <- e
 		close(res)
 	}
 
-	n, err := conn.Write(buf)
+	n, err := conn.Write(b)
 	if err != nil {
 		delete(s.requests, reqId)
 		close(res)
@@ -388,9 +393,9 @@ func (s *Server[E]) Request(addr string, e E) (E, error) {
 		return zero, err
 	}
 
-	fmt.Println("wrote!")
+	//fmt.Println("wrote!")
 
-	if n != len(buf) {
+	if n != len(b) {
 		delete(s.requests, reqId)
 		close(res)
 
@@ -405,8 +410,8 @@ func (s *Server[E]) Request(addr string, e E) (E, error) {
 	return r, nil
 }
 
-func (s *Server[E]) Write(addr string, e E) error {
-	fmt.Println("Write")
+func (s *Server) Write(addr string, e any) error {
+	//fmt.Println("Write")
 
 	id := connId{
 		netw: "tcp",
@@ -434,9 +439,9 @@ func (s *Server[E]) Write(addr string, e E) error {
 	}
 
 	typlen := [5]byte{}
-	typlen[0] = uint8(rand.Intn(255))
+	typlen[0] = TypDefault
 	binary.LittleEndian.PutUint32(typlen[1:], uint32(len(buf)))
-	fmt.Printf("writing: t %d l %d m %d\n", typlen[0], binary.LittleEndian.Uint32(typlen[1:]), len(buf))
+	//fmt.Printf("writing: t %d l %d m %d\n", typlen[0], binary.LittleEndian.Uint32(typlen[1:]), len(buf))
 	buf = append(typlen[:], buf...)
 
 	n, err := conn.Write(buf)
@@ -446,7 +451,7 @@ func (s *Server[E]) Write(addr string, e E) error {
 		return err
 	}
 
-	fmt.Println("wrote!")
+	//fmt.Println("wrote!")
 
 	if n != len(buf) {
 		fmt.Println("short write")
@@ -456,8 +461,8 @@ func (s *Server[E]) Write(addr string, e E) error {
 	return nil
 }
 
-func (s *Server[E]) writeResponse(addr string, e E, resId uint8) error {
-	fmt.Println("writeResponse")
+func (s *Server) writeResponse(addr string, e any, resId uuid.UUID) error {
+	//fmt.Println("writeResponse")
 
 	id := connId{
 		netw: "tcp",
@@ -484,23 +489,25 @@ func (s *Server[E]) writeResponse(addr string, e E, resId uint8) error {
 		return err
 	}
 
-	header := [6]byte{}
-	header[0] = TypRes
-	header[1] = resId
-	binary.LittleEndian.PutUint32(header[2:], uint32(len(buf)))
-	fmt.Printf("writing: t %d id %d l %d m %d\n", header[0], header[1], binary.LittleEndian.Uint32(header[2:]), len(buf))
-	buf = append(header[:], buf...)
+	b := make([]byte, 0, 1+16+4+len(buf))
+	b = append(b, TypRes)
+	b = append(b, resId[:]...)
+	length := make([]byte, 4)
+	binary.LittleEndian.PutUint32(length, uint32(len(buf)))
+	b = append(b, length...)
+	//fmt.Printf("writing: t %d id %d l %d m %d\n", length[0], length[1], binary.LittleEndian.Uint32(header[2:]), len(buf))
+	b = append(b, buf...)
 
-	n, err := conn.Write(buf)
+	n, err := conn.Write(b)
 	if err != nil {
 		fmt.Println("error during write: ", err)
 		_ = conn.Close()
 		return err
 	}
 
-	fmt.Println("wrote!")
+	//fmt.Println("wrote!")
 
-	if n != len(buf) {
+	if n != len(b) {
 		fmt.Println("short write")
 		return io.ErrShortWrite
 	}
@@ -508,18 +515,18 @@ func (s *Server[E]) writeResponse(addr string, e E, resId uint8) error {
 	return nil
 }
 
-func (s *Server[E]) SetRequestHandler(h func(addr string, e E, respond func(E) error)) {
+func (s *Server) SetRequestHandler(h func(addr string, e any, respond func(any) error)) {
 	s.requestHandler = h
 }
 
-func (s *Server[E]) SetMessageHandler(h func(addr string, e E)) {
+func (s *Server) SetMessageHandler(h func(addr string, e any)) {
 	s.messageHandler = h
 }
 
-func (s *Server[E]) SetConnectHandler(h func(addr string)) {
+func (s *Server) SetConnectHandler(h func(addr string)) {
 	s.connectHandler = h
 }
 
-func (s *Server[E]) SetDisconnectHandler(h func(addr string)) {
+func (s *Server) SetDisconnectHandler(h func(addr string)) {
 	s.disconnectHandler = h
 }

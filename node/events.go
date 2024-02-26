@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"ledctl3/event"
+	"ledctl3/node/event"
 	"ledctl3/node/types"
 )
 
@@ -12,7 +12,7 @@ type ConnectedEvent struct{}
 
 type DisconnectedEvent struct{}
 
-func (c *Client) ProcessEvent(addr string, e event.Event) {
+func (c *Client) ProcessEvent(addr string, e any) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 

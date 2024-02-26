@@ -5,17 +5,17 @@ import (
 	"encoding/gob"
 )
 
-type GobCodec[E any] struct{}
+type GobCodec struct{}
 
-func NewGobCodec[E any](types ...any) Codec[E] {
+func NewGobCodec(types ...any) Codec {
 	for _, typ := range types {
 		gob.Register(typ)
 	}
 
-	return &GobCodec[E]{}
+	return &GobCodec{}
 }
 
-func (m *GobCodec[E]) UnmarshalEvent(b []byte, dest *E) error {
+func (m *GobCodec) UnmarshalEvent(b []byte, dest *any) error {
 	r := bytes.NewReader(b)
 	dec := gob.NewDecoder(r)
 
@@ -27,7 +27,7 @@ func (m *GobCodec[E]) UnmarshalEvent(b []byte, dest *E) error {
 	return nil
 }
 
-func (m *GobCodec[E]) MarshalEvent(e E) ([]byte, error) {
+func (m *GobCodec) MarshalEvent(e any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 

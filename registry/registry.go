@@ -7,8 +7,9 @@ import (
 	"slices"
 	"sync"
 
-	"ledctl3/event"
+	nodeevent "ledctl3/node/event"
 	"ledctl3/pkg/uuid"
+	"ledctl3/registry/event"
 )
 
 func init() {
@@ -30,12 +31,14 @@ type Registry struct {
 	mux       sync.Mutex
 	conns     map[string]uuid.UUID
 	connsAddr map[uuid.UUID]string
-	write     func(addr string, e event.Event) error
+	write     func(addr string, e any) error
+	request   func(addr string, e any) (any, error)
 	State     *State
 	sh        StateHolder
+	//handlers  map[uuid.UUID]map[uint64]func(string, event.Event) error
 }
 
-func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry {
+func New(sh StateHolder, write func(addr string, e any) error) *Registry {
 	state, err := sh.GetState()
 	if err == nil {
 		//fmt.Println("Loaded State", State)
@@ -177,9 +180,9 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 		srcDev := r.State.Nodes[r.inputNodeId(io.InputId)]
 		sinkDev := r.State.Nodes[r.outputNodeId(io.OutputId)]
 
-		err = r.send(r.connsAddr[srcDev.Id], event.SetInputActive{
+		err = r.send(r.connsAddr[srcDev.Id], nodeevent.SetInputActive{
 			Id: io.InputId,
-			Outputs: []event.SetInputActiveOutput{
+			Outputs: []nodeevent.SetInputActiveOutput{
 				{
 					OutputId: io.OutputId,
 					SinkId:   sinkDev.Id,

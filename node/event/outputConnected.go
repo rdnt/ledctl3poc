@@ -9,3 +9,7 @@ type OutputConnected struct {
 	Schema   []byte
 	Config   []byte
 }
+
+func (e OutputConnected) Type() string {
+	return TypeOutputConnected
+}

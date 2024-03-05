@@ -13,7 +13,6 @@ import (
 	"ledctl3/node"
 	"ledctl3/node/event"
 	_ "ledctl3/node/screen"
-	"ledctl3/pkg/codec"
 	_ "ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
@@ -65,13 +64,13 @@ func main() {
 		panic(err)
 	}
 
-	s := netserver.New(-1, codec.NewGobCodec(events))
+	s := netserver.New[event.Event](-1, event.NewJSONCodec())
 
 	dev, err := node.New(
 		node.Config{
 			Id: cfg.NodeId,
 		},
-		func(addr string, e any) error {
+		func(addr string, e event.Event) error {
 			return s.Write(addr, e)
 		})
 	if err != nil {
@@ -89,7 +88,7 @@ func main() {
 	//	screenProv.Start()
 	//}
 
-	s.SetMessageHandler(func(addr string, e any) {
+	s.SetMessageHandler(func(addr string, e event.Event) {
 		dev.ProcessEvent(addr, e)
 	})
 

@@ -8,3 +8,7 @@ type InputConnected struct {
 	Schema   []byte
 	Config   []byte
 }
+
+func (e InputConnected) Type() string {
+	return TypeInputConnected
+}

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"ledctl3/node/event"
 	"ledctl3/pkg/uuid"
-	"ledctl3/registry/event"
 )
 
 func (r *Registry) handleSetSourceConfig(addr string, e event.SetSourceConfig) error {

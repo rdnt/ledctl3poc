@@ -14,19 +14,19 @@ import (
 	"ledctl3/pkg/codec"
 )
 
-type Server struct {
+type Server[E any] struct {
 	mux               sync.Mutex
-	codec             codec.Codec
+	codec             codec.Codec[E]
 	ln                net.Listener
 	port              int
-	messageHandler    func(string, any)
-	requestHandler    func(string, any, func(any) error)
+	messageHandler    func(string, E)
+	requestHandler    func(string, E, func(E) error)
 	conns             map[connId]net.Conn
 	connectHandler    func(string)
 	disconnectHandler func(string)
 	state             int
 
-	requests map[uuid.UUID]func(any)
+	requests map[uuid.UUID]func(E)
 }
 
 type connId struct {
@@ -34,18 +34,18 @@ type connId struct {
 	addr string
 }
 
-func New(port int, codec codec.Codec) *Server {
-	s := &Server{
+func New[E any](port int, codec codec.Codec[E]) *Server[E] {
+	s := &Server[E]{
 		port:     port,
 		codec:    codec,
 		conns:    map[connId]net.Conn{},
-		requests: map[uuid.UUID]func(any){},
+		requests: map[uuid.UUID]func(E){},
 	}
 
 	return s
 }
 
-func (s *Server) Connect(addr net.Addr) (net.Conn, error) {
+func (s *Server[E]) Connect(addr net.Addr) (net.Conn, error) {
 	c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
 	if err != nil {
 		//fmt.Println("error during dial: ", err)
@@ -64,7 +64,7 @@ func (s *Server) Connect(addr net.Addr) (net.Conn, error) {
 	return c, nil
 }
 
-func (s *Server) Start() error {
+func (s *Server[E]) Start() error {
 	if s.port == -1 {
 		return errors.New("server disabled")
 	}
@@ -100,7 +100,7 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) Stop() {
+func (s *Server[E]) Stop() {
 	_ = s.ln.Close()
 }
 
@@ -145,7 +145,7 @@ func newconnState() connState {
 	}
 }
 
-func (s *Server) HandleConnection(addr net.Addr, conn net.Conn) error {
+func (s *Server[E]) HandleConnection(addr net.Addr, conn net.Conn) error {
 	//fmt.Println("HandleConnection")
 
 	if s.connectHandler != nil {
@@ -274,8 +274,7 @@ func (s *Server) HandleConnection(addr net.Addr, conn net.Conn) error {
 
 			if st.typ == TypDefault {
 				if s.messageHandler != nil {
-					var e any
-					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					e, err := s.codec.UnmarshalBinary(st.msgbuf[:st.len])
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
 						continue
@@ -285,21 +284,19 @@ func (s *Server) HandleConnection(addr net.Addr, conn net.Conn) error {
 				}
 			} else if st.typ == TypReq {
 				if s.requestHandler != nil {
-					var e any
-					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					e, err := s.codec.UnmarshalBinary(st.msgbuf[:st.len])
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
 						continue
 					}
 
-					go s.requestHandler(addr.String(), e, func(e any) error {
+					go s.requestHandler(addr.String(), e, func(e E) error {
 						return s.writeResponse(addr.String(), e, st.reqId)
 					})
 				}
 			} else if st.typ == TypRes {
 				if s.requests[st.reqId] != nil {
-					var e any
-					err = s.codec.UnmarshalEvent(st.msgbuf[:st.len], &e)
+					e, err := s.codec.UnmarshalBinary(st.msgbuf[:st.len])
 					if err != nil {
 						fmt.Println("error during unmarshal: ", err)
 						continue
@@ -319,7 +316,7 @@ func (s *Server) HandleConnection(addr net.Addr, conn net.Conn) error {
 	}
 }
 
-func (s *Server) cleanupConn(addr net.Addr) {
+func (s *Server[E]) cleanupConn(addr net.Addr) {
 	//fmt.Println("cleanupConn")
 
 	id := connId{
@@ -336,7 +333,7 @@ func (s *Server) cleanupConn(addr net.Addr) {
 	}
 }
 
-func (s *Server) Request(addr string, e any) (any, error) {
+func (s *Server[E]) Request(addr string, e E) (E, error) {
 	//fmt.Println("Request")
 
 	id := connId{
@@ -348,7 +345,7 @@ func (s *Server) Request(addr string, e any) (any, error) {
 	conn, ok := s.conns[id]
 	s.mux.Unlock()
 
-	var zero any
+	var zero E
 
 	if !ok {
 		fmt.Println("no connection for addr", addr)
@@ -360,7 +357,7 @@ func (s *Server) Request(addr string, e any) (any, error) {
 		return zero, io.ErrClosedPipe
 	}
 
-	evt, err := s.codec.MarshalEvent(e)
+	evt, err := s.codec.MarshalBinary(e)
 	if err != nil {
 		fmt.Println("error during marshal: ", err)
 		return zero, err
@@ -377,8 +374,8 @@ func (s *Server) Request(addr string, e any) (any, error) {
 	//fmt.Printf("writing: t %d id %d l %d m %d\n", length[0], length[1], binary.LittleEndian.Uint32(header[2:]), len(evt))
 	b = append(b, evt...)
 
-	res := make(chan any, 1)
-	s.requests[reqId] = func(e any) {
+	res := make(chan E, 1)
+	s.requests[reqId] = func(e E) {
 		res <- e
 		close(res)
 	}
@@ -410,7 +407,7 @@ func (s *Server) Request(addr string, e any) (any, error) {
 	return r, nil
 }
 
-func (s *Server) Write(addr string, e any) error {
+func (s *Server[E]) Write(addr string, e E) error {
 	//fmt.Println("Write")
 
 	id := connId{
@@ -432,7 +429,7 @@ func (s *Server) Write(addr string, e any) error {
 		return io.ErrClosedPipe
 	}
 
-	buf, err := s.codec.MarshalEvent(e)
+	buf, err := s.codec.MarshalBinary(e)
 	if err != nil {
 		fmt.Println("error during marshal: ", err)
 		return err
@@ -461,7 +458,7 @@ func (s *Server) Write(addr string, e any) error {
 	return nil
 }
 
-func (s *Server) writeResponse(addr string, e any, resId uuid.UUID) error {
+func (s *Server[E]) writeResponse(addr string, e E, resId uuid.UUID) error {
 	//fmt.Println("writeResponse")
 
 	id := connId{
@@ -483,7 +480,7 @@ func (s *Server) writeResponse(addr string, e any, resId uuid.UUID) error {
 		return io.ErrClosedPipe
 	}
 
-	buf, err := s.codec.MarshalEvent(e)
+	buf, err := s.codec.MarshalBinary(e)
 	if err != nil {
 		fmt.Println("error during marshal: ", err)
 		return err
@@ -515,18 +512,18 @@ func (s *Server) writeResponse(addr string, e any, resId uuid.UUID) error {
 	return nil
 }
 
-func (s *Server) SetRequestHandler(h func(addr string, e any, respond func(any) error)) {
+func (s *Server[E]) SetRequestHandler(h func(addr string, e E, respond func(E) error)) {
 	s.requestHandler = h
 }
 
-func (s *Server) SetMessageHandler(h func(addr string, e any)) {
+func (s *Server[E]) SetMessageHandler(h func(addr string, e E)) {
 	s.messageHandler = h
 }
 
-func (s *Server) SetConnectHandler(h func(addr string)) {
+func (s *Server[E]) SetConnectHandler(h func(addr string)) {
 	s.connectHandler = h
 }
 
-func (s *Server) SetDisconnectHandler(h func(addr string)) {
+func (s *Server[E]) SetDisconnectHandler(h func(addr string)) {
 	s.disconnectHandler = h
 }

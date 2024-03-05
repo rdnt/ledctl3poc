@@ -17,3 +17,7 @@ type DataOutput struct {
 	OutputId uuid.UUID
 	Pix      []color.Color
 }
+
+func (e Data) Type() string {
+	return TypeData
+}

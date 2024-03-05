@@ -16,3 +16,7 @@ type SetInputActiveOutput struct {
 	Leds     int
 	Config   map[string]any
 }
+
+func (e SetInputActive) Type() string {
+	return TypeSetInputActive
+}

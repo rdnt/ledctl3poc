@@ -12,6 +12,10 @@ type NodeConnected struct {
 	Sinks   []ConnectedSink
 }
 
+func (e NodeConnected) Type() string {
+	return TypeNodeConnected
+}
+
 type ConnectedSource struct {
 	Id     uuid.UUID
 	Config json.RawMessage

@@ -54,8 +54,7 @@ func TestConnect(t *testing.T) {
 	})
 
 	t.Run("node disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.NilError(t, err)
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
@@ -85,26 +84,23 @@ func TestDisconnect(t *testing.T) {
 	id := uuid.New()
 
 	t.Run("unknown node disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.Error(t, err, "device already disconnected")
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 0)
 	})
 
-	t.Run("device connected", func(t *testing.T) {
+	t.Run("node connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
-	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.NilError(t, err)
+	t.Run("node disconnected", func(t *testing.T) {
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
 	t.Run("noop if disconnect is sent again", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.Error(t, err, "device already disconnected")
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
@@ -128,17 +124,17 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	devId := uuid.New()
 	inId := uuid.New()
 
-	t.Run("noop if device disconnected", func(t *testing.T) {
+	t.Run("noop if node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.InputConnected{
 			Id:     inId,
 			Schema: nil,
 			Config: nil,
 		})
-		assert.Error(t, err, "device disconnected")
+		assert.Error(t, err, "node disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 0)
 	})
 
-	t.Run("device connected", func(t *testing.T) {
+	t.Run("node connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
@@ -167,17 +163,16 @@ func TestInputConnectedDisconnected(t *testing.T) {
 		assert.Equal(t, reg.State.Nodes[devId].Inputs[inId].Connected, false)
 	})
 
-	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.NilError(t, err)
+	t.Run("node disconnected", func(t *testing.T) {
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
-	t.Run("noop if device disconnected", func(t *testing.T) {
+	t.Run("noop if node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.InputDisconnected{
 			Id: inId,
 		})
-		assert.Error(t, err, "device disconnected")
+		assert.Error(t, err, "node disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 		assert.Equal(t, len(reg.State.Nodes[devId].Inputs), 1)
 		assert.Equal(t, reg.State.Nodes[devId].Inputs[inId].Connected, false)
@@ -203,18 +198,18 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	devId := uuid.New()
 	outId := uuid.New()
 
-	t.Run("noop if device disconnected", func(t *testing.T) {
+	t.Run("noop if node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.OutputConnected{
 			Id:     outId,
 			Leds:   40,
 			Config: nil,
 			Schema: nil,
 		})
-		assert.Error(t, err, "device disconnected")
+		assert.Error(t, err, "node disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 0)
 	})
 
-	t.Run("device connected", func(t *testing.T) {
+	t.Run("node connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
@@ -243,17 +238,16 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 		assert.Equal(t, reg.State.Nodes[devId].Outputs[outId].Connected, false)
 	})
 
-	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, registry.DisconnectedEvent{})
-		assert.NilError(t, err)
+	t.Run("node disconnected", func(t *testing.T) {
+		reg.HandleDisconnected(addr)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
-	t.Run("noop if device disconnected", func(t *testing.T) {
+	t.Run("noop if node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.OutputDisconnected{
 			Id: outId,
 		})
-		assert.Error(t, err, "device disconnected")
+		assert.Error(t, err, "node disconnected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 		assert.Equal(t, len(reg.State.Nodes[devId].Outputs), 1)
 		assert.Equal(t, reg.State.Nodes[devId].Outputs[outId].Connected, false)
@@ -280,7 +274,7 @@ func TestCreateProfile(t *testing.T) {
 	inId := uuid.New()
 	outId := uuid.New()
 
-	t.Run("device with input and output connected", func(t *testing.T) {
+	t.Run("node with input and output connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 
@@ -353,7 +347,7 @@ func TestEnableProfile(t *testing.T) {
 		assert.Error(t, err, "profile not found")
 	})
 
-	t.Run("device with input and output connected", func(t *testing.T) {
+	t.Run("node with input and output connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr, event.NodeConnected{Id: devId})
 		assert.NilError(t, err)
 
@@ -449,7 +443,7 @@ func TestData(t *testing.T) {
 	inId2 := uuid.New()
 	outId2 := uuid.New()
 
-	t.Run("noop if device disconnected", func(t *testing.T) {
+	t.Run("noop if node disconnected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr1, event.Data{
 			SinkId: devId2,
 			Outputs: []event.DataOutput{
@@ -459,10 +453,10 @@ func TestData(t *testing.T) {
 				},
 			},
 		})
-		assert.Error(t, err, "device disconnected")
+		assert.Error(t, err, "node disconnected")
 	})
 
-	t.Run("device 1 connected", func(t *testing.T) {
+	t.Run("node 1 connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr1, event.NodeConnected{Id: devId1})
 		assert.NilError(t, err)
 
@@ -486,7 +480,7 @@ func TestData(t *testing.T) {
 		assert.Equal(t, len(reg.State.Nodes[devId1].Outputs), 1)
 	})
 
-	t.Run("device 2 connected", func(t *testing.T) {
+	t.Run("node 2 connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr2, event.NodeConnected{Id: devId2})
 		assert.NilError(t, err)
 
@@ -520,12 +514,11 @@ func TestData(t *testing.T) {
 				},
 			},
 		})
-		assert.Error(t, err, "unknown sink device")
+		assert.Error(t, err, "unknown sink node")
 	})
 
-	t.Run("device disconnected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr2, registry.DisconnectedEvent{})
-		assert.NilError(t, err)
+	t.Run("node disconnected", func(t *testing.T) {
+		reg.HandleDisconnected(addr2)
 	})
 
 	t.Run("noop if invalid sink", func(t *testing.T) {
@@ -538,10 +531,10 @@ func TestData(t *testing.T) {
 				},
 			},
 		})
-		assert.Error(t, err, "sink device disconnected")
+		assert.Error(t, err, "sink node disconnected")
 	})
 
-	t.Run("device connected", func(t *testing.T) {
+	t.Run("node connected", func(t *testing.T) {
 		err := reg.ProcessEvent(addr2, event.NodeConnected{Id: devId2})
 		assert.NilError(t, err)
 	})

@@ -19,3 +19,7 @@ type SetSourceActiveOutput struct {
 	Leds   int
 	Config map[string]any
 }
+
+func (e SetSourceActive) Type() string {
+	return TypeSetSourceActive
+}

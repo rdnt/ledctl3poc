@@ -15,7 +15,7 @@ import (
 type Client struct {
 	id      uuid.UUID
 	mux     sync.Mutex
-	write   func(addr string, e any) error
+	write   func(addr string, e event.Event) error
 	cfg     Config
 	inputs  map[uuid.UUID]common.Input
 	outputs map[uuid.UUID]common.Output
@@ -140,7 +140,7 @@ func newDriverStateHolder(name string) *stateHolder {
 	return &stateHolder{driverName: name}
 }
 
-func New(cfg Config, write func(addr string, e any) error) (*Client, error) {
+func New(cfg Config, write func(addr string, e event.Event) error) (*Client, error) {
 	d := &Client{
 		id:      cfg.Id,
 		write:   write,

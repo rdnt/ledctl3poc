@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"ledctl3/cmd/cli/table"
-	"ledctl3/control"
+	"ledctl3/node/event"
 	"ledctl3/pkg/uuid"
 )
 
@@ -100,21 +100,17 @@ var sinkConfigCmd = &cobra.Command{
 var sourceConfigSetCmd = &cobra.Command{
 	Use: "set [NODE] SOURCE CONFIG",
 	Run: func(cmd *cobra.Command, args []string) {
-		//fmt.Printf("source config set %s\n", args)
+		fmt.Printf("source config set %s\n", args)
 
-		if len(args) == 3 {
-			args = args[1:]
+		b := []byte(args[len(args)-1])
+
+		if !json.Valid(b) {
+			panic("invalid json")
 		}
 
-		sourceId, err := uuid.Parse(args[0])
+		sourceId, err := uuid.Parse(args[len(args)-2])
 		if err != nil {
 			panic(err)
-		}
-
-		b := []byte(args[1])
-		valid := json.Valid(b)
-		if !valid {
-			panic("invalid json")
 		}
 
 		c, err := newClient()
@@ -122,17 +118,17 @@ var sourceConfigSetCmd = &cobra.Command{
 			panic(err)
 		}
 
-		e := event.SetSourceConfig{
+		e := event.SetSourceConfigCommand{
 			SourceId: sourceId,
 			Config:   b,
 		}
 
-		err = c.Write(e)
+		err = c.Request(e)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println("Config updated.")
+		fmt.Println("Source config updated.")
 
 		time.Sleep(10 * time.Millisecond)
 	},
@@ -188,6 +184,36 @@ var sinkConfigSetCmd = &cobra.Command{
 	Use: "set [NODE] SINK CONFIG",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("sink config set %s\n", args)
+
+		b := []byte(args[len(args)-1])
+
+		if !json.Valid(b) {
+			panic("invalid json")
+		}
+
+		sinkId, err := uuid.Parse(args[len(args)-2])
+		if err != nil {
+			panic(err)
+		}
+
+		c, err := newClient()
+		if err != nil {
+			panic(err)
+		}
+
+		e := event.SetSinkConfigCommand{
+			SinkId: sinkId,
+			Config: b,
+		}
+
+		err = c.Request(e)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Sink config updated.")
+
+		time.Sleep(10 * time.Millisecond)
 	},
 	Args: cobra.RangeArgs(2, 3),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

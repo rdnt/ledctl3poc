@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image/color"
 	"net"
 	"os"
 	"sync"
@@ -17,27 +16,11 @@ import (
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
+	"ledctl3/registry/req"
 )
 
 type Config struct {
 	NodeId uuid.UUID `json:"node_id"`
-}
-
-var events = []interface{}{
-	[]any{},
-	map[string]any{},
-	color.NRGBA{},
-	[]byte{},
-	([]byte)(nil),
-
-	event.NodeConnected{},
-	event.Data{},
-	event.SetSourceActive{},
-	event.SetInputActive{},
-	event.InputConnected{},
-	event.InputDisconnected{},
-	event.OutputConnected{},
-	event.OutputDisconnected{},
 }
 
 func main() {
@@ -64,7 +47,7 @@ func main() {
 		panic(err)
 	}
 
-	s := netserver.New[event.Event](-1, event.NewJSONCodec())
+	s := netserver.New[event.Event, req.Request](-1, event.NewJSONCodec(), req.NewJSONCodec())
 
 	dev, err := node.New(
 		node.Config{
@@ -90,6 +73,18 @@ func main() {
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
 		dev.ProcessEvent(addr, e)
+	})
+
+	s.SetRequestHandler(func(addr string, req req.Request, respond func(resp req.Request) error) {
+		err := dev.ProcessEvent(addr, req)
+		if err != nil {
+			fmt.Println("error processing request:", err)
+		}
+
+		err = respond(nil)
+		if err != nil {
+			fmt.Println("error responding to request:", err)
+		}
 	})
 
 	s.SetConnectHandler(func(addr string) {

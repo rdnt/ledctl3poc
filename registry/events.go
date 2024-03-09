@@ -56,41 +56,6 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	return nil
 }
 
-func (r *Registry) ProcessCommand(addr string, e event.Event) error {
-	r.mux.Lock()
-	defer r.mux.Unlock()
-
-	//fmt.Println("HandleConnection")
-
-	var err error
-	switch e := e.(type) {
-	//case ConnectedEvent:
-	//	err = r.handleConnected(addr)
-	//case DisconnectedEvent:
-	//	err = r.handleDisconnected(addr)
-	case event.SetSourceConfig:
-		err = r.handleSetSourceConfig(addr, e)
-	//case event.SetSinkConfig:
-	//	err = r.handleSetSinkConfig(addr, e)
-
-	default:
-		fmt.Printf("unknown event %#v\n", e)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	//fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
-	err = r.sh.SetState(*r.State)
-	if err != nil {
-		fmt.Println("error writing State", err)
-	}
-
-	//fmt.Println("HandleConnection done")
-	return nil
-}
-
 func (r *Registry) send(addr string, e event.Event) error {
 	_, ok := r.conns[addr]
 	if !ok {
@@ -100,10 +65,10 @@ func (r *Registry) send(addr string, e event.Event) error {
 	return r.write(addr, e)
 }
 
-func (r *Registry) req(addr string, e event.Event) (event.Event, error) {
+func (r *Registry) req(addr string, e event.Event) error {
 	_, ok := r.conns[addr]
 	if !ok {
-		return nil, errors.New("node disconnected")
+		return errors.New("node disconnected")
 	}
 
 	return r.request(addr, e)

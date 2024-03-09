@@ -13,14 +13,17 @@ import (
 	"ledctl3/pkg/netserver"
 	"ledctl3/pkg/uuid"
 	"ledctl3/registry"
+	"ledctl3/registry/req"
 )
 
 func main() {
-	s := netserver.New[event.Event](1337, event.NewJSONCodec())
+	s := netserver.New[event.Event, req.Request](1337, event.NewJSONCodec(), req.NewJSONCodec())
 
 	sh := state.NewHolder()
 	reg := registry.New(sh, func(addr string, e event.Event) error {
 		return s.Write(addr, e)
+	}, func(addr string, e event.Event) error {
+		return s.Request(addr, e)
 	})
 
 	s.SetMessageHandler(func(addr string, e event.Event) {
@@ -30,28 +33,18 @@ func main() {
 		}
 	})
 
-	s.SetRequestHandler(func(addr string, e event.Event, respond func(event.Event) error) {
+	s.SetRequestHandler(func(addr string, e req.Request, respond func(e req.Request) error) {
 		//ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		//defer cancel()
 
-		err := reg.ProcessEvent(addr, e)
+		err := reg.HandleRequest(addr, e)
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}
 
-		var errorResponse *string
+		err = respond(nil)
 		if err != nil {
-			errStr := err.Error()
-			errorResponse = &errStr
-		}
-
-		err2 := respond(event.Response{
-			Success: err == nil,
-			Error:   errorResponse,
-		})
-
-		if err2 != nil {
-			fmt.Println("error responding to request:", err2)
+			fmt.Println("error responding to request:", err)
 		}
 	})
 
@@ -82,26 +75,26 @@ func main() {
 
 		fmt.Println("Updating driver config!")
 		err = reg.SetSinkConfig(uuid.MustParse("ffffffff-0000-0000-0000-000000000000"), uuid.MustParse("2b599945-732d-4a1c-afc2-4ffd07c4131b"), []byte(`
-{
-  "outputs": [
-    {
-      "id": "0000aaaa-0000-0000-0000-000000000000",
-      "count": 1,
-      "offset": 0
-    },
-    {
-      "id": "0000bbbb-0000-0000-0000-000000000000",
-      "count": 1,
-      "offset": 1
-    },
-    {
-      "id": "0000cccc-0000-0000-0000-000000000000",
-      "count": 1,
-      "offset": 2
-    }
-  ]
-}
-		`))
+	{
+	 "outputs": [
+	   {
+	     "id": "0000aaaa-0000-0000-0000-000000000000",
+	     "count": 1,
+	     "offset": 0
+	   },
+	   {
+	     "id": "0000bbbb-0000-0000-0000-000000000000",
+	     "count": 1,
+	     "offset": 1
+	   },
+	   {
+	     "id": "0000cccc-0000-0000-0000-000000000000",
+	     "count": 1,
+	     "offset": 2
+	   }
+	 ]
+	}
+			`))
 		if err != nil {
 			fmt.Println("ERR!", err)
 			//panic(err)

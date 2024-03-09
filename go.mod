@@ -8,7 +8,6 @@ require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/bamiaux/rez v0.0.0-20170731184118-29f4463c688b
 	github.com/charmbracelet/lipgloss v0.9.1
-	github.com/go-chi/chi v1.5.5
 	github.com/go-ole/go-ole v1.2.6
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.5.3
@@ -18,11 +17,11 @@ require (
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/moutend/go-wca v0.3.0
 	github.com/pkg/errors v0.9.1
-	github.com/radovskyb/watcher v1.0.7
 	github.com/rpi-ws281x/rpi-ws281x-go v1.0.10
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/image v0.6.0
+	google.golang.org/protobuf v1.33.0
 	gotest.tools/v3 v3.5.1
 )
 

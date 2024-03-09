@@ -16,7 +16,7 @@ import (
 
 type client struct {
 	mux      sync.Mutex
-	client   *netserver.Server[event.Event]
+	client   *netserver.Server[event.Event, event.Event]
 	addrsMux sync.Mutex
 	allAddrs []net.Addr
 	regAddr  string
@@ -34,18 +34,18 @@ func newClient() (*client, error) {
 	}
 	c := &client{allAddrs: allAddrs}
 
-	c.client = netserver.New[event.Event](-1, event.Codec)
+	c.client = netserver.New[event.Event, event.Event](-1, event.JSONCodec{}, event.JSONCodec{})
 
 	c.client.SetMessageHandler(func(addr string, e event.Event) {
 		c.ProcessEvent(addr, e)
 	})
 
 	c.client.SetConnectHandler(func(addr string) {
-		c.ProcessEvent(addr, connect{})
+		c.handleConnect(addr)
 	})
 
 	c.client.SetDisconnectHandler(func(addr string) {
-		c.ProcessEvent(addr, disconnect{})
+		c.handleDisconnect()
 	})
 
 	//fmt.Println("resolving registry address")
@@ -82,6 +82,18 @@ func (c *client) Write(e event.Event) error {
 	return c.client.Write(regId, e)
 }
 
+func (c *client) Request(e event.Event) error {
+	c.mux.Lock()
+	regId := c.regAddr
+	c.mux.Unlock()
+
+	if regId == "" {
+		return errors.New("not connected")
+	}
+
+	return c.client.Request(regId, e)
+}
+
 var once bool
 
 var connected = make(chan bool)
@@ -101,7 +113,7 @@ func (c *client) connect() {
 			conn, err := c.client.Connect(addr)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					fmt.Println("error during read: ", err)
+					//fmt.Println("error during read: ", err)
 				}
 				continue
 			}
@@ -137,10 +149,10 @@ func (c *client) ProcessEvent(addr string, e event.Event) {
 	defer c.mux.Unlock()
 
 	switch e := e.(type) {
-	case connect:
-		c.handleConnect(addr)
-	case disconnect:
-		c.handleDisconnect()
+	//case connect:
+	//	c.handleConnect(addr)
+	//case disconnect:
+	//	c.handleDisconnect()
 	default:
 		fmt.Println("unknown event TODO REMOVE", e)
 	}

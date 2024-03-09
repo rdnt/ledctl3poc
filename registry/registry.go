@@ -31,13 +31,13 @@ type Registry struct {
 	conns     map[string]uuid.UUID
 	connsAddr map[uuid.UUID]string
 	write     func(addr string, e event.Event) error
-	request   func(addr string, e event.Event) (event.Event, error)
+	request   func(addr string, e event.Event) error
 	State     *State
 	sh        StateHolder
 	//handlers  map[uuid.UUID]map[uint64]func(string, event.Event) error
 }
 
-func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry {
+func New(sh StateHolder, write func(addr string, e event.Event) error, req func(addr string, e event.Event) error) *Registry {
 	state, err := sh.GetState()
 	if err == nil {
 		//fmt.Println("Loaded State", State)
@@ -61,6 +61,7 @@ func New(sh StateHolder, write func(addr string, e event.Event) error) *Registry
 		connsAddr: make(map[uuid.UUID]string),
 		State:     &state,
 		write:     write,
+		request:   req,
 		sh:        sh,
 	}
 }

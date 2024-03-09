@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"ledctl3/node/event"
@@ -12,11 +13,13 @@ type ConnectedEvent struct{}
 
 type DisconnectedEvent struct{}
 
-func (c *Client) ProcessEvent(addr string, e any) {
+func (c *Client) ProcessEvent(addr string, e any) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
 	//fmt.Println("HandleConnection")
+
+	var err error
 
 	switch e := e.(type) {
 	case ConnectedEvent:
@@ -28,9 +31,9 @@ func (c *Client) ProcessEvent(addr string, e any) {
 	case event.SetInputActive:
 		c.handleSetInputActive(addr, e)
 	case event.SetSourceConfig:
-		c.handleSetSourceConfig(addr, e)
+		err = c.handleSetSourceConfig(addr, e)
 	case event.SetSinkConfig:
-		c.handleSetSinkConfig(addr, e)
+		err = c.handleSetSinkConfig(addr, e)
 	case event.Data:
 		c.handleData(addr, e)
 	//case event.ListCapabilities:
@@ -40,6 +43,8 @@ func (c *Client) ProcessEvent(addr string, e any) {
 	}
 
 	//fmt.Println("HandleConnection done")
+
+	return err
 }
 
 func (c *Client) handleConnected(addr string) {
@@ -262,38 +267,36 @@ func (c *Client) handleData(addr string, e event.Data) {
 	}
 }
 
-func (c *Client) handleSetSourceConfig(addr string, e event.SetSourceConfig) {
+func (c *Client) handleSetSourceConfig(addr string, e event.SetSourceConfig) error {
 	fmt.Printf("%s: recv SetSourceConfig\n", addr)
 
 	dev, ok := c.sources[e.SourceId]
 	if !ok {
-		fmt.Println("source not found", e.SourceId)
-		return
+		return errors.New("source not found")
 	}
 
 	err := dev.SetConfig(e.Config)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	fmt.Println("source config set", e.SourceId)
+	return nil
 }
 
-func (c *Client) handleSetSinkConfig(addr string, e event.SetSinkConfig) {
+func (c *Client) handleSetSinkConfig(addr string, e event.SetSinkConfig) error {
 	fmt.Printf("%s: recv SetSinkConfig\n", addr)
 
 	dev, ok := c.sinks[e.SinkId]
 	if !ok {
-		fmt.Println("sink not found", e.SinkId)
-		return
+		return errors.New("sink not found")
 	}
 
 	err := dev.SetConfig(e.Config)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	fmt.Println("sink config set", e.SinkId)
+	return nil
 }

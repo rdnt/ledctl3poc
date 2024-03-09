@@ -2,7 +2,7 @@ package event
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	"ledctl3/pkg/codec"
 )
@@ -62,8 +62,28 @@ func (c JSONCodec) UnmarshalBinary(b []byte) (Event, error) {
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 
+	case TypeSetSourceConfig:
+		var e SetSourceConfig
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
+	case TypeSetSinkConfig:
+		var e SetSinkConfig
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
+	case TypeSetSourceConfigCommand:
+		var e SetSourceConfigCommand
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
+	case TypeSetSinkConfigCommand:
+		var e SetSinkConfigCommand
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
 	default:
-		return nil, errors.New("unknown event type")
+		return nil, fmt.Errorf("unknown event type: '%s'", t.Type)
 	}
 }
 

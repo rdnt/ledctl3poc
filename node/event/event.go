@@ -9,9 +9,11 @@ const (
 	TypeInputDisconnected  = "InputDisconnected"
 	TypeOutputConnected    = "OutputConnected"
 	TypeOutputDisconnected = "OutputDisconnected"
+	TypeSetSourceConfig    = "SetSourceConfig"
+	TypeSetSinkConfig      = "SetSinkConfig"
 
 	TypeResponse = "CommandResponse"
 
-	TypeSetSourceConfig = "CommandSetSourceConfig"
-	TypeSetSinkConfig   = "CommandSetSinkConfig"
+	TypeSetSourceConfigCommand = "SetSourceConfigCommand"
+	TypeSetSinkConfigCommand   = "SetSinkConfigCommand"
 )

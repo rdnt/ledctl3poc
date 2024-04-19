@@ -6,14 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type NodeConnected struct {
-	Id      uuid.UUID
+type Capabilities struct {
 	Sources []ConnectedSource
 	Sinks   []ConnectedSink
 }
 
-func (e NodeConnected) Type() string {
-	return TypeNodeConnected
+func (e Capabilities) Type() string {
+	return TypeCapabilities
 }
 
 type ConnectedSource struct {

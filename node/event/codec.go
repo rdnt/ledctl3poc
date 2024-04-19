@@ -37,8 +37,8 @@ func (c JSONCodec) UnmarshalBinary(b []byte) (Event, error) {
 	}
 
 	switch t.Type {
-	case TypeNodeConnected:
-		var e NodeConnected
+	case TypeCapabilities:
+		var e Capabilities
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 

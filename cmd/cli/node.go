@@ -10,7 +10,6 @@ import (
 
 	"ledctl3/cmd/cli/table"
 	"ledctl3/node/event"
-	"ledctl3/pkg/uuid"
 )
 
 var nodesCmd = &cobra.Command{
@@ -24,7 +23,7 @@ var nodesCmd = &cobra.Command{
 		headers := []string{
 			"Id",
 			"Name",
-			"NodeConnected",
+			"Capabilities",
 			"InputIds",
 			"OutputsCount",
 		}

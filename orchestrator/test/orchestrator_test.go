@@ -61,3 +61,29 @@ func TestClientConnect(t *testing.T) {
 		assert.ErrorContains(t, err, "client already disconnected")
 	})
 }
+
+func TestNodeConnect(t *testing.T) {
+	o := orchestrator.New(mockStateHolder{})
+
+	conn := mockConn{addr: uuid.New().String()}
+
+	t.Run("client connected", func(t *testing.T) {
+		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		assert.NilError(t, err)
+	})
+
+	t.Run("noop if client already connected", func(t *testing.T) {
+		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		assert.ErrorContains(t, err, "client already connected")
+	})
+
+	t.Run("client disconnected", func(t *testing.T) {
+		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
+		assert.NilError(t, err)
+	})
+
+	t.Run("noop if client already disconnected", func(t *testing.T) {
+		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
+		assert.ErrorContains(t, err, "client already disconnected")
+	})
+}

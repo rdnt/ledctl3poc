@@ -1,7 +1,8 @@
 package event
 
 const (
-	TypeNodeConnected      = "NodeConnected"
+	TypeAuthenticate       = "Authenticate"
+	TypeCapabilities       = "Capabilities"
 	TypeData               = "Data"
 	TypeSetSourceActive    = "SetSourceActive"
 	TypeSetInputActive     = "SetInputActive"

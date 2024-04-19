@@ -48,7 +48,7 @@ func (c *Client) ProcessEvent(addr string, e any) error {
 }
 
 func (c *Client) handleConnected(addr string) {
-	fmt.Printf("%s: recv Connected\n", addr)
+	fmt.Printf("%s: recv Capabilities\n", addr)
 
 	var sources []event.ConnectedSource
 	for _, d := range c.sources {
@@ -92,8 +92,8 @@ func (c *Client) handleConnected(addr string) {
 		})
 	}
 
-	fmt.Printf("%s: send NodeConnected\n", addr)
-	err := c.write(addr, event.NodeConnected{
+	fmt.Printf("%s: send Capabilities\n", addr)
+	err := c.write(addr, event.Capabilities{
 		Id:      c.cfg.Id,
 		Sources: sources,
 		Sinks:   sinks,

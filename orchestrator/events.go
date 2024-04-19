@@ -14,7 +14,7 @@ import (
 type ConnectedEvent struct{}
 
 func (e ConnectedEvent) Type() string {
-	return "Connected"
+	return "Capabilities"
 }
 
 type DisconnectedEvent struct{}
@@ -35,8 +35,10 @@ func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 		err = r.handleConnected(c)
 	case DisconnectedEvent:
 		err = r.handleDisconnected(c)
-	case event.NodeConnected:
-		err = r.handleNodeConnected(c, e)
+	case event.Authenticate:
+		err = r.handleAuthenticate(c, e)
+	case event.Capabilities:
+		err = r.handleCapabilities(c, e)
 	case event.InputConnected:
 		err = r.handleInputConnected(c, e)
 	case event.InputDisconnected:
@@ -88,15 +90,20 @@ func (r *Orchestrator) req(addr string, e event.Event) error {
 	//return r.request(addr, e)
 }
 
-func (r *Orchestrator) handleNodeConnected(c Conn, e event.NodeConnected) error {
-	fmt.Printf("%s: recv NodeConnected\n", c.Addr())
+func (r *Orchestrator) createNode(id uuid.UUID) error {
+	r.State.Nodes[id] = NewNode(id, true, nil, nil)
+	return nil
+}
 
-	if _, ok := r.AddrNode[c.Addr()]; ok {
-		return errors.New("node already connected")
-	}
+func (r *Orchestrator) handleAuthenticate(c Conn, e event.Authenticate) error {
+	fmt.Printf("%s: recv Authenticate\n", c.Addr())
 
 	if e.Id == uuid.Nil {
 		return errors.New("invalid node id")
+	}
+
+	if _, ok := r.AddrNode[c.Addr()]; ok {
+		return errors.New("node already authenticated")
 	}
 
 	r.AddrNode[c.Addr()] = e.Id
@@ -104,37 +111,44 @@ func (r *Orchestrator) handleNodeConnected(c Conn, e event.NodeConnected) error 
 
 	if dev, ok := r.State.Nodes[e.Id]; ok {
 		dev.Connect()
-
-		dev.Sources = make(map[uuid.UUID]*Source)
-		for _, d := range e.Sources {
-			dev.Sources[d.Id] = &Source{d.Id, d.Config, true}
-		}
-
-		dev.Sinks = make(map[uuid.UUID]*Sink)
-		for _, d := range e.Sinks {
-			dev.Sinks[d.Id] = &Sink{d.Id, d.Config, true}
-		}
-
-		r.State.Nodes[e.Id] = dev
-
 		fmt.Println("node connected:", e.Id)
 
 		return nil
 	}
 
-	sources := make(map[uuid.UUID]*Source)
-	for _, d := range e.Sources {
-		sources[d.Id] = &Source{d.Id, d.Config, true}
-	}
-
-	sinks := make(map[uuid.UUID]*Sink)
-	for _, d := range e.Sinks {
-		sinks[d.Id] = &Sink{d.Id, d.Config, true}
-	}
-
-	r.State.Nodes[e.Id] = NewNode(e.Id, true, sources, sinks)
-
+	r.State.Nodes[e.Id] = NewNode(e.Id, true, nil, nil)
 	fmt.Println("node added:", e.Id)
+
+	return nil
+}
+
+func (r *Orchestrator) handleCapabilities(c Conn, e event.Capabilities) error {
+	fmt.Printf("%s: recv Capabilities\n", c.Addr())
+
+	nodeId, ok := r.AddrNode[c.Addr()]
+	if !ok {
+		return errors.New("not authenticated")
+	}
+
+	dev, ok := r.State.Nodes[nodeId]
+	if !ok {
+		return errors.New("node not found")
+	}
+
+	// TODO: handle capabilities config updating without removing existing capabilities
+	// that are no longer listed
+
+	dev.Sources = make(map[uuid.UUID]*Source)
+	for _, d := range e.Sources {
+		dev.Sources[d.Id] = &Source{d.Id, d.Config, true}
+	}
+
+	dev.Sinks = make(map[uuid.UUID]*Sink)
+	for _, d := range e.Sinks {
+		dev.Sinks[d.Id] = &Sink{d.Id, d.Config, true}
+	}
+
+	fmt.Println("node capabilities updated", nodeId)
 
 	return nil
 }
@@ -146,7 +160,7 @@ type Conn interface {
 }
 
 func (r *Orchestrator) handleConnected(c Conn) error {
-	fmt.Printf("%s: recv Connected\n", c.Addr())
+	fmt.Printf("%s: recv Capabilities\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; ok {
 		return errors.New("client already connected")

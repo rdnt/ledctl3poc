@@ -12,11 +12,10 @@ import (
 	"ledctl3/node"
 	"ledctl3/node/event"
 	_ "ledctl3/node/screen"
+	"ledctl3/orchestrator/req"
 	_ "ledctl3/pkg/led"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserver"
-	"ledctl3/pkg/uuid"
-	"ledctl3/registry/req"
+	"ledctl3/pkg/netserverold"
 )
 
 type Config struct {
@@ -47,7 +46,7 @@ func main() {
 		panic(err)
 	}
 
-	s := netserver.New[event.Event, req.Request](-1, event.NewJSONCodec(), req.NewJSONCodec())
+	s := netserverold.New[event.Event, req.Request](-1, event.NewJSONCodec(), req.NewJSONCodec())
 
 	dev, err := node.New(
 		node.Config{

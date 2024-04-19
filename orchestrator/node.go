@@ -1,11 +1,11 @@
-package registry
+package orchestrator
 
 import (
 	"encoding/json"
 	"fmt"
 	"net"
 
-	"ledctl3/pkg/uuid"
+	"github.com/google/uuid"
 )
 
 type Node struct {

@@ -1,4 +1,4 @@
-package netserver
+package netserverold
 
 import (
 	"encoding/binary"
@@ -15,56 +15,209 @@ import (
 	"ledctl3/pkg/codec"
 )
 
-type Server[E any, R any] struct {
-	mux               sync.Mutex
-	codec             codec.Codec[E]
-	reqCodec          codec.Codec[R]
-	ln                net.Listener
-	port              int
-	messageHandler    func(string, E)
-	requestHandler    func(string, R, func(R) error)
-	conns             map[connId]net.Conn
-	connectHandler    func(string)
-	disconnectHandler func(string)
-	state             int
-
-	requests map[uuid.UUID]func(R)
+type Transport[E any] interface {
+	Write(id string, event E)
+	Read() (id string, event E)
+	SetOnConnect(f func(id string, event E))
+	SetOnDisconnect(f func(id string, event E))
 }
 
-type connId struct {
-	netw string
-	addr string
+type Server[E any] struct {
+	mux   sync.Mutex
+	codec codec.Codec[E]
+	ln    net.Listener
+	port  int
+
+	conns map[string]net.Conn
 }
 
-func New[E any, R any](port int, evCodec codec.Codec[E], reqCodec codec.Codec[R]) *Server[E, R] {
-	s := &Server[E, R]{
-		port:     port,
-		codec:    evCodec,
-		reqCodec: reqCodec,
-		conns:    map[connId]net.Conn{},
-		requests: map[uuid.UUID]func(R){},
+func New[E any](port int, evCodec codec.Codec[E]) *Server[E] {
+	s := &Server[E]{
+		port:  port,
+		codec: evCodec,
+		conns: map[string]net.Conn{},
 	}
 
 	return s
 }
 
-func (s *Server[E, R]) Connect(addr net.Addr) (net.Conn, error) {
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	state := StateLen
+
+	var read int
+
+	for {
+		switch state {
+
+		case StateLen:
+			n, err := c.conn.Read(st.lenbuf[read:])
+			if err != nil {
+				return
+			}
+
+			read += n
+
+			if read != 4 {
+				continue
+			}
+
+			st.len = binary.LittleEndian.Uint32(st.lenbuf[:])
+			st.state = StateData
+			tmplen = 0
+			if int(st.len) > cap(st.msgbuf) {
+				st.msgbuf = make([]byte, st.len)
+			}
+
+			//fmt.Printf("reading: l %d\n", st.len)
+
+		case StateReqId:
+
+			n, err := conn.Read(st.idbuf[tmplen:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != 16 {
+				continue
+			}
+
+			st.reqId = st.idbuf
+			st.state = StateLen
+			tmplen = 0
+
+			//fmt.Printf("reading: req id %d\n", st.reqId)
+
+		case StateResId:
+
+			n, err := conn.Read(st.idbuf[tmplen:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != 16 {
+				continue
+			}
+
+			st.reqId = st.idbuf
+			st.state = StateLen
+			tmplen = 0
+
+			//fmt.Printf("reading: res id %d\n", st.reqId)
+
+		case StateLen:
+
+			n, err := conn.Read(st.lenbuf[tmplen:])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != 4 {
+				continue
+			}
+
+			st.len = binary.LittleEndian.Uint32(st.lenbuf[:])
+			st.state = StateData
+			tmplen = 0
+			if int(st.len) > cap(st.msgbuf) {
+				st.msgbuf = make([]byte, st.len)
+			}
+
+			//fmt.Printf("reading: l %d\n", st.len)
+
+		case StateData:
+
+			n, err := conn.Read(st.msgbuf[tmplen:st.len])
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+
+			tmplen += n
+
+			if tmplen != int(st.len) {
+				continue
+			}
+
+			//fmt.Printf("reading: m %d\n", st.len)
+
+			if st.typ == TypDefault {
+				if s.messageHandler != nil {
+					e, err := s.codec.UnmarshalBinary(st.msgbuf[:st.len])
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					s.messageHandler(addr.String(), e)
+				}
+			} else if st.typ == TypReq {
+				if s.requestHandler != nil {
+					req, err := s.reqCodec.UnmarshalBinary(st.msgbuf[:st.len])
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					go s.requestHandler(addr.String(), req, func(r R) error {
+						return s.writeResponse(addr.String(), err, st.reqId)
+					})
+				}
+			} else if st.typ == TypRes {
+				if s.requests[st.reqId] != nil {
+					res, err := s.reqCodec.UnmarshalBinary(st.msgbuf[:st.len])
+					if err != nil {
+						fmt.Println("error during unmarshal: ", err)
+						continue
+					}
+
+					go s.requests[st.reqId](res)
+					delete(s.requests, st.reqId)
+				}
+			}
+
+			st.state = StateType
+			tmplen = 0
+
+		default:
+			st.state = StateType
+		}
+	}
+}
+
+func (s *Server[E]) Connect(addr net.Addr) error {
 	c, err := net.DialTimeout(addr.Network(), addr.String(), 1*time.Second)
 	if err != nil {
-		//fmt.Println("error during dial: ", err)
-		return nil, err
+		return err
 	}
 
-	id := connId{
-		netw: addr.Network(),
-		addr: addr.String(),
-	}
+	id := addr.String()
 
 	s.mux.Lock()
-	s.conns[id] = c
+	if _, ok := s.conns[id]; ok {
+		s.mux.Unlock()
+		return errors.New("connection already exists")
+	}
+
+	s.conns[id] = &connection{conn: c}
+
+	go func() {
+
+	}()
+
 	s.mux.Unlock()
 
-	return c, nil
+	return nil
 }
 
 func (s *Server[E, R]) Start() error {
@@ -108,9 +261,6 @@ func (s *Server[E, R]) Stop() {
 }
 
 const (
-	StateType uint8 = iota
-	StateReqId
-	StateResId
 	StateLen
 	StateData
 )
@@ -136,19 +286,19 @@ type connState struct {
 	//reqs map[[16]byte]
 }
 
-func newconnState() connState {
-	return connState{
-		state: StateType,
-		//idbuf:  [16]byte{},
-		//lenbuf: [4]byte{},
-		//typbuf: [1]byte{},
-		msgbuf: make([]byte, 0),
+//func newconnState() connState {
+//	return connState{
+//		state: StateType,
+//		//idbuf:  [16]byte{},
+//		//lenbuf: [4]byte{},
+//		//typbuf: [1]byte{},
+//		msgbuf: make([]byte, 0),
+//
+//		typ: 0,
+//	}
+//}
 
-		typ: 0,
-	}
-}
-
-func (s *Server[E, R]) HandleConnection(addr net.Addr, conn net.Conn) error {
+func (s *Server[E, R]) handleConnection(addr net.Addr, conn net.Conn) error {
 	//fmt.Println("HandleConnection")
 
 	if s.connectHandler != nil {

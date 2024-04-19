@@ -3,7 +3,7 @@ package event
 import (
 	"encoding/json"
 
-	"ledctl3/pkg/uuid"
+	"github.com/google/uuid"
 )
 
 type NodeConnected struct {

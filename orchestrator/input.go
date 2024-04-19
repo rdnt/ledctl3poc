@@ -1,10 +1,10 @@
-package registry
+package orchestrator
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"ledctl3/pkg/uuid"
+	"github.com/google/uuid"
 )
 
 type Input struct {

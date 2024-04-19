@@ -1,13 +1,12 @@
 module ledctl3
 
-go 1.21
-
-toolchain go1.21.4
+go 1.22
 
 require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/bamiaux/rez v0.0.0-20170731184118-29f4463c688b
 	github.com/charmbracelet/lipgloss v0.9.1
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-ole/go-ole v1.2.6
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.5.3
@@ -21,8 +20,8 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/image v0.6.0
-	google.golang.org/protobuf v1.33.0
 	gotest.tools/v3 v3.5.1
+	nhooyr.io/websocket v1.8.11
 )
 
 require (

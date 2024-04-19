@@ -9,18 +9,17 @@ import (
 
 	"ledctl3/cmd/registry/state"
 	"ledctl3/node/event"
+	"ledctl3/orchestrator"
+	"ledctl3/orchestrator/req"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserver"
-	"ledctl3/pkg/uuid"
-	"ledctl3/registry"
-	"ledctl3/registry/req"
+	"ledctl3/pkg/netserverold"
 )
 
 func main() {
-	s := netserver.New[event.Event, req.Request](1337, event.NewJSONCodec(), req.NewJSONCodec())
+	s := netserverold.New[event.Event, req.Request](1337, event.NewJSONCodec(), req.NewJSONCodec())
 
 	sh := state.NewHolder()
-	reg := registry.New(sh, func(addr string, e event.Event) error {
+	reg := orchestrator.New(sh, func(addr string, e event.Event) error {
 		return s.Write(addr, e)
 	}, func(addr string, e event.Event) error {
 		return s.Request(addr, e)

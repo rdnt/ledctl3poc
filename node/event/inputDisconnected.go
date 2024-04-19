@@ -1,6 +1,6 @@
 package event
 
-import "ledctl3/pkg/uuid"
+import "github.com/google/uuid"
 
 type InputDisconnected struct {
 	Id uuid.UUID

@@ -11,12 +11,12 @@ import (
 
 	"ledctl3/node/event"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserver"
+	"ledctl3/pkg/netserverold"
 )
 
 type client struct {
 	mux      sync.Mutex
-	client   *netserver.Server[event.Event, event.Event]
+	client   *netserverold.Server[event.Event, event.Event]
 	addrsMux sync.Mutex
 	allAddrs []net.Addr
 	regAddr  string
@@ -34,7 +34,7 @@ func newClient() (*client, error) {
 	}
 	c := &client{allAddrs: allAddrs}
 
-	c.client = netserver.New[event.Event, event.Event](-1, event.JSONCodec{}, event.JSONCodec{})
+	c.client = netserverold.New[event.Event, event.Event](-1, event.JSONCodec{}, event.JSONCodec{})
 
 	c.client.SetMessageHandler(func(addr string, e event.Event) {
 		c.ProcessEvent(addr, e)

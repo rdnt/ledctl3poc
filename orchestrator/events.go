@@ -1,19 +1,29 @@
-package registry
+package orchestrator
 
 import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
+
+	"github.com/google/uuid"
 
 	"ledctl3/node/event"
-	"ledctl3/pkg/uuid"
 )
 
 type ConnectedEvent struct{}
 
+func (e ConnectedEvent) Type() string {
+	return "Connected"
+}
+
 type DisconnectedEvent struct{}
 
-func (r *Registry) ProcessEvent(addr string, e event.Event) error {
+func (e DisconnectedEvent) Type() string {
+	return "Disconnected"
+}
+
+func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -21,22 +31,22 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 
 	var err error
 	switch e := e.(type) {
-	//case ConnectedEvent:
-	//	r.HandleConnected(addr)
-	//case DisconnectedEvent:
-	//	r.HandleDisconnected(addr)
+	case ConnectedEvent:
+		err = r.handleConnected(c)
+	case DisconnectedEvent:
+		err = r.handleDisconnected(c)
 	case event.NodeConnected:
-		err = r.handleNodeConnected(addr, e)
+		err = r.handleNodeConnected(c, e)
 	case event.InputConnected:
-		err = r.handleInputConnected(addr, e)
+		err = r.handleInputConnected(c, e)
 	case event.InputDisconnected:
-		err = r.handleInputDisconnected(addr, e)
+		err = r.handleInputDisconnected(c, e)
 	case event.OutputConnected:
-		err = r.handleOutputConnected(addr, e)
+		err = r.handleOutputConnected(c, e)
 	case event.OutputDisconnected:
-		err = r.handleOutputDisconnected(addr, e)
+		err = r.handleOutputDisconnected(c, e)
 	case event.Data:
-		err = r.handleData(addr, e)
+		err = r.handleData(c, e)
 
 	default:
 		fmt.Printf("unknown event %#v\n", e)
@@ -56,33 +66,41 @@ func (r *Registry) ProcessEvent(addr string, e event.Event) error {
 	return nil
 }
 
-func (r *Registry) send(addr string, e event.Event) error {
-	_, ok := r.conns[addr]
+// TODO: remove
+func (r *Orchestrator) send(addr string, e event.Event) error {
+	_, ok := r.AddrNode[addr]
 	if !ok {
 		return errors.New("node disconnected")
 	}
 
-	return r.write(addr, e)
+	return nil
+	//return r.write(addr, e)
 }
 
-func (r *Registry) req(addr string, e event.Event) error {
-	_, ok := r.conns[addr]
+// TODO: remove
+func (r *Orchestrator) req(addr string, e event.Event) error {
+	_, ok := r.AddrNode[addr]
 	if !ok {
 		return errors.New("node disconnected")
 	}
 
-	return r.request(addr, e)
+	return nil
+	//return r.request(addr, e)
 }
 
-func (r *Registry) handleNodeConnected(addr string, e event.NodeConnected) error {
-	fmt.Printf("%s: recv NodeConnected\n", addr)
+func (r *Orchestrator) handleNodeConnected(c Conn, e event.NodeConnected) error {
+	fmt.Printf("%s: recv NodeConnected\n", c.Addr())
 
-	if _, ok := r.conns[addr]; ok {
+	if _, ok := r.AddrNode[c.Addr()]; ok {
 		return errors.New("node already connected")
 	}
 
-	r.conns[addr] = e.Id
-	r.connsAddr[e.Id] = addr
+	if e.Id == uuid.Nil {
+		return errors.New("invalid node id")
+	}
+
+	r.AddrNode[c.Addr()] = e.Id
+	r.NodeAddr[e.Id] = c.Addr()
 
 	if dev, ok := r.State.Nodes[e.Id]; ok {
 		dev.Connect()
@@ -121,30 +139,54 @@ func (r *Registry) handleNodeConnected(addr string, e event.NodeConnected) error
 	return nil
 }
 
-func (r *Registry) HandleConnected(addr string) {
-	fmt.Printf("%s: recv Connected\n", addr)
+type Conn interface {
+	Addr() string
+	Latency() time.Duration
+	Write(b []byte) error
 }
 
-func (r *Registry) HandleDisconnected(addr string) {
-	fmt.Printf("%s: recv Disconnected\n", addr)
+func (r *Orchestrator) handleConnected(c Conn) error {
+	fmt.Printf("%s: recv Connected\n", c.Addr())
 
-	id, ok := r.conns[addr]
-	if !ok {
-		return
+	if _, ok := r.Conns[c.Addr()]; ok {
+		return errors.New("client already connected")
 	}
 
-	dev := r.State.Nodes[id]
-
-	dev.Disconnect()
-
-	delete(r.conns, addr)
-	delete(r.connsAddr, id)
+	r.Conns[c.Addr()] = c
+	return nil
 }
 
-func (r *Registry) handleInputConnected(addr string, e event.InputConnected) error {
-	fmt.Printf("%s: recv InputConnected\n", addr)
+func (r *Orchestrator) handleDisconnected(c Conn) error {
+	fmt.Printf("%s: recv Disconnected\n", c.Addr())
 
-	srcId, ok := r.conns[addr]
+	if _, ok := r.Conns[c.Addr()]; !ok {
+		return errors.New("client already disconnected")
+	}
+
+	delete(r.Conns, c.Addr())
+
+	nodeId, ok := r.AddrNode[c.Addr()]
+	if !ok {
+		return nil
+	}
+
+	node, ok := r.State.Nodes[nodeId]
+	if !ok {
+		return errors.New("node not found")
+	}
+
+	node.Disconnect()
+
+	delete(r.AddrNode, c.Addr())
+	delete(r.NodeAddr, nodeId)
+
+	return nil
+}
+
+func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) error {
+	fmt.Printf("%s: recv InputConnected\n", c.Addr())
+
+	srcId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -171,7 +213,7 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		})
 	}
 
-	err := r.send(addr, event.SetInputActive{
+	err := r.send(c.Addr(), event.SetInputActive{
 		Id:      e.Id,
 		Outputs: evtOutCfgs,
 	})
@@ -179,15 +221,15 @@ func (r *Registry) handleInputConnected(addr string, e event.InputConnected) err
 		return err
 	}
 
-	fmt.Println("sent SetInputActive to", addr)
+	fmt.Println("sent SetInputActive to", c.Addr())
 
 	return nil
 }
 
-func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnected) error {
-	fmt.Printf("%s: recv InputDisconnected\n", addr)
+func (r *Orchestrator) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
+	fmt.Printf("%s: recv InputDisconnected\n", c.Addr())
 
-	id, ok := r.conns[addr]
+	id, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -199,10 +241,10 @@ func (r *Registry) handleInputDisconnected(addr string, e event.InputDisconnecte
 	return nil
 }
 
-func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) error {
-	fmt.Printf("%s: recv OutputConnected\n", addr)
+func (r *Orchestrator) handleOutputConnected(c Conn, e event.OutputConnected) error {
+	fmt.Printf("%s: recv OutputConnected\n", c.Addr())
 
-	id, ok := r.conns[addr]
+	id, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -214,10 +256,10 @@ func (r *Registry) handleOutputConnected(addr string, e event.OutputConnected) e
 	return nil
 }
 
-func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnected) error {
-	fmt.Printf("%s: recv OutputDisconnected\n", addr)
+func (r *Orchestrator) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
+	fmt.Printf("%s: recv OutputDisconnected\n", c.Addr())
 
-	id, ok := r.conns[addr]
+	id, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -229,8 +271,8 @@ func (r *Registry) handleOutputDisconnected(addr string, e event.OutputDisconnec
 	return nil
 }
 
-func (r *Registry) handleData(addr string, e event.Data) error {
-	srcId, ok := r.conns[addr]
+func (r *Orchestrator) handleData(c Conn, e event.Data) error {
+	srcId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -240,7 +282,7 @@ func (r *Registry) handleData(addr string, e event.Data) error {
 		return errors.New("unknown sink node")
 	}
 
-	sinkAddr, ok := r.connsAddr[e.SinkId]
+	sinkAddr, ok := r.NodeAddr[e.SinkId]
 	if !ok {
 		return errors.New("sink node disconnected")
 	}

@@ -1,6 +1,6 @@
 package req
 
-import "ledctl3/pkg/uuid"
+import "github.com/google/uuid"
 
 type SetSourceConfig struct {
 	SourceId uuid.UUID

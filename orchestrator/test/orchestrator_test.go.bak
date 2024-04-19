@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"image/color"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"gotest.tools/v3/assert"
 
 	"ledctl3/node/event"
-	"ledctl3/pkg/uuid"
 	"ledctl3/registry"
 )
 
@@ -22,39 +23,83 @@ func (m mockStateHolder) GetState() (registry.State, error) {
 	return registry.State{}, nil
 }
 
+type mockConn struct {
+	addr string
+}
+
+func (c mockConn) Addr() string {
+	return c.addr
+}
+
+func (c mockConn) Latency() time.Duration {
+	return 0
+}
+
+func (c mockConn) Write(b []byte) error {
+	return nil
+}
+
 type message struct {
 	addr string
 	e    event.Event
 }
 
+func TestClientConnect(t *testing.T) {
+	sh := mockStateHolder{}
+	reg := registry.New(sh)
+
+	conn := mockConn{addr: uuid.New().String()}
+
+	t.Run("client connected", func(t *testing.T) {
+		err := reg.ProcessEvent(conn, registry.ConnectedEvent{})
+		assert.NilError(t, err)
+	})
+
+	t.Run("noop if client conn exists", func(t *testing.T) {
+		err := reg.ProcessEvent(conn, registry.ConnectedEvent{})
+		assert.ErrorContains(t, err, "client already connected")
+	})
+
+	t.Run("client disconnected", func(t *testing.T) {
+		err := reg.ProcessEvent(conn, registry.ConnectedEvent{})
+		assert.NilError(t, err)
+	})
+}
+
 func TestConnect(t *testing.T) {
 	sh := mockStateHolder{}
 	msgs := make([]message, 0)
-	reg := registry.New(sh, func(addr string, e event.Event) error {
-		msgs = append(msgs, message{
-			addr: addr,
-			e:    e,
-		})
-		return nil
-	})
+	//msgs = append(msgs, message{
+	//	addr: addr,
+	//	e:    e,
+	//})
+
+	reg := registry.New(sh)
 
 	addr := uuid.New().String()
+	conn := mockConn{}
 	id := uuid.New()
 
+	t.Run("client connected", func(t *testing.T) {
+		err := reg.ProcessEvent(conn, registry.ConnectedEvent{})
+		assert.NilError(t, err)
+	})
+
 	t.Run("node connected", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
+		err := reg.ProcessEvent(conn, event.NodeConnected{Id: id})
 		assert.NilError(t, err)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
 	t.Run("noop if connect is sent again", func(t *testing.T) {
-		err := reg.ProcessEvent(addr, event.NodeConnected{Id: id})
+		err := reg.ProcessEvent(conn, event.NodeConnected{Id: id})
 		assert.Error(t, err, "node already connected")
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 
 	t.Run("node disconnected", func(t *testing.T) {
-		reg.HandleDisconnected(addr)
+		err := reg.ProcessEvent(conn, event.NodeConnected{Id: id})
+		reg.HandleDisconnected(conn)
 		assert.Equal(t, len(reg.State.Nodes), 1)
 	})
 

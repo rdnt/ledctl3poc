@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"time"
 
-	"ledctl3/pkg/uuid"
+	"github.com/google/uuid"
 )
 
 type Data struct {

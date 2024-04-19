@@ -1,4 +1,4 @@
-package netserver_test
+package netserverold_test
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"ledctl3/pkg/netserver"
+	"ledctl3/pkg/netserverold"
 )
 
 type codec struct{}
@@ -21,7 +21,7 @@ func (c codec) UnmarshalEvent(b []byte, e *any) error {
 
 func TestReqResServer(t *testing.T) {
 
-	s := netserver.New[any](1234, codec{})
+	s := netserverold.New[any](1234, codec{})
 
 	s.SetRequestHandler(func(addr string, e any, respond func(any) error) {
 		t.Log("[server] received request", addr, e)
@@ -48,7 +48,7 @@ func TestReqResServer(t *testing.T) {
 }
 
 func TestReqResClient(t *testing.T) {
-	c := netserver.New[any](-1, codec{})
+	c := netserverold.New[any](-1, codec{})
 
 	c.SetRequestHandler(func(addr string, e any, respond func(any) error) {
 		t.Log("[client] received request", addr, e)

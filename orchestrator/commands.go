@@ -1,16 +1,17 @@
-package registry
+package orchestrator
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"ledctl3/node/event"
-	"ledctl3/pkg/uuid"
-	"ledctl3/registry/req"
+	"ledctl3/orchestrator/req"
 )
 
-func (r *Registry) HandleRequest(addr string, e req.Request) error {
+func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -40,7 +41,7 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 	return nil
 }
 
-func (r *Registry) handleSetSourceConfig(addr string, e req.SetSourceConfig) error {
+func (r *Orchestrator) handleSetSourceConfig(addr string, e req.SetSourceConfig) error {
 	fmt.Printf("%s: recv SetSourceConfig\n", addr)
 
 	var node *Node
@@ -56,7 +57,7 @@ func (r *Registry) handleSetSourceConfig(addr string, e req.SetSourceConfig) err
 		return errors.New("unknown source")
 	}
 
-	_, ok := r.connsAddr[node.Id]
+	_, ok := r.NodeAddr[node.Id]
 	if !ok {
 		return errors.New("node disconnected")
 	}
@@ -69,7 +70,7 @@ func (r *Registry) handleSetSourceConfig(addr string, e req.SetSourceConfig) err
 	return r.SetSourceConfig(node.Id, source.Id, e.Config)
 }
 
-func (r *Registry) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
+func (r *Orchestrator) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
 	r.State.Nodes[nodeId].Sources[sourceId].Config = cfg
 
 	err := r.sh.SetState(*r.State)
@@ -77,7 +78,7 @@ func (r *Registry) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error
 		return err
 	}
 
-	err = r.req(r.connsAddr[nodeId], event.SetSourceConfig{
+	err = r.req(r.NodeAddr[nodeId], event.SetSourceConfig{
 		SourceId: sourceId,
 		Config:   cfg,
 	})
@@ -89,7 +90,7 @@ func (r *Registry) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error
 	return nil
 }
 
-func (r *Registry) onResourceEvent(ctx context.Context, id uuid.UUID, h func(string, any) error) {
+func (r *Orchestrator) onResourceEvent(ctx context.Context, id uuid.UUID, h func(string, any) error) {
 	for {
 		select {
 		case <-ctx.Done():

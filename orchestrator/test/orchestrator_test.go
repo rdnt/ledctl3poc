@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gotest.tools/v3/assert"
 
+	"ledctl3/node/event"
 	"ledctl3/orchestrator"
 )
 
@@ -62,7 +63,7 @@ func TestClientConnect(t *testing.T) {
 	})
 }
 
-func TestNodeConnect(t *testing.T) {
+func TestAuthenticate(t *testing.T) {
 	o := orchestrator.New(mockStateHolder{})
 
 	conn := mockConn{addr: uuid.New().String()}
@@ -72,18 +73,22 @@ func TestNodeConnect(t *testing.T) {
 		assert.NilError(t, err)
 	})
 
-	t.Run("noop if client already connected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
-		assert.ErrorContains(t, err, "client already connected")
+	t.Run("auth failure", func(t *testing.T) {
+		err := o.ProcessEvent(conn, event.Authenticate{})
+		assert.ErrorContains(t, err, "authentication failed")
 	})
 
-	t.Run("client disconnected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
+	t.Run("authenticated", func(t *testing.T) {
+		err := o.ProcessEvent(conn, event.Authenticate{
+			Id: uuid.New(),
+		})
 		assert.NilError(t, err)
 	})
 
-	t.Run("noop if client already disconnected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
-		assert.ErrorContains(t, err, "client already disconnected")
+	t.Run("noop if already authenticated", func(t *testing.T) {
+		err := o.ProcessEvent(conn, event.Authenticate{
+			Id: uuid.New(),
+		})
+		assert.NilError(t, err)
 	})
 }

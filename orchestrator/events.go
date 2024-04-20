@@ -27,7 +27,7 @@ func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	//fmt.Println("HandleConnection")
+	// fmt.Println("HandleConnection")
 
 	var err error
 	switch e := e.(type) {
@@ -58,13 +58,13 @@ func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 		return err
 	}
 
-	//fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
+	// fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
 	err = r.sh.SetState(*r.State)
 	if err != nil {
 		fmt.Println("error writing State", err)
 	}
 
-	//fmt.Println("HandleConnection done")
+	// fmt.Println("HandleConnection done")
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (r *Orchestrator) send(addr string, e event.Event) error {
 	}
 
 	return nil
-	//return r.write(addr, e)
+	// return r.write(addr, e)
 }
 
 // TODO: remove
@@ -87,7 +87,7 @@ func (r *Orchestrator) req(addr string, e event.Event) error {
 	}
 
 	return nil
-	//return r.request(addr, e)
+	// return r.request(addr, e)
 }
 
 func (r *Orchestrator) createNode(id uuid.UUID) error {
@@ -99,11 +99,11 @@ func (r *Orchestrator) handleAuthenticate(c Conn, e event.Authenticate) error {
 	fmt.Printf("%s: recv Authenticate\n", c.Addr())
 
 	if e.Id == uuid.Nil {
-		return errors.New("invalid node id")
+		return errors.New("authentication failed")
 	}
 
 	if _, ok := r.AddrNode[c.Addr()]; ok {
-		return errors.New("node already authenticated")
+		return nil
 	}
 
 	r.AddrNode[c.Addr()] = e.Id
@@ -315,7 +315,7 @@ func (r *Orchestrator) handleData(c Conn, e event.Data) error {
 		return errors.New("invalid output")
 	}
 
-	//fmt.Println("latency", e.Latency)
+	// fmt.Println("latency", e.Latency)
 
 	go func() {
 		err := r.send(sinkAddr, e)

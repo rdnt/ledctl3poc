@@ -7,15 +7,15 @@ import (
 	"os"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"ledctl3/node/common"
 	"ledctl3/node/event"
-	"ledctl3/pkg/uuid"
 )
 
-type Client struct {
+type Node struct {
 	id      uuid.UUID
 	mux     sync.Mutex
-	write   func(addr string, e event.Event) error
 	cfg     Config
 	inputs  map[uuid.UUID]common.Input
 	outputs map[uuid.UUID]common.Output
@@ -140,10 +140,9 @@ func newDriverStateHolder(name string) *stateHolder {
 	return &stateHolder{driverName: name}
 }
 
-func New(cfg Config, write func(addr string, e event.Event) error) (*Client, error) {
-	d := &Client{
+func New(cfg Config) (*Node, error) {
+	d := &Node{
 		id:      cfg.Id,
-		write:   write,
 		cfg:     cfg,
 		inputs:  make(map[uuid.UUID]common.Input),
 		outputs: make(map[uuid.UUID]common.Output),
@@ -184,11 +183,11 @@ func New(cfg Config, write func(addr string, e event.Event) error) (*Client, err
 	return d, nil
 }
 
-func (c *Client) AddInput(in common.Input) {
+func (n *Node) AddInput(in common.Input) {
 	//fmt.Println("ADD INPUT CALLED", in)
 
-	c.inputs[in.Id()] = in
-	//c.inputCfgs[in.OutputId()] = inputConfig{}
+	n.inputs[in.Id()] = in
+	//n.inputCfgs[in.OutputId()] = inputConfig{}
 
 	go func() {
 		// forward messages from input to the network
@@ -200,16 +199,16 @@ func (c *Client) AddInput(in common.Input) {
 			//  the RTT from source to sink. the registry can then calculate
 			//  how much the sink should offset its render time to match the
 			//  latency of the slowest node on the network.
-			//if e.DriverId == c.id {
+			//if e.DriverId == n.id {
 			//	// deliver to local node outputs
 			//
 			//	for _, out := range e.Outputs {
-			//		if _, ok := c.outputs[out.OutputId]; !ok {
+			//		if _, ok := n.outputs[out.OutputId]; !ok {
 			//			fmt.Println("output not found", out.OutputId)
 			//			continue
 			//		}
 			//
-			//		c.outputs[out.OutputId].Render(out.Pix)
+			//		n.outputs[out.OutputId].Render(out.Pix)
 			//	}
 			//
 			//	continue
@@ -225,25 +224,25 @@ func (c *Client) AddInput(in common.Input) {
 					})
 				}
 
-				if c.regAddr == "" {
+				if n.regAddr == "" {
 					return
 				}
 
-				err := c.write(c.regAddr, event.Data{
-					SinkId:  e.SinkId,
-					Outputs: outputs,
-					Latency: e.Latency,
-				})
-				if err != nil {
-					fmt.Println("write error:", err)
-				}
+				//err := n.write(n.regAddr, event.Data{
+				//	SinkId:  e.SinkId,
+				//	Outputs: outputs,
+				//	Latency: e.Latency,
+				//})
+				//if err != nil {
+				//	fmt.Println("write error:", err)
+				//}
 			}()
 
-			//c.messages <- Message{
+			//n.messages <- Message{
 			//	Addr: nil, // TODO: registry addr
 			//	Event: event.Data{
 			//		Event:     event.Event{Type: event.Data},
-			//		SessionId: c.sessionId,
+			//		SessionId: n.sessionId,
 			//		Outputs:   outputs,
 			//	},
 			//}
@@ -279,19 +278,19 @@ func RegisterSink(name string, driver Driver) {
 	sinks[name] = driver
 }
 
-func (c *Client) RemoveInput(id uuid.UUID) {
+func (n *Node) RemoveInput(id uuid.UUID) {
 	//fmt.Println("RemoveInput CALLED", id)
-	delete(c.inputs, id)
+	delete(n.inputs, id)
 }
 
-func (c *Client) AddOutput(out common.Output) {
+func (n *Node) AddOutput(out common.Output) {
 	//fmt.Println("ADD OUTPUT CALLED", out)
 
-	c.outputs[out.Id()] = out
+	n.outputs[out.Id()] = out
 }
 
-func (c *Client) RemoveOutput(id uuid.UUID) {
+func (n *Node) RemoveOutput(id uuid.UUID) {
 	//fmt.Println("REMOVE OUTPUT CALLED", id)
 
-	delete(c.outputs, id)
+	delete(n.outputs, id)
 }

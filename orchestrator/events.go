@@ -14,7 +14,7 @@ import (
 type ConnectedEvent struct{}
 
 func (e ConnectedEvent) Type() string {
-	return "Capabilities"
+	return "Connected"
 }
 
 type DisconnectedEvent struct{}
@@ -200,9 +200,13 @@ func (r *Orchestrator) handleDisconnected(c Conn) error {
 func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) error {
 	fmt.Printf("%s: recv InputConnected\n", c.Addr())
 
+	if _, ok := r.Conns[c.Addr()]; !ok {
+		return errors.New("not connected")
+	}
+
 	srcId, ok := r.AddrNode[c.Addr()]
 	if !ok {
-		return errors.New("node disconnected")
+		return errors.New("not authenticated")
 	}
 
 	dev := r.State.Nodes[srcId]
@@ -243,9 +247,13 @@ func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) erro
 func (r *Orchestrator) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
 	fmt.Printf("%s: recv InputDisconnected\n", c.Addr())
 
+	if _, ok := r.Conns[c.Addr()]; !ok {
+		return errors.New("not connected")
+	}
+
 	id, ok := r.AddrNode[c.Addr()]
 	if !ok {
-		return errors.New("node disconnected")
+		return errors.New("not authenticated")
 	}
 
 	dev := r.State.Nodes[id]
@@ -258,9 +266,13 @@ func (r *Orchestrator) handleInputDisconnected(c Conn, e event.InputDisconnected
 func (r *Orchestrator) handleOutputConnected(c Conn, e event.OutputConnected) error {
 	fmt.Printf("%s: recv OutputConnected\n", c.Addr())
 
+	if _, ok := r.Conns[c.Addr()]; !ok {
+		return errors.New("not connected")
+	}
+
 	id, ok := r.AddrNode[c.Addr()]
 	if !ok {
-		return errors.New("node disconnected")
+		return errors.New("not authenticated")
 	}
 
 	dev := r.State.Nodes[id]

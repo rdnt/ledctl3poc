@@ -106,17 +106,15 @@ type IOConfig struct {
 //	InputConfigId uuid.UUID `json:"input_config_id"`
 //}
 
-var ErrEmptyIO = errors.New("empty io")
-
-func (r *Orchestrator) CreateProfile(name string, io []IOConfig) (Profile, error) {
-	if len(io) == 0 {
-		return Profile{}, ErrEmptyIO
+func (r *Orchestrator) CreateProfile(name string, links []IOConfig) (Profile, error) {
+	if len(links) == 0 {
+		return Profile{}, errors.New("no links specified")
 	}
 
 	prof := Profile{
 		Id:   uuid.New(),
 		Name: name,
-		IO:   io,
+		IO:   links,
 	}
 
 	r.State.Profiles[prof.Id] = prof

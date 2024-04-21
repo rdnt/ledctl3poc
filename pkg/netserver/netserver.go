@@ -28,6 +28,22 @@ func (wt *WebsocketTransport) OnMessage(h func(c *Conn, b []byte)) {
 	wt.onData = h
 }
 
+func (wt *WebsocketTransport) Connect(addr string) error {
+	c, r, err := websocket.Dial(context.Background(), addr, nil)
+	if err != nil {
+		log.Println("dial:", err)
+		return err
+	}
+
+	conn := &Conn{
+		addr: r.Request.RemoteAddr,
+		c:    c,
+	}
+
+	wt.handleConn(conn)
+	return nil
+}
+
 func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// TODO: use proper origin whitelist
@@ -43,6 +59,10 @@ func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
 		c:    c,
 	}
 
+	wt.handleConn(conn)
+}
+
+func (wt *WebsocketTransport) handleConn(conn *Conn) {
 	if wt.onOpen != nil {
 		wt.onOpen(conn)
 	}
@@ -62,7 +82,7 @@ func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
 
 			start := time.Now()
 
-			err := c.Ping(ctx)
+			err := conn.c.Ping(ctx)
 			if err != nil {
 				return
 			}
@@ -79,7 +99,7 @@ func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		for {
-			mt, b, err := c.Read(ctx)
+			mt, b, err := conn.c.Read(ctx)
 			if err != nil {
 				if wt.onClose != nil {
 					wt.onClose(conn)

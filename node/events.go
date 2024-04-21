@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"ledctl3/node/event"
 	"ledctl3/node/types"
@@ -11,11 +12,25 @@ import (
 
 type ConnectedEvent struct{}
 
+func (e ConnectedEvent) Type() string {
+	return "Connected"
+}
+
 type DisconnectedEvent struct{}
 
-func (c *Client) ProcessEvent(addr string, e any) error {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func (e DisconnectedEvent) Type() string {
+	return "Disconnected"
+}
+
+type Conn interface {
+	Addr() string
+	Latency() time.Duration
+	Write(b []byte) error
+}
+
+func (n *Node) ProcessEvent(c Conn, e any) error {
+	n.mux.Lock()
+	defer n.mux.Unlock()
 
 	//fmt.Println("HandleConnection")
 
@@ -23,21 +38,21 @@ func (c *Client) ProcessEvent(addr string, e any) error {
 
 	switch e := e.(type) {
 	case ConnectedEvent:
-		c.handleConnected(addr)
+		n.handleConnected(c)
 	case DisconnectedEvent:
-		c.handleDisconnected(addr)
+		n.handleDisconnected(c)
 	//case event.SetSourceActive:
-	//	c.handleSetSourceActive(addr, e)
+	//	n.handleSetSourceActive(addr, e)
 	case event.SetInputActive:
-		c.handleSetInputActive(addr, e)
+		n.handleSetInputActive(c, e)
 	case event.SetSourceConfig:
-		err = c.handleSetSourceConfig(addr, e)
+		err = n.handleSetSourceConfig(c, e)
 	case event.SetSinkConfig:
-		err = c.handleSetSinkConfig(addr, e)
+		err = n.handleSetSinkConfig(c, e)
 	case event.Data:
-		c.handleData(addr, e)
+		n.handleData(c, e)
 	//case event.ListCapabilities:
-	//	c.handleListCapabilitiesEvent(addr, e)
+	//	n.handleListCapabilitiesEvent(addr, e)
 	default:
 		fmt.Printf("unknown event %#v\n", e)
 	}
@@ -47,11 +62,30 @@ func (c *Client) ProcessEvent(addr string, e any) error {
 	return err
 }
 
-func (c *Client) handleConnected(addr string) {
-	fmt.Printf("%s: recv Capabilities\n", addr)
+func (n *Node) write(c Conn, v event.Event) error {
+	codec := event.JSONCodec{}
+
+	b, err := codec.MarshalBinary(v)
+	if err != nil {
+		return err
+	}
+
+	return c.Write(b)
+}
+
+func (n *Node) handleConnected(c Conn) {
+	fmt.Printf("%s: recv Connected\n", c.Addr())
+
+	fmt.Printf("%s: send Authenticate\n", c.Addr())
+	err := n.write(c, event.Authenticate{
+		Id: n.cfg.Id,
+	})
+	if err != nil {
+		fmt.Println("error writing to addr", c.Addr(), err)
+	}
 
 	var sources []event.ConnectedSource
-	for _, d := range c.sources {
+	for _, d := range n.sources {
 		cfg, err := d.Config()
 		if err != nil {
 			fmt.Println(err)
@@ -72,7 +106,7 @@ func (c *Client) handleConnected(addr string) {
 	}
 
 	var sinks []event.ConnectedSink
-	for _, d := range c.sinks {
+	for _, d := range n.sinks {
 		cfg, err := d.Config()
 		if err != nil {
 			fmt.Println(err)
@@ -92,55 +126,56 @@ func (c *Client) handleConnected(addr string) {
 		})
 	}
 
-	fmt.Printf("%s: send Capabilities\n", addr)
-	err := c.write(addr, event.Capabilities{
-		Id:      c.cfg.Id,
+	fmt.Printf("%s: send Capabilities\n", c.Addr())
+
+	err = n.write(c, event.Capabilities{
+		//Id:      n.cfg.Id,
 		Sources: sources,
 		Sinks:   sinks,
 	})
 	if err != nil {
-		fmt.Println("error writing to addr", addr, err)
+		fmt.Println("error writing to addr", c.Addr(), err)
 	}
 
-	for _, in := range c.inputs {
-		fmt.Printf("%s: send InputConnected\n", addr)
+	for _, in := range n.inputs {
+		fmt.Printf("%s: send InputConnected\n", c.Addr())
 
-		err := c.write(addr, event.InputConnected{
+		err := n.write(c, event.InputConnected{
 			Id:       in.Id(),
 			DriverId: in.DriverId(),
 			//Type:   event.InputTypeDefault,
 			//Schema: in.Schema(),
 		})
 		if err != nil {
-			fmt.Println("error writing to addr", addr, err)
+			fmt.Println("error writing to addr", c.Addr(), err)
 			return
 		}
 	}
 
-	for _, out := range c.outputs {
-		fmt.Printf("%s: send OutputConnected\n", addr)
+	for _, out := range n.outputs {
+		fmt.Printf("%s: send OutputConnected\n", c.Addr())
 
-		err := c.write(addr, event.OutputConnected{
+		err := n.write(c, event.OutputConnected{
 			Id:       out.Id(),
 			DriverId: out.DriverId(),
 			Leds:     out.Leds(),
 		})
 		if err != nil {
-			fmt.Println("error writing to addr", addr, err)
+			fmt.Println("error writing to addr", c.Addr(), err)
 			return
 		}
 	}
 
-	c.regAddr = addr
+	n.regAddr = c.Addr()
 }
 
-func (c *Client) handleDisconnected(addr string) {
-	fmt.Printf("%s: recv Disconnect\n", addr)
+func (n *Node) handleDisconnected(c Conn) {
+	fmt.Printf("%s: recv Disconnect\n", c.Addr())
 
-	c.regAddr = ""
+	n.regAddr = ""
 }
 
-//func (s *Client) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
+//func (s *Node) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
 //	fmt.Printf("%s: recv ListCapabilities\n", addr)
 //
 //	e := event.Capabilities{
@@ -166,7 +201,7 @@ func (c *Client) handleDisconnected(addr string) {
 //	}
 //}
 
-func (c *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
+func (n *Node) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	fmt.Printf("%s: recv SetSourceActive\n", addr)
 
 	b, err := json.Marshal(e)
@@ -177,7 +212,7 @@ func (c *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	fmt.Println(string(b))
 
 	for _, input := range e.Inputs {
-		in, ok := c.inputs[input.Id]
+		in, ok := n.inputs[input.Id]
 		if !ok {
 			fmt.Println("in not found", input.Id)
 			continue
@@ -207,8 +242,8 @@ func (c *Client) handleSetSourceActive(addr string, e event.SetSourceActive) {
 	}
 }
 
-func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
-	fmt.Printf("%s: recv SetInputActive\n", addr)
+func (n *Node) handleSetInputActive(c Conn, e event.SetInputActive) {
+	fmt.Printf("%s: recv SetInputActive\n", c.Addr())
 
 	b, err := json.Marshal(e)
 	if err != nil {
@@ -217,7 +252,7 @@ func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 
 	fmt.Println(string(b))
 
-	in, ok := c.inputs[e.Id]
+	in, ok := n.inputs[e.Id]
 	if !ok {
 		fmt.Println("input not found", e.Id)
 		return
@@ -238,7 +273,7 @@ func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 		outputCfgs = append(outputCfgs, types.OutputConfig{
 			Id:     output.OutputId,
 			SinkId: output.SinkId,
-			NodeId: c.id,
+			NodeId: n.id,
 			Leds:   output.Leds,
 			Config: outCfg,
 		})
@@ -256,21 +291,21 @@ func (c *Client) handleSetInputActive(addr string, e event.SetInputActive) {
 	fmt.Println("input started", e.Id)
 }
 
-func (c *Client) handleData(addr string, e event.Data) {
+func (n *Node) handleData(c Conn, e event.Data) {
 	for _, out := range e.Outputs {
-		if _, ok := c.outputs[out.OutputId]; !ok {
+		if _, ok := n.outputs[out.OutputId]; !ok {
 			fmt.Println("output not found", out.OutputId)
 			continue
 		}
 
-		go c.outputs[out.OutputId].Render(out.Pix)
+		go n.outputs[out.OutputId].Render(out.Pix)
 	}
 }
 
-func (c *Client) handleSetSourceConfig(addr string, e event.SetSourceConfig) error {
-	fmt.Printf("%s: recv SetSourceConfig\n", addr)
+func (n *Node) handleSetSourceConfig(c Conn, e event.SetSourceConfig) error {
+	fmt.Printf("%s: recv SetSourceConfig\n", c.Addr())
 
-	dev, ok := c.sources[e.SourceId]
+	dev, ok := n.sources[e.SourceId]
 	if !ok {
 		return errors.New("source not found")
 	}
@@ -284,10 +319,10 @@ func (c *Client) handleSetSourceConfig(addr string, e event.SetSourceConfig) err
 	return nil
 }
 
-func (c *Client) handleSetSinkConfig(addr string, e event.SetSinkConfig) error {
-	fmt.Printf("%s: recv SetSinkConfig\n", addr)
+func (n *Node) handleSetSinkConfig(c Conn, e event.SetSinkConfig) error {
+	fmt.Printf("%s: recv SetSinkConfig\n", c.Addr())
 
-	dev, ok := c.sinks[e.SinkId]
+	dev, ok := n.sinks[e.SinkId]
 	if !ok {
 		return errors.New("sink not found")
 	}

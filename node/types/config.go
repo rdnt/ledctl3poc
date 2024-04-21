@@ -1,6 +1,6 @@
 package types
 
-import "ledctl3/pkg/uuid"
+import "github.com/google/uuid"
 
 type InputConfig struct {
 	Framerate int

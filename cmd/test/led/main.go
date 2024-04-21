@@ -13,32 +13,42 @@ func main() {
 	}
 
 	for {
-		for i := range 8 {
-			err = engine.SetLedColor(i, 0x1D, 0x1D, 0x1D, 0x00)
-			if err != nil {
-				panic(err)
+		var j int
+		t := time.NewTicker(100 * time.Millisecond)
+
+		for {
+			select {
+			case <-t.C:
+				if j%10 == 0 {
+					for i := range 8 {
+						err = engine.SetLedColor(i, 0x1D, 0x1D, 0x1D, 0x00)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					err = engine.Render()
+					if err != nil {
+						panic(err)
+					}
+				}
+
+				if j%10 == 1 {
+					for i := range 8 {
+						err = engine.SetLedColor(i, 0x00, 0x00, 0x00, 0x00)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					err = engine.Render()
+					if err != nil {
+						panic(err)
+					}
+				}
+				j++
 			}
+
 		}
-
-		err = engine.Render()
-		if err != nil {
-			panic(err)
-		}
-
-		time.Sleep(100 * time.Millisecond)
-
-		for i := range 8 {
-			err = engine.SetLedColor(i, 0x00, 0x00, 0x00, 0x00)
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		err = engine.Render()
-		if err != nil {
-			panic(err)
-		}
-
-		time.Sleep(900 * time.Millisecond)
 	}
 }

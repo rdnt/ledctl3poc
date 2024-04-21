@@ -37,6 +37,11 @@ func (c JSONCodec) UnmarshalBinary(b []byte) (Event, error) {
 	}
 
 	switch t.Type {
+	case TypeAuthenticate:
+		var e Authenticate
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
 	case TypeCapabilities:
 		var e Capabilities
 		err := json.Unmarshal(t.Data, &e)

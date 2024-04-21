@@ -3,8 +3,9 @@ package common
 import (
 	"image/color"
 
+	"github.com/google/uuid"
+
 	"ledctl3/node/types"
-	"ledctl3/pkg/uuid"
 )
 
 type Input interface {

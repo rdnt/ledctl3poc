@@ -15,7 +15,7 @@ type Data struct {
 
 type DataOutput struct {
 	OutputId uuid.UUID
-	Pix      []color.Color
+	Pix      []color.NRGBA
 }
 
 func (e Data) Type() string {

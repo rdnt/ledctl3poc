@@ -15,5 +15,5 @@ type UpdateEvent struct {
 
 type UpdateEventOutput struct {
 	OutputId uuid.UUID
-	Pix      []color.Color
+	Pix      []color.NRGBA
 }

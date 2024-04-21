@@ -9,7 +9,6 @@ type SetInputActive struct {
 
 type SetInputActiveOutput struct {
 	OutputId uuid.UUID
-	NodeId   uuid.UUID
 	SinkId   uuid.UUID
 	Leds     int
 	Config   map[string]any

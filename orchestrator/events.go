@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -68,26 +67,15 @@ func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 	return nil
 }
 
-// TODO: remove
-func (r *Orchestrator) send(addr string, e event.Event) error {
-	_, ok := r.AddrNode[addr]
-	if !ok {
-		return errors.New("node disconnected")
+func (r *Orchestrator) write(c Conn, v event.Event) error {
+	codec := event.JSONCodec{}
+
+	b, err := codec.MarshalBinary(v)
+	if err != nil {
+		return err
 	}
 
-	return nil
-	// return r.write(addr, e)
-}
-
-// TODO: remove
-func (r *Orchestrator) req(addr string, e event.Event) error {
-	_, ok := r.AddrNode[addr]
-	if !ok {
-		return errors.New("node disconnected")
-	}
-
-	return nil
-	// return r.request(addr, e)
+	return c.Write(b)
 }
 
 func (r *Orchestrator) createNode(id uuid.UUID) error {
@@ -155,8 +143,9 @@ func (r *Orchestrator) handleCapabilities(c Conn, e event.Capabilities) error {
 
 type Conn interface {
 	Addr() string
-	Latency() time.Duration
 	Write(b []byte) error
+	Read() ([]byte, error)
+	Ping() error
 }
 
 func (r *Orchestrator) handleConnected(c Conn) error {
@@ -222,16 +211,17 @@ func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) erro
 	for _, cfg := range cfgs {
 		dev := r.State.Nodes[r.outputNodeId(cfg.OutputId)]
 
+		// TODO: validate output exists
+
 		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
 			OutputId: cfg.OutputId,
 			SinkId:   dev.Outputs[cfg.OutputId].DriverId,
-			NodeId:   dev.Id,
 			Leds:     dev.Outputs[cfg.OutputId].Leds,
 			Config:   cfg.Config,
 		})
 	}
 
-	err := r.send(c.Addr(), event.SetInputActive{
+	err := r.write(c, event.SetInputActive{
 		Id:      e.Id,
 		Outputs: evtOutCfgs,
 	})
@@ -298,17 +288,21 @@ func (r *Orchestrator) handleOutputDisconnected(c Conn, e event.OutputDisconnect
 }
 
 func (r *Orchestrator) handleData(c Conn, e event.Data) error {
+	//fmt.Printf("%s: recv Data\n", c.Addr())
+
 	srcId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
 
-	sinkDev := r.State.Nodes[e.SinkId]
+	nodeId := r.sinkNodeId(e.SinkId)
+
+	sinkDev := r.State.Nodes[nodeId]
 	if sinkDev == nil {
 		return errors.New("unknown sink node")
 	}
 
-	sinkAddr, ok := r.NodeAddr[e.SinkId]
+	sinkAddr, ok := r.NodeAddr[nodeId]
 	if !ok {
 		return errors.New("sink node disconnected")
 	}
@@ -330,7 +324,8 @@ func (r *Orchestrator) handleData(c Conn, e event.Data) error {
 	// fmt.Println("latency", e.Latency)
 
 	go func() {
-		err := r.send(sinkAddr, e)
+		// TODO verify sink connected
+		err := r.write(r.Conns[sinkAddr], e)
 		if err != nil {
 			fmt.Println(err)
 		}

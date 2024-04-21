@@ -21,7 +21,7 @@ type Input interface {
 type Output interface {
 	Id() uuid.UUID
 	DriverId() uuid.UUID
-	Render([]color.Color)
+	Render([]color.NRGBA)
 	Leds() int
 	//Start() error
 	//Stop() error

@@ -87,6 +87,16 @@ func (c JSONCodec) UnmarshalBinary(b []byte) (Event, error) {
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 
+	case TypeSetInputActive:
+		var e SetInputActive
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
+	case TypeData:
+		var e Data
+		err := json.Unmarshal(t.Data, &e)
+		return e, err
+
 	default:
 		return nil, fmt.Errorf("unknown event type: '%s'", t.Type)
 	}

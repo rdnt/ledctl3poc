@@ -2,159 +2,109 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"ledctl3/cmd/registry/state"
 	"ledctl3/node/event"
 	"ledctl3/orchestrator"
-	"ledctl3/orchestrator/req"
 	"ledctl3/pkg/mdns"
-	"ledctl3/pkg/netserverold"
+	"ledctl3/pkg/netserver"
 )
 
 func main() {
-	s := netserverold.New[event.Event, req.Request](1337, event.NewJSONCodec(), req.NewJSONCodec())
-
 	sh := state.NewHolder()
-	reg := orchestrator.New(sh, func(addr string, e event.Event) error {
-		return s.Write(addr, e)
-	}, func(addr string, e event.Event) error {
-		return s.Request(addr, e)
-	})
+	reg := orchestrator.New(sh)
 
-	s.SetMessageHandler(func(addr string, e event.Event) {
-		err := reg.ProcessEvent(addr, e)
+	ws := netserver.NewWebsocketTransport()
+
+	ws.OnOpen(func(c *netserver.Conn) {
+		err := reg.ProcessEvent(c, orchestrator.ConnectedEvent{})
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}
 	})
 
-	s.SetRequestHandler(func(addr string, e req.Request, respond func(e req.Request) error) {
-		//ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		//defer cancel()
-
-		err := reg.HandleRequest(addr, e)
+	ws.OnClose(func(c *netserver.Conn) {
+		err := reg.ProcessEvent(c, orchestrator.DisconnectedEvent{})
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}
+	})
 
-		err = respond(nil)
+	codec := event.NewJSONCodec()
+	ws.OnMessage(func(c *netserver.Conn, b []byte) {
+		evt, err := codec.UnmarshalBinary(b)
 		if err != nil {
-			fmt.Println("error responding to request:", err)
+			log.Println("error decoding event:", err)
+			return
+
+		}
+		err = reg.ProcessEvent(c, evt)
+		if err != nil {
+			fmt.Println("error processing event:", err)
 		}
 	})
 
-	s.SetConnectHandler(reg.HandleConnected)
+	// ROUTING
 
-	s.SetDisconnectHandler(reg.HandleDisconnected)
+	r := chi.NewRouter()
 
-	time.Sleep(1 * time.Second)
-	fmt.Println("registry started")
+	r.Get("/ws", ws.Handle)
 
-	err := s.Start()
-	if err != nil {
-		panic(err)
+	go func() {
+		err := http.ListenAndServe(":1337", r)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	go broadcastD()
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		err := reg.EnableProfile(uuid.MustParse("aaaaaaaa-0000-4000-0000-000000000000"))
+		if err != nil {
+			fmt.Println("error enabling profile:", err)
+		}
+	}()
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	<-interrupt
+
+	sh.Stop()
+}
+
+func broadcastD() {
+	for {
+		err := broadcast()
+		if err != nil {
+			fmt.Println("error broadcasting:", err)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		return
 	}
+}
 
+func broadcast() error {
 	mdnsServer, err := mdns.NewServer("registry", 1337)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = mdnsServer.Start()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	go func() {
-		time.Sleep(5 * time.Second)
-
-		fmt.Println("Updating driver config!")
-		err = reg.SetSinkConfig(uuid.MustParse("ffffffff-0000-0000-0000-000000000000"), uuid.MustParse("2b599945-732d-4a1c-afc2-4ffd07c4131b"), []byte(`
-	{
-	 "outputs": [
-	   {
-	     "id": "0000aaaa-0000-0000-0000-000000000000",
-	     "count": 1,
-	     "offset": 0
-	   },
-	   {
-	     "id": "0000bbbb-0000-0000-0000-000000000000",
-	     "count": 1,
-	     "offset": 1
-	   },
-	   {
-	     "id": "0000cccc-0000-0000-0000-000000000000",
-	     "count": 1,
-	     "offset": 2
-	   }
-	 ]
-	}
-			`))
-		if err != nil {
-			fmt.Println("ERR!", err)
-			//panic(err)
-		}
-	}()
-
-	//go func() {
-	//	time.Sleep(10 * time.Second)
-	//
-	//	fmt.Println("Activating profile!")
-	//	err = reg.EnableProfile(uuid.MustParse("ffffffff-2e2d-4470-b9ab-c78786bf5667"))
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}()
-
-	//go func() {
-	//	time.Sleep(5 * time.Second)
-	//	_, err = reg.CreateProfile("custom", []registry.ProfileSource{
-	//		{
-	//			OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
-	//			Inputs: []registry.ProfileInput{
-	//				{
-	//					OutputId: uuid.MustParse("22222222-b301-47d6-b289-2a4c3327962a"),
-	//					Sinks: []registry.ProfileSink{
-	//						{
-	//							OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
-	//							Outputs: []registry.ProfileOutput{
-	//								{
-	//									OutputId:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
-	//									InputConfigId: uuid.Nil,
-	//								},
-	//							},
-	//						},
-	//					},
-	//				},
-	//				{
-	//					OutputId: uuid.MustParse("33333333-e72d-470e-a343-5c2cc2f1746f"),
-	//					Sinks: []registry.ProfileSink{
-	//						{
-	//							OutputId: uuid.MustParse("55555555-dca5-430b-971c-fbe5b9112bfe"),
-	//							Outputs: []registry.ProfileOutput{
-	//								{
-	//									OutputId:            uuid.MustParse("88888888-6b50-4789-b635-16237d268efa"),
-	//									InputConfigId: uuid.Nil,
-	//								},
-	//							},
-	//						},
-	//					},
-	//				},
-	//			},
-	//		},
-	//	})
-	//	if err != nil {
-	//		fmt.Println("error adding profile:", err)
-	//	}
-	//}()
-
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-	<-interrupt
-
-	sh.Stop()
+	return nil
 }

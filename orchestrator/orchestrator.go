@@ -69,12 +69,12 @@ func New(sh StateHolder) *Orchestrator {
 }
 
 type Profile struct {
-	Id   uuid.UUID  `json:"id"`
-	Name string     `json:"name"`
-	IO   []IOConfig `json:"io"`
+	Id    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Links []Link    `json:"links"`
 }
 
-type IOConfig struct {
+type Link struct {
 	InputId  uuid.UUID      `json:"input_id"`
 	OutputId uuid.UUID      `json:"output_id"`
 	Config   map[string]any `json:"config"`
@@ -106,15 +106,15 @@ type IOConfig struct {
 //	InputConfigId uuid.UUID `json:"input_config_id"`
 //}
 
-func (r *Orchestrator) CreateProfile(name string, links []IOConfig) (Profile, error) {
+func (r *Orchestrator) CreateProfile(name string, links []Link) (Profile, error) {
 	if len(links) == 0 {
 		return Profile{}, errors.New("no links specified")
 	}
 
 	prof := Profile{
-		Id:   uuid.New(),
-		Name: name,
-		IO:   links,
+		Id:    uuid.New(),
+		Name:  name,
+		Links: links,
 	}
 
 	r.State.Profiles[prof.Id] = prof
@@ -125,26 +125,6 @@ func (r *Orchestrator) CreateProfile(name string, links []IOConfig) (Profile, er
 	}
 
 	return prof, nil
-}
-
-func (r *Orchestrator) SetSinkConfig(nodeId, sinkId uuid.UUID, cfg []byte) error {
-	r.State.Nodes[nodeId].Sinks[sinkId].Config = cfg
-
-	err := r.sh.SetState(*r.State)
-	if err != nil {
-		return err
-	}
-
-	err = r.send(r.NodeAddr[nodeId], event.SetSinkConfig{
-		SinkId: sinkId,
-		Config: cfg,
-	})
-	if err != nil {
-		fmt.Println("error sending event:", err)
-		return err
-	}
-
-	return nil
 }
 
 func (r *Orchestrator) EnableProfile(id uuid.UUID) error {
@@ -163,8 +143,8 @@ func (r *Orchestrator) EnableProfile(id uuid.UUID) error {
 	// maybe in the future, input data can be combined to the same
 	// output with some transformer function, e.g. one input
 	// modifying hue/sat and another modifying brightness.
-	for _, io := range prof.IO {
-		if slices.Contains(activeOutputIds, io.OutputId) {
+	for _, link := range prof.Links {
+		if slices.Contains(activeOutputIds, link.OutputId) {
 			return errors.New("output already in use")
 		}
 	}
@@ -176,18 +156,20 @@ func (r *Orchestrator) EnableProfile(id uuid.UUID) error {
 		fmt.Println("error writing State", err)
 	}
 
-	for _, io := range prof.IO {
-		srcDev := r.State.Nodes[r.inputNodeId(io.InputId)]
-		sinkDev := r.State.Nodes[r.outputNodeId(io.OutputId)]
+	for _, link := range prof.Links {
+		srcDev := r.State.Nodes[r.inputNodeId(link.InputId)]
+		sinkDev := r.State.Nodes[r.outputNodeId(link.OutputId)]
 
-		err = r.send(r.NodeAddr[srcDev.Id], event.SetInputActive{
-			Id: io.InputId,
+		// TODO: verify src node is connected
+
+		err = r.write(r.Conns[r.NodeAddr[srcDev.Id]], event.SetInputActive{
+			Id: link.InputId,
 			Outputs: []event.SetInputActiveOutput{
 				{
-					OutputId: io.OutputId,
+					OutputId: link.OutputId,
 					SinkId:   sinkDev.Id,
-					Leds:     sinkDev.Outputs[io.OutputId].Leds,
-					Config:   io.Config,
+					Leds:     sinkDev.Outputs[link.OutputId].Leds,
+					Config:   link.Config,
 				},
 			},
 		})
@@ -206,8 +188,8 @@ func (r *Orchestrator) activeOutputs() []uuid.UUID {
 
 	for _, profId := range r.State.ActiveProfiles {
 		prof := r.State.Profiles[profId]
-		for _, io := range prof.IO {
-			outputIds = append(outputIds, io.OutputId)
+		for _, link := range prof.Links {
+			outputIds = append(outputIds, link.OutputId)
 		}
 	}
 
@@ -219,32 +201,32 @@ func (r *Orchestrator) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
 
 	for _, profId := range r.State.ActiveProfiles {
 		prof := r.State.Profiles[profId]
-		for _, io := range prof.IO {
-			srcId := r.inputNodeId(io.InputId)
+		for _, link := range prof.Links {
+			srcId := r.inputNodeId(link.InputId)
 
 			if srcId != id {
 				continue
 			}
 
-			outputIds = append(outputIds, io.OutputId)
+			outputIds = append(outputIds, link.OutputId)
 		}
 	}
 
 	return outputIds
 }
 
-func (r *Orchestrator) activeInputConfigs(id uuid.UUID) []IOConfig {
-	var cfgs []IOConfig
+func (r *Orchestrator) activeInputConfigs(id uuid.UUID) []Link {
+	var cfgs []Link
 
 	for _, profId := range r.State.ActiveProfiles {
 		prof := r.State.Profiles[profId]
 
-		for _, io := range prof.IO {
-			if io.InputId != id {
+		for _, link := range prof.Links {
+			if link.InputId != id {
 				continue
 			}
 
-			cfgs = append(cfgs, io)
+			cfgs = append(cfgs, link)
 		}
 	}
 
@@ -265,6 +247,27 @@ func (r *Orchestrator) outputNodeId(id uuid.UUID) uuid.UUID {
 func (r *Orchestrator) inputNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Inputs {
+			if in.Id == id {
+				return dev.Id
+			}
+		}
+	}
+	return uuid.Nil
+}
+
+func (r *Orchestrator) sinkNodeId(id uuid.UUID) uuid.UUID {
+	for _, dev := range r.State.Nodes {
+		for _, in := range dev.Sinks {
+			if in.Id == id {
+				return dev.Id
+			}
+		}
+	}
+	return uuid.Nil
+}
+func (r *Orchestrator) sourceNodeId(id uuid.UUID) uuid.UUID {
+	for _, dev := range r.State.Nodes {
+		for _, in := range dev.Sources {
 			if in.Id == id {
 				return dev.Id
 			}

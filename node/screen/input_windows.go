@@ -7,11 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/image/draw"
-
-	"ledctl3/pkg/uuid"
-
 	"github.com/bamiaux/rez"
+	"github.com/google/uuid"
+	"golang.org/x/image/draw"
 
 	"ledctl3/node/types"
 	types2 "ledctl3/pkg/screencapture/types"
@@ -182,7 +180,7 @@ func (in *Input) processFrame(pix []byte) {
 
 			out.scaler.Scale(out.dest, out.dest.Bounds(), sub, sub.Bounds(), draw.Over, nil)
 
-			var colors []color.Color
+			var colors []color.NRGBA
 
 			for i := 0; i < len(out.dest.Pix); i += 4 {
 				clr := color.NRGBA{

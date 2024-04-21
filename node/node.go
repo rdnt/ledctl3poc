@@ -21,7 +21,7 @@ type Node struct {
 	outputs map[uuid.UUID]common.Output
 	sources map[uuid.UUID]Driver
 	sinks   map[uuid.UUID]Driver
-	regAddr string
+	conn    Conn
 }
 
 type Config struct {
@@ -224,18 +224,18 @@ func (n *Node) AddInput(in common.Input) {
 					})
 				}
 
-				if n.regAddr == "" {
+				if n.conn == nil {
 					return
 				}
 
-				//err := n.write(n.regAddr, event.Data{
-				//	SinkId:  e.SinkId,
-				//	Outputs: outputs,
-				//	Latency: e.Latency,
-				//})
-				//if err != nil {
-				//	fmt.Println("write error:", err)
-				//}
+				err := n.write(n.conn, event.Data{
+					SinkId:  e.SinkId,
+					Outputs: outputs,
+					Latency: e.Latency,
+				})
+				if err != nil {
+					fmt.Println("write error:", err)
+				}
 			}()
 
 			//n.messages <- Message{

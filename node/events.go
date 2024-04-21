@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"ledctl3/node/event"
 	"ledctl3/node/types"
@@ -24,8 +23,9 @@ func (e DisconnectedEvent) Type() string {
 
 type Conn interface {
 	Addr() string
-	Latency() time.Duration
 	Write(b []byte) error
+	Read() ([]byte, error)
+	Ping() error
 }
 
 func (n *Node) ProcessEvent(c Conn, e any) error {
@@ -166,13 +166,13 @@ func (n *Node) handleConnected(c Conn) {
 		}
 	}
 
-	n.regAddr = c.Addr()
+	n.conn = c
 }
 
 func (n *Node) handleDisconnected(c Conn) {
 	fmt.Printf("%s: recv Disconnect\n", c.Addr())
 
-	n.regAddr = ""
+	n.conn = nil
 }
 
 //func (s *Node) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {

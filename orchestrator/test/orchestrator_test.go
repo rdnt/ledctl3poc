@@ -25,6 +25,14 @@ type mockConn struct {
 	addr string
 }
 
+func (c mockConn) Read() ([]byte, error) {
+	return nil, nil
+}
+
+func (c mockConn) Ping() error {
+	return nil
+}
+
 func (c mockConn) Addr() string {
 	return c.addr
 }
@@ -386,19 +394,19 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("profile created", func(t *testing.T) {
 		name := "test"
-		io := []orchestrator.IOConfig{
+		link := []orchestrator.Link{
 			{
 				InputId:  inId,
 				OutputId: outId,
 				Config:   nil,
 			},
 		}
-		prof, err := o.CreateProfile(name, io)
+		prof, err := o.CreateProfile(name, link)
 		assert.NilError(t, err)
 
 		assert.Equal(t, len(o.State.Profiles), 1)
 		assert.Equal(t, prof.Name, name)
-		assert.DeepEqual(t, prof.IO, io)
+		assert.DeepEqual(t, prof.Links, link)
 	})
 }
 
@@ -461,20 +469,20 @@ func TestEnableProfile(t *testing.T) {
 	var id uuid.UUID
 	t.Run("profile created", func(t *testing.T) {
 		name := "test"
-		io := []orchestrator.IOConfig{
+		link := []orchestrator.Link{
 			{
 				InputId:  inId,
 				OutputId: outId,
 				Config:   nil,
 			},
 		}
-		prof, err := o.CreateProfile(name, io)
+		prof, err := o.CreateProfile(name, link)
 		assert.NilError(t, err)
 		id = prof.Id
 
 		assert.Equal(t, len(o.State.Profiles), 1)
 		assert.Equal(t, prof.Name, name)
-		assert.DeepEqual(t, prof.IO, io)
+		assert.DeepEqual(t, prof.Links, link)
 	})
 
 	t.Run("profile enabled", func(t *testing.T) {
@@ -652,7 +660,7 @@ func TestEnableProfile(t *testing.T) {
 //
 //	t.Run("profile enabled", func(t *testing.T) {
 //		name := "test"
-//		io := []registry.IOConfig{
+//		link := []registry.Link{
 //			//{
 //			//	InputId:  inId1,
 //			//	OutputId: outId1,
@@ -674,7 +682,7 @@ func TestEnableProfile(t *testing.T) {
 //			//	Config:   nil,
 //			//},
 //		}
-//		prof, err := reg.CreateProfile(name, io)
+//		prof, err := reg.CreateProfile(name, link)
 //		assert.NilError(t, err)
 //
 //		err = reg.EnableProfile(prof.Id)

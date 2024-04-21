@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	"ledctl3/node"
@@ -17,7 +18,6 @@ import (
 	"ledctl3/node/types"
 	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"
-	"ledctl3/pkg/uuid"
 )
 
 func init() {

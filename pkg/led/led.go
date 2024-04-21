@@ -7,11 +7,11 @@ import (
 	"os"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	"ledctl3/node"
 	"ledctl3/node/common"
-	"ledctl3/pkg/uuid"
 	"ledctl3/pkg/ws281x"
 )
 
@@ -140,7 +140,7 @@ func (d *dev) applyConfig(b []byte) error {
 	}
 
 	fmt.Println("start engine with", total, "leds")
-	engine, err := ws281x.Init(18, total, 255, "grb")
+	engine, err := ws281x.Init(18, total, 150, "grb") // TODO: make configurable
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/google/uuid"
 	gcolor "github.com/gookit/color"
-
-	"ledctl3/pkg/uuid"
 )
 
 type output struct {
@@ -40,7 +39,7 @@ func (o *output) Leds() int {
 	return o.leds
 }
 
-func (o *output) Render(pix []color.Color) {
+func (o *output) Render(pix []color.NRGBA) {
 	out := ""
 	for i, c := range pix {
 		r, g, b, _ := c.RGBA()
@@ -51,7 +50,7 @@ func (o *output) Render(pix []color.Color) {
 		}
 		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
 	}
-	fmt.Println(out)
+	//fmt.Println(out)
 
 	err := o.driver.Render()
 	if err != nil {

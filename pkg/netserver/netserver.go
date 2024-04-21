@@ -2,7 +2,7 @@ package netserver
 
 import (
 	"context"
-	"log"
+	"errors"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -29,19 +29,33 @@ func (wt *WebsocketTransport) OnMessage(h func(c *Conn, b []byte)) {
 }
 
 func (wt *WebsocketTransport) Connect(addr string) error {
-	c, r, err := websocket.Dial(context.Background(), addr, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	c, r, err := websocket.Dial(ctx, addr, nil)
 	if err != nil {
-		log.Println("dial:", err)
 		return err
 	}
 
 	conn := &Conn{
-		addr: r.Request.RemoteAddr,
+		addr: ReadUserIP(r.Request),
 		c:    c,
 	}
 
 	wt.handleConn(conn)
+
 	return nil
+}
+
+func ReadUserIP(r *http.Request) string {
+	IPAddress := r.Header.Get("X-Real-Ip")
+	if IPAddress == "" {
+		IPAddress = r.Header.Get("X-Forwarded-For")
+	}
+	if IPAddress == "" {
+		IPAddress = r.RemoteAddr
+	}
+	return IPAddress
 }
 
 func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
@@ -50,16 +64,15 @@ func (wt *WebsocketTransport) Handle(w http.ResponseWriter, r *http.Request) {
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		log.Println("accept:", err)
 		return
 	}
 
 	conn := &Conn{
-		addr: r.RemoteAddr,
+		addr: ReadUserIP(r),
 		c:    c,
 	}
 
-	wt.handleConn(conn)
+	go wt.handleConn(conn)
 }
 
 func (wt *WebsocketTransport) handleConn(conn *Conn) {
@@ -67,56 +80,24 @@ func (wt *WebsocketTransport) handleConn(conn *Conn) {
 		wt.onOpen(conn)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		t := time.NewTimer(time.Second)
-		defer t.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
+	for {
+		mt, b, err := conn.c.Read(context.Background())
+		if err != nil {
+			if wt.onClose != nil {
+				wt.onClose(conn)
 			}
 
-			start := time.Now()
-
-			err := conn.c.Ping(ctx)
-			if err != nil {
-				return
-			}
-
-			end := time.Since(start)
-
-			conn.latency.Store(end.Nanoseconds())
-
-			t.Reset(time.Second)
+			return
 		}
-	}()
 
-	go func() {
-		defer cancel()
-
-		for {
-			mt, b, err := conn.c.Read(ctx)
-			if err != nil {
-				if wt.onClose != nil {
-					wt.onClose(conn)
-				}
-
-				return
-			}
-
-			if mt != websocket.MessageText {
-				continue
-			}
-
-			if wt.onData != nil {
-				wt.onData(conn, b)
-			}
+		if mt != websocket.MessageText {
+			continue
 		}
-	}()
+
+		if wt.onData != nil {
+			wt.onData(conn, b)
+		}
+	}
 }
 
 type Conn struct {
@@ -129,8 +110,21 @@ func (c *Conn) Addr() string {
 	return c.addr
 }
 
-func (c *Conn) Latency() time.Duration {
-	return time.Duration(c.latency.Load())
+func (c *Conn) Ping() error {
+	return c.c.Ping(context.Background())
+}
+
+func (c *Conn) Read() ([]byte, error) {
+	mt, b, err := c.c.Read(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	if mt != websocket.MessageText {
+		return nil, errors.New("invalid message format")
+	}
+
+	return b, nil
 }
 
 func (c *Conn) Write(b []byte) error {

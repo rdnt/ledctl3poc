@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -75,9 +76,9 @@ type Profile struct {
 }
 
 type Link struct {
-	InputId  uuid.UUID      `json:"input_id"`
-	OutputId uuid.UUID      `json:"output_id"`
-	Config   map[string]any `json:"config"`
+	InputId  uuid.UUID       `json:"input_id"`
+	OutputId uuid.UUID       `json:"output_id"`
+	Config   json.RawMessage `json:"config"`
 }
 
 //type Profile struct {

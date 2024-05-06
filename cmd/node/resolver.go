@@ -15,7 +15,6 @@ type resolver struct {
 }
 
 func (r *resolver) start() {
-	go r.connectD()
 	go r.discoverD()
 }
 
@@ -49,7 +48,12 @@ func (r *resolver) discoverD() {
 
 		for addr := range addrs {
 			r.mux.Lock()
+
 			r.addrs = append(r.addrs, "ws://"+addr.String()+"/ws")
+			if len(r.addrs) == 1 {
+				go r.connectD()
+			}
+
 			r.mux.Unlock()
 		}
 	}

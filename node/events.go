@@ -201,46 +201,46 @@ func (n *Node) handleDisconnected(c Conn) {
 //	}
 //}
 
-func (n *Node) handleSetSourceActive(addr string, e event.SetSourceActive) {
-	fmt.Printf("%s: recv SetSourceActive\n", addr)
-
-	b, err := json.Marshal(e)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(b))
-
-	for _, input := range e.Inputs {
-		in, ok := n.inputs[input.Id]
-		if !ok {
-			fmt.Println("in not found", input.Id)
-			continue
-		}
-
-		var outputCfgs []types.OutputConfig
-		for _, output := range input.Outputs {
-			outputCfgs = append(outputCfgs, types.OutputConfig{
-				Id: output.Id,
-				//DriverId: output.DriverId,
-				SinkId: output.SinkId,
-				Config: types.OutputConfigConfig{},
-				Leds:   output.Leds,
-			})
-		}
-
-		err := in.Start(types.InputConfig{
-			Framerate: 60,
-			Outputs:   outputCfgs,
-		})
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		fmt.Println("input started", input.Id)
-	}
-}
+//func (n *Node) handleSetSourceActive(addr string, e event.SetSourceActive) {
+//	fmt.Printf("%s: recv SetSourceActive\n", addr)
+//
+//	b, err := json.Marshal(e)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	fmt.Println(string(b))
+//
+//	for _, input := range e.Inputs {
+//		in, ok := n.inputs[input.Id]
+//		if !ok {
+//			fmt.Println("in not found", input.Id)
+//			continue
+//		}
+//
+//		var outputCfgs []types.OutputConfig
+//		for _, output := range input.Outputs {
+//			outputCfgs = append(outputCfgs, types.OutputConfig{
+//				Id: output.Id,
+//				//DriverId: output.DriverId,
+//				SinkId: output.SinkId,
+//				Config: types.LinkConfig{},
+//				Leds:   output.Leds,
+//			})
+//		}
+//
+//		err := in.Start(types.LinksConfig{
+//			Framerate: 60,
+//			Outputs:   outputCfgs,
+//		})
+//		if err != nil {
+//			fmt.Println(err)
+//			continue
+//		}
+//
+//		fmt.Println("input started", input.Id)
+//	}
+//}
 
 func (n *Node) handleSetInputActive(c Conn, e event.SetInputActive) {
 	fmt.Printf("%s: recv SetInputActive\n", c.Addr())
@@ -260,28 +260,17 @@ func (n *Node) handleSetInputActive(c Conn, e event.SetInputActive) {
 
 	var outputCfgs []types.OutputConfig
 	for _, output := range e.Outputs {
-		var outCfg types.OutputConfigConfig
-		b, err := json.Marshal(output.Config)
-		if err != nil {
-			panic(err)
-		}
-		err = json.Unmarshal(b, &outCfg)
-		if err != nil {
-			panic(err)
-		}
-
 		outputCfgs = append(outputCfgs, types.OutputConfig{
 			Id:     output.OutputId,
 			SinkId: output.SinkId,
 			NodeId: n.id,
 			Leds:   output.Leds,
-			Config: outCfg,
+			Config: output.Config,
 		})
 	}
 
-	err = in.Start(types.InputConfig{
-		Framerate: 60,
-		Outputs:   outputCfgs,
+	err = in.Start(types.LinksConfig{
+		Outputs: outputCfgs,
 	})
 	if err != nil {
 		fmt.Println(err)

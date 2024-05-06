@@ -41,6 +41,7 @@ type dev struct {
 	engine    *ws281x.Engine
 	renderMux sync.Mutex
 	rendering bool
+	queue     bool
 }
 
 func (d *dev) SetId(id uuid.UUID) {
@@ -153,6 +154,7 @@ func (d *dev) applyConfig(b []byte) error {
 func (d *dev) Render() error {
 	d.renderMux.Lock()
 	if d.rendering {
+		d.queue = true
 		d.renderMux.Unlock()
 		return nil
 	}
@@ -166,6 +168,10 @@ func (d *dev) Render() error {
 
 	d.renderMux.Lock()
 	d.rendering = false
+	if d.queue {
+		d.queue = false
+		go d.Render()
+	}
 	d.renderMux.Unlock()
 
 	//fmt.Print(".")

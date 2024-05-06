@@ -1,10 +1,14 @@
 package event
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type SetSourceConfigCommand struct {
 	SourceId uuid.UUID
-	Config   []byte
+	Config   json.RawMessage
 }
 
 func (SetSourceConfigCommand) Type() string {
@@ -13,7 +17,7 @@ func (SetSourceConfigCommand) Type() string {
 
 type SetSinkConfigCommand struct {
 	SinkId uuid.UUID
-	Config []byte
+	Config json.RawMessage
 }
 
 func (SetSinkConfigCommand) Type() string {
@@ -22,7 +26,7 @@ func (SetSinkConfigCommand) Type() string {
 
 type SetSourceConfig struct {
 	SourceId uuid.UUID
-	Config   []byte
+	Config   json.RawMessage
 }
 
 func (SetSourceConfig) Type() string {
@@ -31,7 +35,7 @@ func (SetSourceConfig) Type() string {
 
 type SetSinkConfig struct {
 	SinkId uuid.UUID
-	Config []byte
+	Config json.RawMessage
 }
 
 func (SetSinkConfig) Type() string {

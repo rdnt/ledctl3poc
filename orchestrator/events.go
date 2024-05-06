@@ -223,6 +223,7 @@ func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) erro
 
 	err := r.write(c, event.SetInputActive{
 		Id:      e.Id,
+		Config:  e.Config,
 		Outputs: evtOutCfgs,
 	})
 	if err != nil {

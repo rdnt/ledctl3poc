@@ -65,6 +65,8 @@ func (d *display) Capture(ctx context.Context, framerate int) chan []byte {
 		ticker := time.NewTicker(time.Duration(1000/framerate) * time.Millisecond)
 		defer ticker.Stop()
 
+		fmt.Println("============ START fps", framerate)
+
 		for range ticker.C {
 			select {
 			case <-ctx.Done():

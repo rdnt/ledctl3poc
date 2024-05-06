@@ -11,7 +11,7 @@ import (
 type Input interface {
 	Id() uuid.UUID
 	DriverId() uuid.UUID
-	Start(cfg types.InputConfig) error
+	Start(cfg types.LinksConfig) error
 	Events() <-chan types.UpdateEvent
 	Stop() error
 	Schema() map[string]any

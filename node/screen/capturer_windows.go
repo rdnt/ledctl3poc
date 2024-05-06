@@ -254,9 +254,8 @@ func (c *Capturer) init() error {
 			events:   make(chan types.UpdateEvent),
 			display:  d,
 			outputs:  nil,
-			cfg: types.InputConfig{
-				Framerate: 1,
-				Outputs:   nil,
+			cfg: types.LinksConfig{
+				Outputs: nil,
 			},
 		}
 
@@ -339,9 +338,8 @@ func (c *Capturer) run() error {
 			events:   make(chan types.UpdateEvent),
 			display:  d,
 			outputs:  nil,
-			cfg: types.InputConfig{
-				Framerate: 1,
-				Outputs:   nil,
+			cfg: types.LinksConfig{
+				Outputs: nil,
 			},
 		}
 
@@ -361,7 +359,7 @@ func (c *Capturer) run() error {
 		go func() {
 			defer c.captureWg.Done()
 
-			frames := in.display.Capture(c.captureCtx, in.cfg.Framerate)
+			frames := in.display.Capture(c.captureCtx, in.cfg.Config.Framerate)
 
 			for frame := range frames {
 				//if !in.started {
@@ -401,7 +399,7 @@ func (c *Capturer) run() error {
 //	}
 //}
 
-//func (c *Capturer) startInput(in *Input, cfg types.InputConfig) error {
+//func (c *Capturer) startInput(in *Input, cfg types.LinksConfig) error {
 //	//println("=== startInput")
 //	//
 //	//in.cfg = cfg

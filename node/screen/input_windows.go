@@ -25,7 +25,8 @@ type Input struct {
 	display   types2.Display
 	outputs   map[uuid.UUID]outputCaptureConfig
 	started   bool
-	cfg       types.InputConfig
+	cfg       types.Config
+	cfg       types.LinksConfig
 	prescaler draw.Scaler
 	resizer   rez.Converter
 	resized   *image.RGBA
@@ -69,9 +70,16 @@ func (in *Input) DriverId() uuid.UUID {
 	return in.capturer.id
 }
 
-func (in *Input) Start(cfg types.InputConfig) error {
+func (in *Input) Start(cfg types.LinksConfig) error {
 	in.mux.Lock()
 	defer in.mux.Unlock()
+
+	fmt.Println("Start @@@@@@@@@@@@", cfg.Config.Framerate)
+
+	// TODO REMOVE
+	if cfg.Config.Framerate == 0 {
+		cfg.Config.Framerate = 240
+	}
 
 	if fmt.Sprintf("%+v", cfg) == fmt.Sprintf("%+v", in.cfg) {
 		fmt.Println("config unchanged")
@@ -141,9 +149,9 @@ func (in *Input) Start(cfg types.InputConfig) error {
 
 func (in *Input) Stop() error {
 	in.started = false
-	in.cfg = types.InputConfig{
-		Framerate: 1,
-		Outputs:   nil,
+	in.cfg = types.LinksConfig{
+		Config:  types.InputConfigConfig{Framerate: 1},
+		Outputs: nil,
 	}
 	in.capturer.captureCancel()
 	return nil

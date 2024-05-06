@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
@@ -24,8 +25,8 @@ var nodesCmd = &cobra.Command{
 			"Id",
 			"Name",
 			"Capabilities",
-			"InputIds",
-			"OutputsCount",
+			"Inputs",
+			"Outputs",
 		}
 
 		nodes := getNodes(state)

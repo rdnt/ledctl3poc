@@ -1,12 +1,16 @@
 package event
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type InputConnected struct {
 	Id       uuid.UUID
 	DriverId uuid.UUID
-	Schema   []byte
-	Config   []byte
+	Schema   json.RawMessage
+	Config   json.RawMessage
 }
 
 func (e InputConnected) Type() string {

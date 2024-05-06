@@ -1,4 +1,4 @@
-package orchestrator
+package registry
 
 import (
 	"encoding/gob"
@@ -28,7 +28,7 @@ type State struct {
 	ActiveProfiles []uuid.UUID           `json:"activeProfiles"`
 }
 
-type Orchestrator struct {
+type Registry struct {
 	mux sync.Mutex
 
 	Conns map[string]Conn
@@ -41,7 +41,7 @@ type Orchestrator struct {
 	//handlers  map[uuid.UUID]map[uint64]func(string, event.Event) error
 }
 
-func New(sh StateHolder) *Orchestrator {
+func New(sh StateHolder) *Registry {
 	state, err := sh.GetState()
 	if err == nil {
 		//fmt.Println("Loaded State", State)
@@ -60,7 +60,7 @@ func New(sh StateHolder) *Orchestrator {
 
 	//fmt.Println("Starting with State", fmt.Sprintf("%#v", State))
 
-	return &Orchestrator{
+	return &Registry{
 		Conns:    make(map[string]Conn),
 		AddrNode: make(map[string]uuid.UUID),
 		NodeAddr: make(map[uuid.UUID]string),
@@ -107,7 +107,7 @@ type Link struct {
 //	InputConfigId uuid.UUID `json:"input_config_id"`
 //}
 
-func (r *Orchestrator) CreateProfile(name string, links []Link) (Profile, error) {
+func (r *Registry) CreateProfile(name string, links []Link) (Profile, error) {
 	if len(links) == 0 {
 		return Profile{}, errors.New("no links specified")
 	}
@@ -128,7 +128,7 @@ func (r *Orchestrator) CreateProfile(name string, links []Link) (Profile, error)
 	return prof, nil
 }
 
-func (r *Orchestrator) EnableProfile(id uuid.UUID) error {
+func (r *Registry) EnableProfile(id uuid.UUID) error {
 	prof, ok := r.State.Profiles[id]
 	if !ok {
 		return errors.New("profile not found")
@@ -184,7 +184,7 @@ func (r *Orchestrator) EnableProfile(id uuid.UUID) error {
 	return nil
 }
 
-func (r *Orchestrator) activeOutputs() []uuid.UUID {
+func (r *Registry) activeOutputs() []uuid.UUID {
 	var outputIds []uuid.UUID
 
 	for _, profId := range r.State.ActiveProfiles {
@@ -197,7 +197,7 @@ func (r *Orchestrator) activeOutputs() []uuid.UUID {
 	return outputIds
 }
 
-func (r *Orchestrator) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
+func (r *Registry) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
 	var outputIds []uuid.UUID
 
 	for _, profId := range r.State.ActiveProfiles {
@@ -216,7 +216,7 @@ func (r *Orchestrator) activeSourceOutputs(id uuid.UUID) []uuid.UUID {
 	return outputIds
 }
 
-func (r *Orchestrator) activeInputConfigs(id uuid.UUID) []Link {
+func (r *Registry) activeInputConfigs(id uuid.UUID) []Link {
 	var cfgs []Link
 
 	for _, profId := range r.State.ActiveProfiles {
@@ -234,7 +234,7 @@ func (r *Orchestrator) activeInputConfigs(id uuid.UUID) []Link {
 	return cfgs
 }
 
-func (r *Orchestrator) outputNodeId(id uuid.UUID) uuid.UUID {
+func (r *Registry) outputNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, out := range dev.Outputs {
 			if out.Id == id {
@@ -245,7 +245,7 @@ func (r *Orchestrator) outputNodeId(id uuid.UUID) uuid.UUID {
 	return uuid.Nil
 }
 
-func (r *Orchestrator) inputNodeId(id uuid.UUID) uuid.UUID {
+func (r *Registry) inputNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Inputs {
 			if in.Id == id {
@@ -256,7 +256,7 @@ func (r *Orchestrator) inputNodeId(id uuid.UUID) uuid.UUID {
 	return uuid.Nil
 }
 
-func (r *Orchestrator) sinkNodeId(id uuid.UUID) uuid.UUID {
+func (r *Registry) sinkNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Sinks {
 			if in.Id == id {
@@ -266,7 +266,7 @@ func (r *Orchestrator) sinkNodeId(id uuid.UUID) uuid.UUID {
 	}
 	return uuid.Nil
 }
-func (r *Orchestrator) sourceNodeId(id uuid.UUID) uuid.UUID {
+func (r *Registry) sourceNodeId(id uuid.UUID) uuid.UUID {
 	for _, dev := range r.State.Nodes {
 		for _, in := range dev.Sources {
 			if in.Id == id {

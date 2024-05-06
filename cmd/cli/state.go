@@ -8,19 +8,19 @@ import (
 
 	"github.com/samber/lo"
 
-	"ledctl3/orchestrator"
+	"ledctl3/registry"
 )
 
-func getState() (orchestrator.State, error) {
+func getState() (registry.State, error) {
 	b, err := os.ReadFile("./tmp/registry.json")
 	if err != nil {
-		return orchestrator.State{}, err
+		return registry.State{}, err
 	}
 
-	var state orchestrator.State
+	var state registry.State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
-		return orchestrator.State{}, err
+		return registry.State{}, err
 	}
 
 	return state, nil
@@ -34,7 +34,7 @@ type Node struct {
 	Connected    bool
 }
 
-func getNodes(state orchestrator.State) []Node {
+func getNodes(state registry.State) []Node {
 	var nodes []Node
 
 	ids := lo.Keys(state.Nodes)

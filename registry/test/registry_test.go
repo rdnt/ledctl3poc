@@ -1,4 +1,4 @@
-package orchestrator_test
+package registry_test
 
 import (
 	"testing"
@@ -8,17 +8,17 @@ import (
 	"gotest.tools/v3/assert"
 
 	"ledctl3/node/event"
-	"ledctl3/orchestrator"
+	"ledctl3/registry"
 )
 
 type mockStateHolder struct{}
 
-func (m mockStateHolder) SetState(state orchestrator.State) error {
+func (m mockStateHolder) SetState(state registry.State) error {
 	return nil
 }
 
-func (m mockStateHolder) GetState() (orchestrator.State, error) {
-	return orchestrator.State{}, nil
+func (m mockStateHolder) GetState() (registry.State, error) {
+	return registry.State{}, nil
 }
 
 type mockConn struct {
@@ -46,39 +46,39 @@ func (c mockConn) Write(b []byte) error {
 }
 
 func TestClientConnect(t *testing.T) {
-	o := orchestrator.New(mockStateHolder{})
+	o := registry.New(mockStateHolder{})
 
 	conn := mockConn{addr: uuid.New().String()}
 
 	t.Run("client connected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 		assert.NilError(t, err)
 	})
 
 	t.Run("noop if client already connected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 		assert.ErrorContains(t, err, "client already connected")
 	})
 
 	t.Run("client disconnected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
+		err := o.ProcessEvent(conn, registry.DisconnectedEvent{})
 		assert.NilError(t, err)
 	})
 
 	t.Run("noop if client already disconnected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.DisconnectedEvent{})
+		err := o.ProcessEvent(conn, registry.DisconnectedEvent{})
 		assert.ErrorContains(t, err, "client already disconnected")
 	})
 }
 
 func TestAuthenticate(t *testing.T) {
-	o := orchestrator.New(mockStateHolder{})
+	o := registry.New(mockStateHolder{})
 
 	conn := mockConn{addr: uuid.New().String()}
 	nodeId := uuid.New()
 
 	t.Run("client connected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 		assert.NilError(t, err)
 	})
 
@@ -104,7 +104,7 @@ func TestAuthenticate(t *testing.T) {
 
 func TestInputConnectedDisconnected(t *testing.T) {
 	t.Run("error if not connected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		inId := uuid.New()
 
@@ -120,12 +120,12 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("error if not authenticated", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -141,13 +141,13 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("input connected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		nodeId := uuid.New()
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -172,13 +172,13 @@ func TestInputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("input reconnected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		nodeId := uuid.New()
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -227,7 +227,7 @@ func TestInputConnectedDisconnected(t *testing.T) {
 
 func TestOutputConnectedDisconnected(t *testing.T) {
 	t.Run("error if not connected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		inId := uuid.New()
 
@@ -243,12 +243,12 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("error if not authenticated", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -264,13 +264,13 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("output connected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		nodeId := uuid.New()
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -295,13 +295,13 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 	})
 
 	t.Run("output reconnected", func(t *testing.T) {
-		o := orchestrator.New(mockStateHolder{})
+		o := registry.New(mockStateHolder{})
 		conn := mockConn{addr: uuid.New().String()}
 		nodeId := uuid.New()
 		inId := uuid.New()
 
 		t.Run("node connected", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 		})
 
@@ -349,7 +349,7 @@ func TestOutputConnectedDisconnected(t *testing.T) {
 }
 
 func TestCreateProfile(t *testing.T) {
-	o := orchestrator.New(mockStateHolder{})
+	o := registry.New(mockStateHolder{})
 	conn := mockConn{addr: uuid.New().String()}
 	nodeId := uuid.New()
 	inId := uuid.New()
@@ -357,7 +357,7 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("node with input and output connected", func(t *testing.T) {
 		t.Run("authenticated", func(t *testing.T) {
-			err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+			err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 			assert.NilError(t, err)
 
 			err = o.ProcessEvent(conn, event.Authenticate{
@@ -394,7 +394,7 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("profile created", func(t *testing.T) {
 		name := "test"
-		link := []orchestrator.Link{
+		link := []registry.Link{
 			{
 				InputId:  inId,
 				OutputId: outId,
@@ -426,7 +426,7 @@ func TestEnableProfile(t *testing.T) {
 	//inId := uuid.New()
 	//outId := uuid.New()
 
-	o := orchestrator.New(mockStateHolder{})
+	o := registry.New(mockStateHolder{})
 	conn := mockConn{addr: uuid.New().String()}
 	nodeId := uuid.New()
 	inId := uuid.New()
@@ -438,7 +438,7 @@ func TestEnableProfile(t *testing.T) {
 	})
 
 	t.Run("node with input and output connected", func(t *testing.T) {
-		err := o.ProcessEvent(conn, orchestrator.ConnectedEvent{})
+		err := o.ProcessEvent(conn, registry.ConnectedEvent{})
 		assert.NilError(t, err)
 
 		err = o.ProcessEvent(conn, event.Authenticate{
@@ -469,7 +469,7 @@ func TestEnableProfile(t *testing.T) {
 	var id uuid.UUID
 	t.Run("profile created", func(t *testing.T) {
 		name := "test"
-		link := []orchestrator.Link{
+		link := []registry.Link{
 			{
 				InputId:  inId,
 				OutputId: outId,

@@ -1,4 +1,4 @@
-package orchestrator
+package registry
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/orchestrator/req"
+	"ledctl3/registry/req"
 )
 
-func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
+func (r *Registry) HandleRequest(addr string, e req.Request) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -39,7 +39,7 @@ func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
 	return nil
 }
 
-//func (r *Orchestrator) handleSetSourceConfig(addr string, e req.SetSourceConfig) error {
+//func (r *Registry) handleSetSourceConfig(addr string, e req.SetSourceConfig) error {
 //	fmt.Printf("%s: recv SetSourceConfig\n", addr)
 //
 //	var node *Node
@@ -68,7 +68,7 @@ func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
 //	return r.SetSourceConfig(node.Id, source.Id, e.Config)
 //}
 //
-//func (r *Orchestrator) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
+//func (r *Registry) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
 //	r.State.Nodes[nodeId].Sources[sourceId].Config = cfg
 //
 //	err := r.sh.SetState(*r.State)
@@ -88,7 +88,7 @@ func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
 //	return nil
 //}
 
-//func (r *Orchestrator) SetSinkConfig(nodeId, sinkId uuid.UUID, cfg []byte) error {
+//func (r *Registry) SetSinkConfig(nodeId, sinkId uuid.UUID, cfg []byte) error {
 //	r.State.Nodes[nodeId].Sinks[sinkId].Config = cfg
 //
 //	err := r.sh.SetState(*r.State)
@@ -108,7 +108,7 @@ func (r *Orchestrator) HandleRequest(addr string, e req.Request) error {
 //	return nil
 //}
 
-func (r *Orchestrator) onResourceEvent(ctx context.Context, id uuid.UUID, h func(string, any) error) {
+func (r *Registry) onResourceEvent(ctx context.Context, id uuid.UUID, h func(string, any) error) {
 	for {
 		select {
 		case <-ctx.Done():

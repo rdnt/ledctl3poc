@@ -13,26 +13,26 @@ import (
 
 	"ledctl3/cmd/registry/state"
 	"ledctl3/node/event"
-	"ledctl3/orchestrator"
 	"ledctl3/pkg/mdns"
 	"ledctl3/pkg/netserver"
+	"ledctl3/registry"
 )
 
 func main() {
 	sh := state.NewHolder()
-	reg := orchestrator.New(sh)
+	reg := registry.New(sh)
 
 	ws := netserver.NewWebsocketTransport()
 
 	ws.OnOpen(func(c *netserver.Conn) {
-		err := reg.ProcessEvent(c, orchestrator.ConnectedEvent{})
+		err := reg.ProcessEvent(c, registry.ConnectedEvent{})
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}
 	})
 
 	ws.OnClose(func(c *netserver.Conn) {
-		err := reg.ProcessEvent(c, orchestrator.DisconnectedEvent{})
+		err := reg.ProcessEvent(c, registry.DisconnectedEvent{})
 		if err != nil {
 			fmt.Println("error processing event:", err)
 		}

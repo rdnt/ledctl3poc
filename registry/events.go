@@ -1,4 +1,4 @@
-package orchestrator
+package registry
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ func (e DisconnectedEvent) Type() string {
 	return "Disconnected"
 }
 
-func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
+func (r *Registry) ProcessEvent(c Conn, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -67,7 +67,7 @@ func (r *Orchestrator) ProcessEvent(c Conn, e event.Event) error {
 	return nil
 }
 
-func (r *Orchestrator) write(c Conn, v event.Event) error {
+func (r *Registry) write(c Conn, v event.Event) error {
 	codec := event.JSONCodec{}
 
 	b, err := codec.MarshalBinary(v)
@@ -78,12 +78,12 @@ func (r *Orchestrator) write(c Conn, v event.Event) error {
 	return c.Write(b)
 }
 
-func (r *Orchestrator) createNode(id uuid.UUID) error {
+func (r *Registry) createNode(id uuid.UUID) error {
 	r.State.Nodes[id] = NewNode(id, true, nil, nil)
 	return nil
 }
 
-func (r *Orchestrator) handleAuthenticate(c Conn, e event.Authenticate) error {
+func (r *Registry) handleAuthenticate(c Conn, e event.Authenticate) error {
 	fmt.Printf("%s: recv Authenticate\n", c.Addr())
 
 	if e.Id == uuid.Nil {
@@ -110,7 +110,7 @@ func (r *Orchestrator) handleAuthenticate(c Conn, e event.Authenticate) error {
 	return nil
 }
 
-func (r *Orchestrator) handleCapabilities(c Conn, e event.Capabilities) error {
+func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
 	fmt.Printf("%s: recv Capabilities\n", c.Addr())
 
 	nodeId, ok := r.AddrNode[c.Addr()]
@@ -148,7 +148,7 @@ type Conn interface {
 	Ping() error
 }
 
-func (r *Orchestrator) handleConnected(c Conn) error {
+func (r *Registry) handleConnected(c Conn) error {
 	fmt.Printf("%s: recv Capabilities\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; ok {
@@ -159,7 +159,7 @@ func (r *Orchestrator) handleConnected(c Conn) error {
 	return nil
 }
 
-func (r *Orchestrator) handleDisconnected(c Conn) error {
+func (r *Registry) handleDisconnected(c Conn) error {
 	fmt.Printf("%s: recv Disconnected\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; !ok {
@@ -186,7 +186,7 @@ func (r *Orchestrator) handleDisconnected(c Conn) error {
 	return nil
 }
 
-func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) error {
+func (r *Registry) handleInputConnected(c Conn, e event.InputConnected) error {
 	fmt.Printf("%s: recv InputConnected\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; !ok {
@@ -235,7 +235,7 @@ func (r *Orchestrator) handleInputConnected(c Conn, e event.InputConnected) erro
 	return nil
 }
 
-func (r *Orchestrator) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
+func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
 	fmt.Printf("%s: recv InputDisconnected\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; !ok {
@@ -254,7 +254,7 @@ func (r *Orchestrator) handleInputDisconnected(c Conn, e event.InputDisconnected
 	return nil
 }
 
-func (r *Orchestrator) handleOutputConnected(c Conn, e event.OutputConnected) error {
+func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error {
 	fmt.Printf("%s: recv OutputConnected\n", c.Addr())
 
 	if _, ok := r.Conns[c.Addr()]; !ok {
@@ -273,7 +273,7 @@ func (r *Orchestrator) handleOutputConnected(c Conn, e event.OutputConnected) er
 	return nil
 }
 
-func (r *Orchestrator) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
+func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
 	fmt.Printf("%s: recv OutputDisconnected\n", c.Addr())
 
 	id, ok := r.AddrNode[c.Addr()]
@@ -288,7 +288,7 @@ func (r *Orchestrator) handleOutputDisconnected(c Conn, e event.OutputDisconnect
 	return nil
 }
 
-func (r *Orchestrator) handleData(c Conn, e event.Data) error {
+func (r *Registry) handleData(c Conn, e event.Data) error {
 	//fmt.Printf("%s: recv Data\n", c.Addr())
 
 	srcId, ok := r.AddrNode[c.Addr()]

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"ledctl3/orchestrator"
+	"ledctl3/registry"
 )
 
 type Holder struct {
@@ -18,7 +18,7 @@ func NewHolder() *Holder {
 	return &Holder{}
 }
 
-func (s *Holder) SetState(state orchestrator.State) error {
+func (s *Holder) SetState(state registry.State) error {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
@@ -39,28 +39,28 @@ func (s *Holder) Stop() error {
 	return s.SetState(st)
 }
 
-func (s *Holder) GetState() (orchestrator.State, error) {
+func (s *Holder) GetState() (registry.State, error) {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
 	b, err := os.ReadFile("./registry.json")
 	if err != nil {
-		return orchestrator.State{}, err
+		return registry.State{}, err
 	}
 
 	var state State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
-		return orchestrator.State{}, err
+		return registry.State{}, err
 	}
 
 	return ToRegistryState(state), nil
 }
 
 type State struct {
-	Nodes          map[uuid.UUID]Node                 `json:"nodes"`
-	Profiles       map[uuid.UUID]orchestrator.Profile `json:"profiles"`
-	ActiveProfiles []uuid.UUID                        `json:"activeProfiles"`
+	Nodes          map[uuid.UUID]Node             `json:"nodes"`
+	Profiles       map[uuid.UUID]registry.Profile `json:"profiles"`
+	ActiveProfiles []uuid.UUID                    `json:"activeProfiles"`
 }
 
 type Node struct {
@@ -97,17 +97,17 @@ type Output struct {
 	Config   json.RawMessage `json:"config"`
 }
 
-func ToRegistryState(p State) orchestrator.State {
-	state := orchestrator.State{
-		Nodes:          make(map[uuid.UUID]*orchestrator.Node, len(p.Nodes)),
+func ToRegistryState(p State) registry.State {
+	state := registry.State{
+		Nodes:          make(map[uuid.UUID]*registry.Node, len(p.Nodes)),
 		Profiles:       p.Profiles,
 		ActiveProfiles: p.ActiveProfiles,
 	}
 
 	for id, node := range p.Nodes {
-		inputs := make(map[uuid.UUID]*orchestrator.Input, len(node.Inputs))
+		inputs := make(map[uuid.UUID]*registry.Input, len(node.Inputs))
 		for _, in := range node.Inputs {
-			inputs[in.Id] = &orchestrator.Input{
+			inputs[in.Id] = &registry.Input{
 				Id:       in.Id,
 				DriverId: in.DriverId,
 				Schema:   in.Schema,
@@ -115,9 +115,9 @@ func ToRegistryState(p State) orchestrator.State {
 			}
 		}
 
-		outputs := make(map[uuid.UUID]*orchestrator.Output, len(node.Outputs))
+		outputs := make(map[uuid.UUID]*registry.Output, len(node.Outputs))
 		for _, out := range node.Outputs {
-			outputs[out.Id] = &orchestrator.Output{
+			outputs[out.Id] = &registry.Output{
 				Id:       out.Id,
 				DriverId: out.DriverId,
 				Leds:     out.Leds,
@@ -126,23 +126,23 @@ func ToRegistryState(p State) orchestrator.State {
 			}
 		}
 
-		sources := make(map[uuid.UUID]*orchestrator.Source, len(node.Sources))
+		sources := make(map[uuid.UUID]*registry.Source, len(node.Sources))
 		for _, source := range node.Sources {
-			sources[source.Id] = &orchestrator.Source{
+			sources[source.Id] = &registry.Source{
 				Id:     source.Id,
 				Config: source.Config,
 			}
 		}
 
-		sinks := make(map[uuid.UUID]*orchestrator.Sink, len(node.Sinks))
+		sinks := make(map[uuid.UUID]*registry.Sink, len(node.Sinks))
 		for _, sink := range node.Sinks {
-			sinks[sink.Id] = &orchestrator.Sink{
+			sinks[sink.Id] = &registry.Sink{
 				Id:     sink.Id,
 				Config: sink.Config,
 			}
 		}
 
-		state.Nodes[id] = &orchestrator.Node{
+		state.Nodes[id] = &registry.Node{
 			Id:      node.Id,
 			Name:    node.Name,
 			Inputs:  inputs,

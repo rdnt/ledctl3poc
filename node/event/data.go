@@ -8,6 +8,7 @@ import (
 )
 
 type Data struct {
+	NodeId  uuid.UUID
 	SinkId  uuid.UUID
 	Outputs []DataOutput
 	Latency time.Duration

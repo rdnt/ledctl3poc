@@ -7,22 +7,20 @@ import (
 )
 
 type Capabilities struct {
-	Sources []ConnectedSource
-	Sinks   []ConnectedSink
+	Sources []CapabilitiesSource
+	Sinks   []CapabilitiesSink
 }
 
 func (e Capabilities) Type() string {
 	return TypeCapabilities
 }
 
-type ConnectedSource struct {
+type CapabilitiesSource struct {
 	Id     uuid.UUID
-	Config json.RawMessage
 	Schema json.RawMessage
 }
 
-type ConnectedSink struct {
+type CapabilitiesSink struct {
 	Id     uuid.UUID
-	Config json.RawMessage
 	Schema json.RawMessage
 }

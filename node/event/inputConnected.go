@@ -8,9 +8,8 @@ import (
 
 type InputConnected struct {
 	Id       uuid.UUID
-	DriverId uuid.UUID
+	SourceId uuid.UUID
 	Schema   json.RawMessage
-	Config   json.RawMessage
 }
 
 func (e InputConnected) Type() string {

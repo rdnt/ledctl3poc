@@ -84,7 +84,7 @@ func (n *Node) handleConnected(c Conn) {
 		fmt.Println("error writing to addr", c.Addr(), err)
 	}
 
-	var sources []event.ConnectedSource
+	var sources []event.CapabilitiesSource
 	for _, d := range n.sources {
 		cfg, err := d.Config()
 		if err != nil {
@@ -98,14 +98,14 @@ func (n *Node) handleConnected(c Conn) {
 			return
 		}
 
-		sources = append(sources, event.ConnectedSource{
+		sources = append(sources, event.CapabilitiesSource{
 			Id:     d.Id(),
 			Config: cfg,
 			Schema: schema,
 		})
 	}
 
-	var sinks []event.ConnectedSink
+	var sinks []event.CapabilitiesSink
 	for _, d := range n.sinks {
 		cfg, err := d.Config()
 		if err != nil {
@@ -119,7 +119,7 @@ func (n *Node) handleConnected(c Conn) {
 			return
 		}
 
-		sinks = append(sinks, event.ConnectedSink{
+		sinks = append(sinks, event.CapabilitiesSink{
 			Id:     d.Id(),
 			Config: cfg,
 			Schema: schema,

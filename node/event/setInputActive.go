@@ -13,7 +13,6 @@ type SetInputActive struct {
 
 type SetInputActiveOutput struct {
 	OutputId uuid.UUID
-	SinkId   uuid.UUID
 	Leds     int
 	Config   json.RawMessage
 }

@@ -7,11 +7,11 @@ import (
 )
 
 type OutputConnected struct {
-	Id       uuid.UUID
-	DriverId uuid.UUID
-	Leds     int
-	Schema   json.RawMessage
-	Config   json.RawMessage
+	Id     uuid.UUID
+	SinkId uuid.UUID
+	Leds   int
+	Schema json.RawMessage
+	Config json.RawMessage
 }
 
 func (e OutputConnected) Type() string {

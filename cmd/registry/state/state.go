@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"ledctl3/registry"
+	"ledctl3/registry/types"
 )
 
 type Holder struct {
@@ -18,7 +19,7 @@ func NewHolder() *Holder {
 	return &Holder{}
 }
 
-func (s *Holder) SetState(state registry.State) error {
+func (s *Holder) SetState(state *registry.State) error {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
@@ -39,19 +40,19 @@ func (s *Holder) Stop() error {
 	return s.SetState(st)
 }
 
-func (s *Holder) GetState() (registry.State, error) {
+func (s *Holder) GetState() (*registry.State, error) {
 	s.stateMux.Lock()
 	defer s.stateMux.Unlock()
 
 	b, err := os.ReadFile("./registry.json")
 	if err != nil {
-		return registry.State{}, err
+		return nil, err
 	}
 
 	var state State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
-		return registry.State{}, err
+		return nil, err
 	}
 
 	return ToRegistryState(state), nil
@@ -97,17 +98,17 @@ type Output struct {
 	Config   json.RawMessage `json:"config"`
 }
 
-func ToRegistryState(p State) registry.State {
-	state := registry.State{
+func ToRegistryState(p State) *registry.State {
+	state := &registry.State{
 		Nodes:          make(map[uuid.UUID]*registry.Node, len(p.Nodes)),
 		Profiles:       p.Profiles,
 		ActiveProfiles: p.ActiveProfiles,
 	}
 
 	for id, node := range p.Nodes {
-		inputs := make(map[uuid.UUID]*registry.Input, len(node.Inputs))
+		inputs := make(map[uuid.UUID]*types.Input, len(node.Inputs))
 		for _, in := range node.Inputs {
-			inputs[in.Id] = &registry.Input{
+			inputs[in.Id] = &types.Input{
 				Id:       in.Id,
 				DriverId: in.DriverId,
 				Schema:   in.Schema,
@@ -115,9 +116,9 @@ func ToRegistryState(p State) registry.State {
 			}
 		}
 
-		outputs := make(map[uuid.UUID]*registry.Output, len(node.Outputs))
+		outputs := make(map[uuid.UUID]*types.Output, len(node.Outputs))
 		for _, out := range node.Outputs {
-			outputs[out.Id] = &registry.Output{
+			outputs[out.Id] = &types.Output{
 				Id:       out.Id,
 				DriverId: out.DriverId,
 				Leds:     out.Leds,

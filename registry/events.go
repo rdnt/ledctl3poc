@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"ledctl3/node/event"
+	"ledctl3/registry/types"
 )
 
 type ConnectedEvent struct{}
@@ -58,28 +59,12 @@ func (r *Registry) ProcessEvent(c Conn, e event.Event) error {
 	}
 
 	// fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
-	err = r.sh.SetState(*r.State)
+	err = r.sh.SetState(r.State)
 	if err != nil {
 		fmt.Println("error writing State", err)
 	}
 
 	// fmt.Println("HandleConnection done")
-	return nil
-}
-
-func (r *Registry) write(c Conn, v event.Event) error {
-	codec := event.JSONCodec{}
-
-	b, err := codec.MarshalBinary(v)
-	if err != nil {
-		return err
-	}
-
-	return c.Write(b)
-}
-
-func (r *Registry) createNode(id uuid.UUID) error {
-	r.State.Nodes[id] = NewNode(id, true, nil, nil)
 	return nil
 }
 
@@ -97,15 +82,16 @@ func (r *Registry) handleAuthenticate(c Conn, e event.Authenticate) error {
 	r.AddrNode[c.Addr()] = e.Id
 	r.NodeAddr[e.Id] = c.Addr()
 
-	if dev, ok := r.State.Nodes[e.Id]; ok {
-		dev.Connect()
-		fmt.Println("node connected:", e.Id)
-
-		return nil
+	node, ok := r.State.Nodes[e.Id]
+	if !ok {
+		node = types.NewNode(e.Id)
+		r.State.Nodes[e.Id] = node
+		fmt.Println("node added:", e.Id)
 	}
 
-	r.State.Nodes[e.Id] = NewNode(e.Id, true, nil, nil)
-	fmt.Println("node added:", e.Id)
+	node.Connected = true
+	node.Address = c.Addr()
+	fmt.Println("node connected:", e.Id)
 
 	return nil
 }
@@ -118,22 +104,31 @@ func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
 		return errors.New("not authenticated")
 	}
 
-	dev, ok := r.State.Nodes[nodeId]
+	node, ok := r.State.Nodes[nodeId]
 	if !ok {
 		return errors.New("node not found")
 	}
 
-	// TODO: handle capabilities config updating without removing existing capabilities
-	// that are no longer listed
+	for _, es := range e.Sources {
+		source, ok := r.State.Sources[es.Id]
+		if !ok {
+			source = types.NewSource(es.Id, node.Id)
+			r.State.Sources[source.Id] = source
+			node.SourceIds = append(node.SourceIds, source.Id)
+		}
 
-	dev.Sources = make(map[uuid.UUID]*Source)
-	for _, d := range e.Sources {
-		dev.Sources[d.Id] = &Source{d.Id, d.Config, true}
+		source.Schema = es.Schema
 	}
 
-	dev.Sinks = make(map[uuid.UUID]*Sink)
-	for _, d := range e.Sinks {
-		dev.Sinks[d.Id] = &Sink{d.Id, d.Config, true}
+	for _, es := range e.Sinks {
+		sink, ok := r.State.Sinks[es.Id]
+		if !ok {
+			sink = types.NewSink(es.Id, node.Id)
+			r.State.Sinks[sink.Id] = sink
+			node.SinkIds = append(node.SinkIds, sink.Id)
+		}
+
+		sink.Schema = es.Schema
 	}
 
 	fmt.Println("node capabilities updated", nodeId)
@@ -178,7 +173,8 @@ func (r *Registry) handleDisconnected(c Conn) error {
 		return errors.New("node not found")
 	}
 
-	node.Disconnect()
+	node.Connected = false
+	node.Address = ""
 
 	delete(r.AddrNode, c.Addr())
 	delete(r.NodeAddr, nodeId)
@@ -193,44 +189,27 @@ func (r *Registry) handleInputConnected(c Conn, e event.InputConnected) error {
 		return errors.New("not connected")
 	}
 
-	srcId, ok := r.AddrNode[c.Addr()]
+	nodeId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("not authenticated")
 	}
 
-	dev := r.State.Nodes[srcId]
+	node := r.State.Nodes[nodeId]
 
-	dev.ConnectInput(e.Id, e.DriverId, e.Schema, e.Config)
-
-	cfgs := r.activeInputConfigs(e.Id)
-	if len(cfgs) == 0 {
-		return nil
+	source, ok := r.State.Sources[e.SourceId]
+	if !ok {
+		return errors.New("unknown source")
 	}
 
-	var evtOutCfgs []event.SetInputActiveOutput
-	for _, cfg := range cfgs {
-		dev := r.State.Nodes[r.outputNodeId(cfg.OutputId)]
-
-		// TODO: validate output exists
-
-		evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
-			OutputId: cfg.OutputId,
-			SinkId:   dev.Outputs[cfg.OutputId].DriverId,
-			Leds:     dev.Outputs[cfg.OutputId].Leds,
-			Config:   cfg.Config,
-		})
+	input, ok := r.State.Inputs[e.Id]
+	if !ok {
+		input = types.NewInput(e.Id, node.Id, source.Id)
+		r.State.Inputs[input.Id] = input
+		source.InputIds = append(source.InputIds, input.Id)
 	}
 
-	err := r.write(c, event.SetInputActive{
-		Id:      e.Id,
-		Config:  e.Config,
-		Outputs: evtOutCfgs,
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("sent SetInputActive to", c.Addr())
+	input.Connected = true
+	input.Schema = e.Schema
 
 	return nil
 }
@@ -242,14 +221,32 @@ func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) er
 		return errors.New("not connected")
 	}
 
-	id, ok := r.AddrNode[c.Addr()]
+	nodeId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("not authenticated")
 	}
 
-	dev := r.State.Nodes[id]
+	node := r.State.Nodes[nodeId]
 
-	dev.DisconnectInput(e.Id)
+	source, ok := r.State.Sources[e.SourceId]
+	if !ok {
+		return errors.New("unknown source")
+	}
+
+	if source.NodeId != node.Id {
+		return errors.New("source not found")
+	}
+
+	input, ok := r.State.Inputs[e.Id]
+	if !ok {
+		return errors.New("unknown input")
+	}
+
+	if input.SourceId != e.SourceId {
+		return errors.New("input not found")
+	}
+
+	input.Connected = false
 
 	return nil
 }
@@ -261,14 +258,28 @@ func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error 
 		return errors.New("not connected")
 	}
 
-	id, ok := r.AddrNode[c.Addr()]
+	nodeId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("not authenticated")
 	}
 
-	dev := r.State.Nodes[id]
+	node := r.State.Nodes[nodeId]
 
-	dev.ConnectOutput(e.Id, e.DriverId, e.Leds, e.Schema, e.Config)
+	sink, ok := r.State.Sinks[e.SinkId]
+	if !ok {
+		return errors.New("unknown sink")
+	}
+
+	output, ok := r.State.Outputs[e.Id]
+	if !ok {
+		output = types.NewOutput(e.Id, node.Id, sink.Id, e.Leds)
+		r.State.Outputs[output.Id] = output
+		sink.OutputIds = append(sink.OutputIds, output.Id)
+	}
+
+	output.Connected = true
+	output.Leds = e.Leds
+	output.Schema = e.Schema
 
 	return nil
 }
@@ -276,14 +287,36 @@ func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error 
 func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
 	fmt.Printf("%s: recv OutputDisconnected\n", c.Addr())
 
-	id, ok := r.AddrNode[c.Addr()]
-	if !ok {
-		return errors.New("node disconnected")
+	if _, ok := r.Conns[c.Addr()]; !ok {
+		return errors.New("not connected")
 	}
 
-	dev := r.State.Nodes[id]
+	nodeId, ok := r.AddrNode[c.Addr()]
+	if !ok {
+		return errors.New("not authenticated")
+	}
 
-	dev.DisconnectOutput(e.Id)
+	node := r.State.Nodes[nodeId]
+
+	sink, ok := r.State.Sinks[e.SinkId]
+	if !ok {
+		return errors.New("unknown sink")
+	}
+
+	if sink.NodeId != node.Id {
+		return errors.New("sink not found")
+	}
+
+	output, ok := r.State.Outputs[e.Id]
+	if !ok {
+		return errors.New("unknown output")
+	}
+
+	if output.SinkId != e.SinkId {
+		return errors.New("output not found")
+	}
+
+	output.Connected = false
 
 	return nil
 }
@@ -291,24 +324,21 @@ func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) 
 func (r *Registry) handleData(c Conn, e event.Data) error {
 	//fmt.Printf("%s: recv Data\n", c.Addr())
 
-	srcId, ok := r.AddrNode[c.Addr()]
+	_, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
 	}
 
-	nodeId := r.sinkNodeId(e.SinkId)
+	//node := r.State.Nodes[nodeId]
 
-	sinkDev := r.State.Nodes[nodeId]
-	if sinkDev == nil {
-		return errors.New("unknown sink node")
+	dest := r.State.Nodes[e.NodeId]
+	if dest == nil {
+		return errors.New("unknown node")
 	}
 
-	sinkAddr, ok := r.NodeAddr[nodeId]
-	if !ok {
-		return errors.New("sink node disconnected")
-	}
+	// TODO: verify this node is actually sending to the dest
 
-	srcOutputs := r.activeSourceOutputs(srcId)
+	srcOutputs := r.activeNodeOutputs(dest.Id)
 
 	var valid bool
 	for _, out := range e.Outputs {
@@ -322,11 +352,9 @@ func (r *Registry) handleData(c Conn, e event.Data) error {
 		return errors.New("invalid output")
 	}
 
-	// fmt.Println("latency", e.Latency)
-
 	go func() {
 		// TODO verify sink connected
-		err := r.write(r.Conns[sinkAddr], e)
+		err := r.writeNode(dest.Id, e)
 		if err != nil {
 			fmt.Println(err)
 		}

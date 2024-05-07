@@ -3,7 +3,8 @@ package event
 import "github.com/google/uuid"
 
 type InputDisconnected struct {
-	Id uuid.UUID
+	SourceId uuid.UUID
+	Id       uuid.UUID
 }
 
 func (e InputDisconnected) Type() string {

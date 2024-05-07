@@ -30,7 +30,7 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 	}
 
 	//fmt.Println("Saving State", fmt.Sprintf("%#v", *r.State))
-	err = r.sh.SetState(*r.State)
+	err = r.sh.SetState(r.State)
 	if err != nil {
 		fmt.Println("error writing State", err)
 	}

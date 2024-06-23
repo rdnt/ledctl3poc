@@ -18,7 +18,7 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 	var err error
 	switch e := e.(type) {
 
-	//case req.SetSourceConfig:
+	//case req.SetConfig:
 	//	err = r.handleSetSourceConfig(addr, e)
 
 	default:
@@ -39,8 +39,8 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 	return nil
 }
 
-//func (r *Registry) handleSetSourceConfig(addr string, e req.SetSourceConfig) error {
-//	fmt.Printf("%s: recv SetSourceConfig\n", addr)
+//func (r *Registry) handleSetSourceConfig(addr string, e req.SetConfig) error {
+//	fmt.Printf("%s: recv SetConfig\n", addr)
 //
 //	var node *Node
 //	for _, nod := range r.State.Nodes {
@@ -55,7 +55,7 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 //		return errors.New("unknown source")
 //	}
 //
-//	_, ok := r.NodeAddr[node.Id]
+//	_, ok := r.NodeAddr[node.OutputId]
 //	if !ok {
 //		return errors.New("node disconnected")
 //	}
@@ -65,10 +65,10 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 //		return errors.New("unknown source")
 //	}
 //
-//	return r.SetSourceConfig(node.Id, source.Id, e.Config)
+//	return r.SetConfig(node.OutputId, source.OutputId, e.Config)
 //}
 //
-//func (r *Registry) SetSourceConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
+//func (r *Registry) SetConfig(nodeId, sourceId uuid.UUID, cfg []byte) error {
 //	r.State.Nodes[nodeId].Sources[sourceId].Config = cfg
 //
 //	err := r.sh.SetState(*r.State)
@@ -76,7 +76,7 @@ func (r *Registry) HandleRequest(addr string, e req.Request) error {
 //		return err
 //	}
 //
-//	err = r.req(r.NodeAddr[nodeId], event.SetSourceConfig{
+//	err = r.req(r.NodeAddr[nodeId], event.SetConfig{
 //		SourceId: sourceId,
 //		Config:   cfg,
 //	})

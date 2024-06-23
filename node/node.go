@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/color"
 	"os"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 
 	"ledctl3/node/common"
 	"ledctl3/node/event"
+	"ledctl3/node/types"
 )
 
 type Node struct {
@@ -19,8 +21,8 @@ type Node struct {
 	cfg     Config
 	inputs  map[uuid.UUID]common.Input
 	outputs map[uuid.UUID]common.Output
-	sources map[uuid.UUID]Driver
-	sinks   map[uuid.UUID]Driver
+	sources map[uuid.UUID]Source
+	sinks   map[uuid.UUID]Sink
 	conn    Conn
 }
 
@@ -35,13 +37,11 @@ type stateHolder struct {
 }
 
 type driverConfig struct {
-	Id     uuid.UUID       `json:"id"`
-	Config json.RawMessage `json:"config"`
-	State  json.RawMessage `json:"state"`
-}
-
-func (s *stateHolder) Id() uuid.UUID {
-	return s.driverId
+	Id           uuid.UUID                     `json:"id"`
+	Config       json.RawMessage               `json:"config"`
+	InputConfig  map[uuid.UUID]json.RawMessage `json:"input_config"`
+	OutputConfig map[uuid.UUID]json.RawMessage `json:"output_config"`
+	State        json.RawMessage               `json:"state"`
 }
 
 func (s *stateHolder) getId() (uuid.UUID, error) {
@@ -128,7 +128,7 @@ func (s *stateHolder) set(cfg driverConfig) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	b, err := json.Marshal(cfg)
+	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -146,8 +146,8 @@ func New(cfg Config) (*Node, error) {
 		cfg:     cfg,
 		inputs:  make(map[uuid.UUID]common.Input),
 		outputs: make(map[uuid.UUID]common.Output),
-		sources: make(map[uuid.UUID]Driver),
-		sinks:   make(map[uuid.UUID]Driver),
+		sources: make(map[uuid.UUID]Source),
+		sinks:   make(map[uuid.UUID]Sink),
 	}
 
 	for name, drv := range sources {
@@ -157,10 +157,33 @@ func New(cfg Config) (*Node, error) {
 			return nil, err
 		}
 
-		err = drv.Start(id, d, sh) // TODO: stop drivers if one fails to start
+		err = drv.Init(id, d, sh) // TODO: stop drivers if one fails to start
 		if err != nil {
 			return nil, err
 		}
+
+		//@@@@
+		//go func() {
+		//	time.Sleep(2 * time.Second)
+		//	drv.Configure(types.SourceConfig{
+		//		Config: []byte(`{"capturerType": "dxgi"}`),
+		//		Inputs: []types.InputConfig{
+		//			{
+		//				InputId: uuid.MustParse("317cef78-6a94-4ab2-8ccc-8b643bb250f9"),
+		//				Config:  []byte(`{"framerate": 240}`),
+		//				Outputs: []types.OutputConfig{
+		//					{
+		//						OutputId: uuid.UUID{0x22},
+		//						NodeId:   uuid.UUID{0x33},
+		//						SinkId:   uuid.UUID{0x44},
+		//						Leds:     8,
+		//						Config:   []byte(`{"width": 2560, "height": 2560, "top": 0, "left": 0, "orientation": "landscape"}`),
+		//					},
+		//				},
+		//			},
+		//		},
+		//	})
+		//}()
 
 		d.sources[id] = drv
 	}
@@ -184,7 +207,7 @@ func New(cfg Config) (*Node, error) {
 }
 
 func (n *Node) AddInput(in common.Input) {
-	//fmt.Println("ADD INPUT CALLED", in)
+	fmt.Println("ADD INPUT CALLED", in)
 
 	n.inputs[in.Id()] = in
 	//n.inputCfgs[in.OutputId()] = inputConfig{}
@@ -220,6 +243,7 @@ func (n *Node) AddInput(in common.Input) {
 				for _, output := range e.Outputs {
 					outputs = append(outputs, event.DataOutput{
 						OutputId: output.OutputId,
+						SinkId:   output.SinkId,
 						Pix:      output.Pix,
 					})
 				}
@@ -229,7 +253,7 @@ func (n *Node) AddInput(in common.Input) {
 				}
 
 				err := n.write(n.conn, event.Data{
-					SinkId:  e.SinkId,
+					NodeId:  e.NodeId,
 					Outputs: outputs,
 					Latency: e.Latency,
 				})
@@ -250,28 +274,35 @@ func (n *Node) AddInput(in common.Input) {
 	}()
 }
 
-type Driver interface {
+type Source interface {
+	Id() uuid.UUID
+	Init(id uuid.UUID, reg common.IORegistry, stateHolder common.StateHolder) error
+	Configure(cfg types.SourceConfig) error
+	Schema() ([]byte, error)
+	Close() error
+}
+
+type Sink interface {
 	Id() uuid.UUID
 	Start(id uuid.UUID, reg common.IORegistry, stateHolder common.StateHolder) error
 	SetConfig(cfg []byte) error
 	Schema() ([]byte, error)
-	Config() ([]byte, error)
-	//SchemaAny() (any, error)
-	//ConfigAny() (any, error)
+	Render(pixs map[uuid.UUID][]color.NRGBA) error
+	Stop() error
 }
 
-var sources = map[string]Driver{}
-var sinks = map[string]Driver{}
+var sources = map[string]Source{}
+var sinks = map[string]Sink{}
 var driversMux sync.Mutex
 
-func RegisterSource(name string, driver Driver) {
+func RegisterSource(name string, driver Source) {
 	driversMux.Lock()
 	defer driversMux.Unlock()
 
 	sources[name] = driver
 }
 
-func RegisterSink(name string, driver Driver) {
+func RegisterSink(name string, driver Sink) {
 	driversMux.Lock()
 	defer driversMux.Unlock()
 
@@ -284,13 +315,28 @@ func (n *Node) RemoveInput(id uuid.UUID) {
 }
 
 func (n *Node) AddOutput(out common.Output) {
-	//fmt.Println("ADD OUTPUT CALLED", out)
+	fmt.Println("ADD OUTPUT CALLED", out)
 
 	n.outputs[out.Id()] = out
 }
 
 func (n *Node) RemoveOutput(id uuid.UUID) {
-	//fmt.Println("REMOVE OUTPUT CALLED", id)
+	fmt.Println("REMOVE OUTPUT CALLED", id)
 
 	delete(n.outputs, id)
+}
+
+func (n *Node) handleConfigureSink(c Conn, e event.ConfigureSink) error {
+	dev, ok := n.sinks[e.SinkId]
+	if !ok {
+		return errors.New("sink not found")
+	}
+
+	err := dev.SetConfig(e.SinkConfig)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("sink config set", e.SinkId)
+	return nil
 }

@@ -3,3 +3,5 @@
 /tmp
 go.work
 go.work.sum
+.stfolder/
+.stignore

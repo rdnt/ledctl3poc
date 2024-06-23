@@ -4,17 +4,21 @@ const (
 	TypeAuthenticate       = "Authenticate"
 	TypeCapabilities       = "Capabilities"
 	TypeData               = "Data"
-	TypeSetSourceActive    = "SetSourceActive"
-	TypeSetInputActive     = "SetInputActive"
 	TypeInputConnected     = "InputConnected"
 	TypeInputDisconnected  = "InputDisconnected"
 	TypeOutputConnected    = "OutputConnected"
 	TypeOutputDisconnected = "OutputDisconnected"
-	TypeSetSourceConfig    = "SetSourceConfig"
+	TypeSetSourceConfig    = "SetConfig"
 	TypeSetSinkConfig      = "SetSinkConfig"
 
-	TypeResponse = "CommandResponse"
+	TypeSetInputConfig  = "SetInputConfig"
+	TypeSetOutputConfig = "SetOutputConfig"
 
-	TypeSetSourceConfigCommand = "SetSourceConfigCommand"
-	TypeSetSinkConfigCommand   = "SetSinkConfigCommand"
+	TypeConfigureSource = "ConfigureSource"
+	TypeConfigureSink   = "ConfigureSink"
+
+	//TypeResponse = "CommandResponse"
+
+	//TypeSetSourceConfigCommand = "SetSourceConfigCommand"
+	//TypeSetSinkConfigCommand   = "SetSinkConfigCommand"
 )

@@ -1,8 +1,10 @@
 package registry
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 
 	"github.com/google/uuid"
@@ -27,7 +29,9 @@ func (r *Registry) ProcessEvent(c Conn, e event.Event) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	// fmt.Println("HandleConnection")
+	if _, ok := e.(event.Data); !ok {
+		fmt.Printf("%s: recv %s\n", c.Addr(), reflect.TypeOf(e).Name())
+	}
 
 	var err error
 	switch e := e.(type) {
@@ -69,8 +73,6 @@ func (r *Registry) ProcessEvent(c Conn, e event.Event) error {
 }
 
 func (r *Registry) handleAuthenticate(c Conn, e event.Authenticate) error {
-	fmt.Printf("%s: recv Authenticate\n", c.Addr())
-
 	if e.Id == uuid.Nil {
 		return errors.New("authentication failed")
 	}
@@ -97,8 +99,6 @@ func (r *Registry) handleAuthenticate(c Conn, e event.Authenticate) error {
 }
 
 func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
-	fmt.Printf("%s: recv Capabilities\n", c.Addr())
-
 	nodeId, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("not authenticated")
@@ -106,8 +106,11 @@ func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
 
 	node, ok := r.State.Nodes[nodeId]
 	if !ok {
-		return errors.New("node not found")
+		return errors.New(fmt.Sprint("node not found ", nodeId))
 	}
+
+	srcCfg := map[uuid.UUID]json.RawMessage{}
+	sinkCfg := map[uuid.UUID]json.RawMessage{}
 
 	for _, es := range e.Sources {
 		source, ok := r.State.Sources[es.Id]
@@ -118,6 +121,7 @@ func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
 		}
 
 		source.Schema = es.Schema
+		srcCfg[source.Id] = source.Config
 	}
 
 	for _, es := range e.Sinks {
@@ -129,12 +133,43 @@ func (r *Registry) handleCapabilities(c Conn, e event.Capabilities) error {
 		}
 
 		sink.Schema = es.Schema
+		sinkCfg[sink.Id] = sink.Config
 	}
+
+	//for sourceId, cfg := range srcCfg {
+	//	r.sendSourceConfig(nodeId, sourceId, cfg)
+	//}
+	//
+	//for sinkId, cfg := range sinkCfg {
+	//	r.sendSinkConfig(nodeId, sinkId, cfg)
+	//}
 
 	fmt.Println("node capabilities updated", nodeId)
 
 	return nil
 }
+
+//func (r *Registry) sendSourceConfig(nodeId uuid.UUID, sourceId uuid.UUID, cfg json.RawMessage) {
+//	err := r.writeNode(nodeId, event.SetSourceConfig{
+//		SourceId: sourceId,
+//		Config:   cfg,
+//	})
+//	if err != nil {
+//		fmt.Println("error sending event:", err)
+//		return
+//	}
+//}
+//
+//func (r *Registry) sendSinkConfig(nodeId uuid.UUID, sourceId uuid.UUID, cfg json.RawMessage) {
+//	err := r.writeNode(nodeId, event.SetSinkConfig{
+//		SinkId: sourceId,
+//		Config: cfg,
+//	})
+//	if err != nil {
+//		fmt.Println("error sending event:", err)
+//		return
+//	}
+//}
 
 type Conn interface {
 	Addr() string
@@ -144,8 +179,6 @@ type Conn interface {
 }
 
 func (r *Registry) handleConnected(c Conn) error {
-	fmt.Printf("%s: recv Capabilities\n", c.Addr())
-
 	if _, ok := r.Conns[c.Addr()]; ok {
 		return errors.New("client already connected")
 	}
@@ -155,8 +188,6 @@ func (r *Registry) handleConnected(c Conn) error {
 }
 
 func (r *Registry) handleDisconnected(c Conn) error {
-	fmt.Printf("%s: recv Disconnected\n", c.Addr())
-
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("client already disconnected")
 	}
@@ -170,7 +201,7 @@ func (r *Registry) handleDisconnected(c Conn) error {
 
 	node, ok := r.State.Nodes[nodeId]
 	if !ok {
-		return errors.New("node not found")
+		return errors.New(fmt.Sprint("node not found ", nodeId))
 	}
 
 	node.Connected = false
@@ -183,8 +214,6 @@ func (r *Registry) handleDisconnected(c Conn) error {
 }
 
 func (r *Registry) handleInputConnected(c Conn, e event.InputConnected) error {
-	fmt.Printf("%s: recv InputConnected\n", c.Addr())
-
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("not connected")
 	}
@@ -211,12 +240,24 @@ func (r *Registry) handleInputConnected(c Conn, e event.InputConnected) error {
 	input.Connected = true
 	input.Schema = e.Schema
 
+	//r.sendInputConfig(nodeId, input.SourceId, input.Id, input.Config)
+
 	return nil
 }
 
-func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
-	fmt.Printf("%s: recv InputDisconnected\n", c.Addr())
+//func (r *Registry) sendInputConfig(nodeId, sourceId, inputId uuid.UUID, cfg json.RawMessage) {
+//	err := r.writeNode(nodeId, event.SetInputConfig{
+//		SourceId: sourceId,
+//		InputId:  inputId,
+//		Config:   cfg,
+//	})
+//	if err != nil {
+//		fmt.Println("error sending event:", err)
+//		return
+//	}
+//}
 
+func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("not connected")
 	}
@@ -252,8 +293,6 @@ func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) er
 }
 
 func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error {
-	fmt.Printf("%s: recv OutputConnected\n", c.Addr())
-
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("not connected")
 	}
@@ -281,12 +320,24 @@ func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error 
 	output.Leds = e.Leds
 	output.Schema = e.Schema
 
+	//r.sendOutputConfig(nodeId, output.SinkId, output.Id, output.Config)
+
 	return nil
 }
 
-func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
-	fmt.Printf("%s: recv OutputDisconnected\n", c.Addr())
+//func (r *Registry) sendOutputConfig(nodeId, sinkId, outputId uuid.UUID, cfg json.RawMessage) {
+//	err := r.writeNode(nodeId, event.SetOutputConfig{
+//		SinkId:   sinkId,
+//		OutputId: outputId,
+//		Config:   cfg,
+//	})
+//	if err != nil {
+//		fmt.Println("error sending event:", err)
+//		return
+//	}
+//}
 
+func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("not connected")
 	}
@@ -322,8 +373,6 @@ func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) 
 }
 
 func (r *Registry) handleData(c Conn, e event.Data) error {
-	//fmt.Printf("%s: recv Data\n", c.Addr())
-
 	_, ok := r.AddrNode[c.Addr()]
 	if !ok {
 		return errors.New("node disconnected")
@@ -333,7 +382,7 @@ func (r *Registry) handleData(c Conn, e event.Data) error {
 
 	dest := r.State.Nodes[e.NodeId]
 	if dest == nil {
-		return errors.New("unknown node")
+		return fmt.Errorf("unknown node: %s", e.NodeId)
 	}
 
 	// TODO: verify this node is actually sending to the dest
@@ -353,8 +402,17 @@ func (r *Registry) handleData(c Conn, e event.Data) error {
 	}
 
 	go func() {
-		// TODO verify sink connected
-		err := r.writeNode(dest.Id, e)
+		addr, ok := r.NodeAddr[dest.Id]
+		if !ok {
+			return
+		}
+
+		c, ok := r.Conns[addr]
+		if !ok {
+			return
+		}
+
+		err := r.write(c, e)
 		if err != nil {
 			fmt.Println(err)
 		}

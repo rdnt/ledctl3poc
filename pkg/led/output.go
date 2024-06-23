@@ -1,11 +1,7 @@
 package led
 
 import (
-	"fmt"
-	"image/color"
-
 	"github.com/google/uuid"
-	gcolor "github.com/gookit/color"
 )
 
 type output struct {
@@ -39,22 +35,22 @@ func (o *output) Leds() int {
 	return o.leds
 }
 
-func (o *output) Render(pix []color.NRGBA) {
-	out := ""
-	for i, c := range pix {
-		r, g, b, _ := c.RGBA()
-		err := o.driver.engine.SetLedColor(i+o.offset, uint8(r>>8), uint8(g>>8), uint8(b>>8), 255)
-		if err != nil {
-			fmt.Println("error setting led color:", err)
-			continue
-		}
-		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
-	}
-	//fmt.Println(out)
-
-	err := o.driver.Render()
-	if err != nil {
-		fmt.Println("error rendering:", err)
-		return
-	}
-}
+//func (o *output) Render(pix []color.NRGBA) {
+//	out := ""
+//	for i, c := range pix {
+//		r, g, b, _ := c.RGBA()
+//		err := o.driver.engine.SetLedColor(i+o.offset, uint8(r>>8), uint8(g>>8), uint8(b>>8), 255)
+//		if err != nil {
+//			fmt.Println("error setting led color:", err)
+//			continue
+//		}
+//		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+//	}
+//	//fmt.Println(out)
+//
+//	err := o.driver.Render()
+//	if err != nil {
+//		fmt.Println("error rendering:", err)
+//		return
+//	}
+//}

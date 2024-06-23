@@ -68,10 +68,12 @@ func main() {
 	go broadcastD()
 
 	go func() {
-		time.Sleep(1 * time.Second)
-		err := reg.EnableProfile(uuid.MustParse("aaaaaaaa-0000-4000-0000-000000000000"))
-		if err != nil {
-			fmt.Println("error enabling profile:", err)
+		for {
+			time.Sleep(1 * time.Millisecond)
+			err := reg.EnableProfile(uuid.MustParse("aaaaaaaa-0000-4000-0000-000000000000"))
+			if err != nil {
+				fmt.Println("error enabling profile:", err)
+			}
 		}
 	}()
 

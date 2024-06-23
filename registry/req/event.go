@@ -1,7 +1,7 @@
 package req
 
 const (
-	TypeSetSourceConfig         = "SetSourceConfig"
+	TypeSetSourceConfig         = "SetConfig"
 	TypeSetSourceConfigResponse = "SetSourceConfigResponse"
 	TypeSetSinkConfig           = "SetSinkConfig"
 	TypeSetSinkConfigResponse   = "SetSinkConfigResponse"

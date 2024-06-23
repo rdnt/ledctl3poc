@@ -55,6 +55,9 @@ func ReadUserIP(r *http.Request) string {
 	if IPAddress == "" {
 		IPAddress = r.RemoteAddr
 	}
+	if IPAddress == "" {
+		IPAddress = r.Host
+	}
 	return IPAddress
 }
 

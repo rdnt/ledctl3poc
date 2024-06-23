@@ -6,22 +6,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type LinksConfig struct {
+type SourceConfig struct {
+	Config json.RawMessage
+	Inputs []InputConfig
+}
+
+type InputConfig struct {
+	InputId uuid.UUID
+	Config  json.RawMessage
 	Outputs []OutputConfig
 }
 
 type OutputConfig struct {
-	Id     uuid.UUID
-	NodeId uuid.UUID
-	SinkId uuid.UUID
-	Config json.RawMessage
-	Leds   int
+	OutputId uuid.UUID
+	NodeId   uuid.UUID
+	SinkId   uuid.UUID
+	Leds     int
+	Config   json.RawMessage
 }
-
-//type LinkConfig struct {
-//	Width   int
-//	Height  int
-//	Left    int
-//	Top     int
-//	Reverse bool
-//}

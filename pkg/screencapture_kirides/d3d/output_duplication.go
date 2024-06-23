@@ -305,6 +305,7 @@ func (dup *OutputDuplicator) GetImage(img *image.NRGBA, timeoutMs uint) error {
 }
 
 func (dup *OutputDuplicator) Orientation() DXGI_MODE_ROTATION {
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", dup.outputDuplication)
 	return dup.rotation
 }
 

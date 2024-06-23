@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 
@@ -14,7 +16,7 @@ import (
 	"ledctl3/node/event"
 	"ledctl3/pkg/netserver"
 
-	_ "ledctl3/node/screen"
+	_ "ledctl3/node/screen2"
 	_ "ledctl3/pkg/led"
 )
 
@@ -23,11 +25,15 @@ type Config struct {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	b, err := os.ReadFile("./node.json")
 	if errors.Is(err, os.ErrNotExist) {
-		b, err = json.Marshal(Config{
+		b, err = json.MarshalIndent(Config{
 			NodeId: uuid.New(),
-		})
+		}, "", "  ")
 		if err != nil {
 			panic(err)
 		}

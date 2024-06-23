@@ -22,7 +22,7 @@ var nodesCmd = &cobra.Command{
 		}
 
 		headers := []string{
-			"Id",
+			"OutputId",
 			"Name",
 			"Capabilities",
 			"Inputs",

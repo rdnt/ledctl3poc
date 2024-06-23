@@ -1,9 +1,12 @@
 package node
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
+	"image/color"
+	"reflect"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"ledctl3/node/event"
 	"ledctl3/node/types"
@@ -34,6 +37,10 @@ func (n *Node) ProcessEvent(c Conn, e any) error {
 
 	//fmt.Println("HandleConnection")
 
+	if _, ok := e.(event.Data); !ok {
+		fmt.Printf("%s: recv %s\n", c.Addr(), reflect.TypeOf(e).Name())
+	}
+
 	var err error
 
 	switch e := e.(type) {
@@ -41,14 +48,24 @@ func (n *Node) ProcessEvent(c Conn, e any) error {
 		n.handleConnected(c)
 	case DisconnectedEvent:
 		n.handleDisconnected(c)
-	//case event.SetSourceActive:
-	//	n.handleSetSourceActive(addr, e)
-	case event.SetInputActive:
-		n.handleSetInputActive(c, e)
-	case event.SetSourceConfig:
-		err = n.handleSetSourceConfig(c, e)
-	case event.SetSinkConfig:
-		err = n.handleSetSinkConfig(c, e)
+	//case event.ConfigureSource:
+	//	n.handleConfigureSource(addr, e)
+	case event.ConfigureSource:
+		n.handleConfigureSource(c, e)
+
+	case event.ConfigureSink:
+		err = n.handleConfigureSink(c, e)
+
+	//case event.SetSourceConfig:
+	//	err = n.handleSetSourceConfig(c, e)
+	//case event.SetSinkConfig:
+	//	err = n.handleSetSinkConfig(c, e)
+	//
+	//case event.SetInputConfig:
+	//	err = n.handleSetInputConfig(c, e)
+	//case event.SetOutputConfig:
+	//	err = n.handleSetOutputConfig(c, e)
+
 	case event.Data:
 		n.handleData(c, e)
 	//case event.ListCapabilities:
@@ -62,8 +79,29 @@ func (n *Node) ProcessEvent(c Conn, e any) error {
 	return err
 }
 
+//func (n *Node) handleSetInputConfig(c Conn, e event.SetInputConfig) error {
+//	// TODO: implement
+//	in, ok := n.inputs[e.InputId]
+//	if !ok {
+//		return errors.New("input not found")
+//	}
+//
+//	in.Schema()
+//	return nil
+//}
+
+//func (n *Node) handleSetOutputConfig(c Conn, e event.SetOutputConfig) error {
+//
+//	// TODO: implement
+//	return nil
+//}
+
 func (n *Node) write(c Conn, v event.Event) error {
 	codec := event.JSONCodec{}
+
+	if _, ok := v.(event.Data); !ok {
+		fmt.Printf("%s: send %s\n", c.Addr(), reflect.TypeOf(v).Name())
+	}
 
 	b, err := codec.MarshalBinary(v)
 	if err != nil {
@@ -74,9 +112,6 @@ func (n *Node) write(c Conn, v event.Event) error {
 }
 
 func (n *Node) handleConnected(c Conn) {
-	fmt.Printf("%s: recv Connected\n", c.Addr())
-
-	fmt.Printf("%s: send Authenticate\n", c.Addr())
 	err := n.write(c, event.Authenticate{
 		Id: n.cfg.Id,
 	})
@@ -86,12 +121,6 @@ func (n *Node) handleConnected(c Conn) {
 
 	var sources []event.CapabilitiesSource
 	for _, d := range n.sources {
-		cfg, err := d.Config()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
 		schema, err := d.Schema()
 		if err != nil {
 			fmt.Println(err)
@@ -100,19 +129,12 @@ func (n *Node) handleConnected(c Conn) {
 
 		sources = append(sources, event.CapabilitiesSource{
 			Id:     d.Id(),
-			Config: cfg,
 			Schema: schema,
 		})
 	}
 
 	var sinks []event.CapabilitiesSink
 	for _, d := range n.sinks {
-		cfg, err := d.Config()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
 		schema, err := d.Schema()
 		if err != nil {
 			fmt.Println(err)
@@ -121,15 +143,12 @@ func (n *Node) handleConnected(c Conn) {
 
 		sinks = append(sinks, event.CapabilitiesSink{
 			Id:     d.Id(),
-			Config: cfg,
 			Schema: schema,
 		})
 	}
 
-	fmt.Printf("%s: send Capabilities\n", c.Addr())
-
 	err = n.write(c, event.Capabilities{
-		//Id:      n.cfg.Id,
+		//OutputId:      n.cfg.OutputId,
 		Sources: sources,
 		Sinks:   sinks,
 	})
@@ -138,11 +157,9 @@ func (n *Node) handleConnected(c Conn) {
 	}
 
 	for _, in := range n.inputs {
-		fmt.Printf("%s: send InputConnected\n", c.Addr())
-
 		err := n.write(c, event.InputConnected{
 			Id:       in.Id(),
-			DriverId: in.DriverId(),
+			SourceId: in.SourceId(),
 			//Type:   event.InputTypeDefault,
 			//Schema: in.Schema(),
 		})
@@ -153,12 +170,10 @@ func (n *Node) handleConnected(c Conn) {
 	}
 
 	for _, out := range n.outputs {
-		fmt.Printf("%s: send OutputConnected\n", c.Addr())
-
 		err := n.write(c, event.OutputConnected{
-			Id:       out.Id(),
-			DriverId: out.DriverId(),
-			Leds:     out.Leds(),
+			Id:     out.Id(),
+			SinkId: out.DriverId(),
+			Leds:   out.Leds(),
 		})
 		if err != nil {
 			fmt.Println("error writing to addr", c.Addr(), err)
@@ -170,8 +185,6 @@ func (n *Node) handleConnected(c Conn) {
 }
 
 func (n *Node) handleDisconnected(c Conn) {
-	fmt.Printf("%s: recv Disconnect\n", c.Addr())
-
 	n.conn = nil
 }
 
@@ -201,8 +214,8 @@ func (n *Node) handleDisconnected(c Conn) {
 //	}
 //}
 
-//func (n *Node) handleSetSourceActive(addr string, e event.SetSourceActive) {
-//	fmt.Printf("%s: recv SetSourceActive\n", addr)
+//func (n *Node) handleConfigureSource(addr string, e event.ConfigureSource) {
+//	fmt.Printf("%s: recv ConfigureSource\n", addr)
 //
 //	b, err := json.Marshal(e)
 //	if err != nil {
@@ -212,16 +225,16 @@ func (n *Node) handleDisconnected(c Conn) {
 //	fmt.Println(string(b))
 //
 //	for _, input := range e.Inputs {
-//		in, ok := n.inputs[input.Id]
+//		in, ok := n.inputs[input.OutputId]
 //		if !ok {
-//			fmt.Println("in not found", input.Id)
+//			fmt.Println("in not found", input.OutputId)
 //			continue
 //		}
 //
 //		var outputCfgs []types.OutputConfig
 //		for _, output := range input.Outputs {
 //			outputCfgs = append(outputCfgs, types.OutputConfig{
-//				Id: output.Id,
+//				OutputId: output.OutputId,
 //				//DriverId: output.DriverId,
 //				SinkId: output.SinkId,
 //				Config: types.LinkConfig{},
@@ -229,7 +242,7 @@ func (n *Node) handleDisconnected(c Conn) {
 //			})
 //		}
 //
-//		err := in.Start(types.LinksConfig{
+//		err := in.Init(types.LinksConfig{
 //			Framerate: 60,
 //			Outputs:   outputCfgs,
 //		})
@@ -238,89 +251,114 @@ func (n *Node) handleDisconnected(c Conn) {
 //			continue
 //		}
 //
-//		fmt.Println("input started", input.Id)
+//		fmt.Println("input started", input.OutputId)
 //	}
 //}
 
-func (n *Node) handleSetInputActive(c Conn, e event.SetInputActive) {
-	fmt.Printf("%s: recv SetInputActive\n", c.Addr())
-
-	b, err := json.Marshal(e)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(b))
-
-	in, ok := n.inputs[e.Id]
+func (n *Node) handleConfigureSource(c Conn, e event.ConfigureSource) {
+	src, ok := n.sources[e.SourceId]
 	if !ok {
-		fmt.Println("input not found", e.Id)
+		fmt.Println("source not found", e.SourceId)
 		return
 	}
 
-	var outputCfgs []types.OutputConfig
-	for _, output := range e.Outputs {
-		outputCfgs = append(outputCfgs, types.OutputConfig{
-			Id:     output.OutputId,
-			SinkId: output.SinkId,
-			NodeId: n.id,
-			Leds:   output.Leds,
-			Config: output.Config,
-		})
-	}
+	inputCfgs := make(map[uuid.UUID]types.InputConfig)
 
-	err = in.Start(types.LinksConfig{
-		Outputs: outputCfgs,
-	})
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println("input started", e.Id)
-}
-
-func (n *Node) handleData(c Conn, e event.Data) {
-	for _, out := range e.Outputs {
-		if _, ok := n.outputs[out.OutputId]; !ok {
-			fmt.Println("output not found", out.OutputId)
+	for _, e := range e.Inputs {
+		in, ok := n.inputs[e.InputId]
+		if !ok {
+			fmt.Println("input not found", e.InputId)
 			continue
 		}
 
-		go n.outputs[out.OutputId].Render(out.Pix)
+		outputCfgs := make([]types.OutputConfig, 0, len(e.Outputs))
+
+		for _, output := range e.Outputs {
+			outputCfgs = append(outputCfgs, types.OutputConfig{
+				NodeId:   output.NodeId,
+				SinkId:   output.SinkId,
+				OutputId: output.OutputId,
+				Leds:     output.Leds,
+				Config:   output.Config,
+			})
+		}
+
+		inputCfgs[in.Id()] = types.InputConfig{
+			InputId: e.InputId,
+			Config:  e.InputConfig,
+			Outputs: outputCfgs,
+		}
 	}
-}
 
-func (n *Node) handleSetSourceConfig(c Conn, e event.SetSourceConfig) error {
-	fmt.Printf("%s: recv SetSourceConfig\n", c.Addr())
-
-	dev, ok := n.sources[e.SourceId]
-	if !ok {
-		return errors.New("source not found")
-	}
-
-	err := dev.SetConfig(e.Config)
+	err := src.Configure(types.SourceConfig{
+		Config: e.SourceConfig,
+		Inputs: lo.Values(inputCfgs),
+	})
 	if err != nil {
-		return err
+		fmt.Println(err)
 	}
-
-	fmt.Println("source config set", e.SourceId)
-	return nil
 }
 
-func (n *Node) handleSetSinkConfig(c Conn, e event.SetSinkConfig) error {
-	fmt.Printf("%s: recv SetSinkConfig\n", c.Addr())
+func (n *Node) handleData(c Conn, e event.Data) {
+	syncOuts := map[uuid.UUID][]event.DataOutput{}
 
-	dev, ok := n.sinks[e.SinkId]
-	if !ok {
-		return errors.New("sink not found")
+	for _, out := range e.Outputs {
+		sink, ok := n.sinks[out.SinkId]
+		if !ok {
+			continue
+		}
+
+		if _, ok := n.outputs[out.OutputId]; !ok {
+			continue
+		}
+
+		syncOuts[sink.Id()] = append(syncOuts[sink.Id()], out)
 	}
 
-	err := dev.SetConfig(e.Config)
-	if err != nil {
-		return err
-	}
+	for sinkId, outs := range syncOuts {
+		sink := n.sinks[sinkId]
 
-	fmt.Println("sink config set", e.SinkId)
-	return nil
+		pixs := map[uuid.UUID][]color.NRGBA{}
+
+		for _, out := range outs {
+			pixs[out.OutputId] = out.Pix
+		}
+
+		err := sink.Render(pixs)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+	}
 }
+
+//func (n *Node) handleSetSourceConfig(c Conn, e event.SetSourceConfig) error {
+//	//@@@@@@@@@@@@@@@@@@@@@
+//	//dev, ok := n.sources[e.SourceId]
+//	//if !ok {
+//	//	return errors.New("source not found")
+//	//}
+//
+//	//err := dev.Configure(e.Config)
+//	//if err != nil {
+//	//	return err
+//	//}
+//
+//	fmt.Println("source config set", e.SourceId)
+//	return nil
+//}
+
+//func (n *Node) handleSetSinkConfig(c Conn, e event.SetSinkConfig) error {
+//	dev, ok := n.sinks[e.SinkId]
+//	if !ok {
+//		return errors.New("sink not found")
+//	}
+//
+//	err := dev.SetConfig(e.Config)
+//	if err != nil {
+//		return err
+//	}
+//
+//	fmt.Println("sink config set", e.SinkId)
+//	return nil
+//}

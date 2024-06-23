@@ -1,0 +1,28 @@
+start: {
+    shape: circle
+}
+
+start -> run
+
+run: {
+    shape: circle
+
+    getDisplays -> removeDisconnectedInputs
+    removeDisconnectedInputs -> createNewInputs
+}
+
+run -> inputs
+
+inputs: {
+    shape: diamond
+}
+
+input.start: {
+    shape: rectangle
+
+    startCapture
+    startProcess
+}
+
+inputs -> input.start
+input.start -> inputs

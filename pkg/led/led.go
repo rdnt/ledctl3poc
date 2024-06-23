@@ -1,10 +1,10 @@
 package led
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
+	"image/color"
 	"sync"
 
 	"github.com/google/uuid"
@@ -19,10 +19,6 @@ func init() {
 	node.RegisterSink("led", New())
 }
 
-func New() node.Driver {
-	return &dev{}
-}
-
 type outputConfig struct {
 	Id     uuid.UUID `json:"id"`
 	Offset int       `json:"offset"`
@@ -34,14 +30,36 @@ type config struct {
 }
 
 type dev struct {
-	id        uuid.UUID
-	cfg       config
-	reg       common.IORegistry
-	store     common.StateHolder
-	engine    *ws281x.Engine
-	renderMux sync.Mutex
+	id     uuid.UUID
+	cfg    config
+	reg    common.IORegistry
+	store  common.StateHolder
+	engine *ws281x.Engine
+
+	cancelRender context.CancelFunc
+
+	wg sync.WaitGroup
+	//renderMux sync.Mutex
+	//rendering bool
+	//queue     bool
+	outputs map[uuid.UUID]*output
+
+	leds int
+	pix  []color.NRGBA
+
+	queued bool
+
+	pixMux    sync.Mutex
 	rendering bool
-	queue     bool
+
+	invalidateCh chan bool
+}
+
+func New() node.Sink {
+	return &dev{
+		outputs:      map[uuid.UUID]*output{},
+		invalidateCh: make(chan bool, 1),
+	}
 }
 
 func (d *dev) SetId(id uuid.UUID) {
@@ -53,26 +71,12 @@ func (d *dev) Id() uuid.UUID {
 }
 
 func (d *dev) SetConfig(b []byte) error {
-	err := d.store.SetConfig(b)
-	if err != nil {
-		return err
-	}
-
-	err = d.applyConfig(b)
+	err := d.applyConfig(b)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (d *dev) Config() ([]byte, error) {
-	b, err := json.Marshal(d.cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
 }
 
 func defaultCfg() config {
@@ -86,27 +90,45 @@ func (d *dev) Start(id uuid.UUID, reg common.IORegistry, store common.StateHolde
 	d.reg = reg
 	d.store = store
 
-	b, err := d.store.GetConfig()
-	if errors.Is(err, os.ErrNotExist) {
-		cfg := defaultCfg()
-		b, err = json.Marshal(cfg)
-		if err != nil {
-			return err
-		}
+	return nil
+}
 
-		err := d.store.SetConfig(b)
-		if err != nil {
-			return err
+func (d *dev) startRenderQueue() {
+	ctx, cancel := context.WithCancel(context.Background())
+	d.cancelRender = cancel
+
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-d.invalidateCh:
+				d.render()
+			}
 		}
-	} else if err != nil {
-		return err
+	}()
+}
+
+func (d *dev) stopRenderQueue() {
+	if d.cancelRender == nil {
+		return
 	}
 
-	err = d.applyConfig(b)
-	if err != nil {
-		return err
-	}
+	d.cancelRender()
+	d.wg.Wait()
+}
 
+func (d *dev) invalidate() {
+	select {
+	case d.invalidateCh <- true:
+	default:
+	}
+}
+
+func (d *dev) Stop() error {
 	return nil
 }
 
@@ -118,62 +140,99 @@ func (d *dev) applyConfig(b []byte) error {
 	}
 
 	if d.engine != nil {
-		d.engine.Stop()
+		d.stopRenderQueue()
 		d.engine.Fini()
 		d.engine = nil
 	}
 
 	removed, added := lo.Difference(d.cfg.Outputs, cfg.Outputs)
+
 	for _, o := range removed {
 		fmt.Println("Removing output", o)
 		d.reg.RemoveOutput(o.Id)
+		d.leds -= d.outputs[o.Id].leds
+		delete(d.outputs, o.Id)
 	}
 
 	for _, o := range added {
 		fmt.Println("Adding output", o)
 		out := newOutput(o.Id, o.Count, o.Offset, d)
 		d.reg.AddOutput(out)
+		d.leds += out.leds
+		d.outputs[o.Id] = out
 	}
+
+	d.pix = make([]color.NRGBA, d.leds)
+
+	d.cfg = cfg
 
 	total := 0
 	for _, o := range cfg.Outputs {
 		total += o.Count
 	}
 
-	fmt.Println("start engine with", total, "leds")
-	engine, err := ws281x.Init(18, total, 150, "grb") // TODO: make configurable
+	//fmt.Println("start engine with", total, "leds")
+	//fmt.Println("-")
+	engine, err := ws281x.Init(18, total, 80, "grb") // TODO: make configurable
 	if err != nil {
 		return err
 	}
 
 	d.engine = engine
 
+	d.startRenderQueue()
+
 	return nil
 }
 
-func (d *dev) Render() error {
-	d.renderMux.Lock()
-	if d.rendering {
-		d.queue = true
-		d.renderMux.Unlock()
-		return nil
+func (d *dev) Render(pixs map[uuid.UUID][]color.NRGBA) error {
+	outPixs := make(map[int][]color.NRGBA)
+
+	for outputId, pix := range pixs {
+		out, ok := d.outputs[outputId]
+		if !ok {
+			continue
+		}
+
+		if out.Leds() != len(pix) {
+			continue
+		}
+
+		outPixs[out.offset] = pix
 	}
-	d.rendering = true
-	d.renderMux.Unlock()
+
+	d.pixMux.Lock()
+
+	for offset, pix := range outPixs {
+		for i := range len(pix) {
+			d.pix[offset+i] = pix[i]
+		}
+	}
+
+	d.invalidate()
+
+	d.pixMux.Unlock()
+
+	return nil
+}
+
+func (d *dev) render() {
+	d.pixMux.Lock()
+
+	for i, c := range d.pix {
+		r, g, b, _ := c.RGBA()
+		err := d.engine.SetLedColor(i, uint8(r>>8), uint8(g>>8), uint8(b>>8), 255)
+		if err != nil {
+			fmt.Println("error setting led color:", err)
+			continue
+		}
+		//out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
+	}
+
+	d.pixMux.Unlock()
 
 	err := d.engine.Render()
 	if err != nil {
-		return err
+		fmt.Println(err)
 	}
-
-	d.renderMux.Lock()
-	d.rendering = false
-	if d.queue {
-		d.queue = false
-		go d.Render()
-	}
-	d.renderMux.Unlock()
-
-	//fmt.Print(".")
-	return nil
 }

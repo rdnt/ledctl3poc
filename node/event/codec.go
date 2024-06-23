@@ -67,28 +67,13 @@ func (c JSONCodec) UnmarshalBinary(b []byte) (Event, error) {
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 
-	case TypeSetSourceConfig:
-		var e SetSourceConfig
+	case TypeConfigureSource:
+		var e ConfigureSource
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 
-	case TypeSetSinkConfig:
-		var e SetSinkConfig
-		err := json.Unmarshal(t.Data, &e)
-		return e, err
-
-	case TypeSetSourceConfigCommand:
-		var e SetSourceConfigCommand
-		err := json.Unmarshal(t.Data, &e)
-		return e, err
-
-	case TypeSetSinkConfigCommand:
-		var e SetSinkConfigCommand
-		err := json.Unmarshal(t.Data, &e)
-		return e, err
-
-	case TypeSetInputActive:
-		var e SetInputActive
+	case TypeConfigureSink:
+		var e ConfigureSink
 		err := json.Unmarshal(t.Data, &e)
 		return e, err
 

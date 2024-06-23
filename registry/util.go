@@ -2,6 +2,8 @@ package registry
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 
 	"github.com/google/uuid"
 
@@ -11,6 +13,10 @@ import (
 
 func (r *Registry) write(c Conn, v event.Event) error {
 	codec := event.JSONCodec{}
+
+	if _, ok := v.(event.Data); !ok {
+		fmt.Printf("%s: send %s\n", c.Addr(), reflect.TypeOf(v).Name())
+	}
 
 	b, err := codec.MarshalBinary(v)
 	if err != nil {
@@ -23,7 +29,7 @@ func (r *Registry) write(c Conn, v event.Event) error {
 func (r *Registry) writeNode(nodeId uuid.UUID, v event.Event) error {
 	addr, ok := r.NodeAddr[nodeId]
 	if !ok {
-		return errors.New("node not found")
+		return errors.New(fmt.Sprint("node not found ", nodeId))
 	}
 
 	c, ok := r.Conns[addr]
@@ -76,7 +82,7 @@ func (r *Registry) activeInputLinks(id uuid.UUID) []*types.Link {
 }
 
 func activateInput() {
-	//cfgs := r.activeInputLinks(e.Id)
+	//cfgs := r.activeInputLinks(e.OutputId)
 	//if len(cfgs) == 0 {
 	//	return nil
 	//}
@@ -96,7 +102,7 @@ func activateInput() {
 	//}
 	//
 	//err := r.write(c, event.SetInputActive{
-	//	Id:      e.Id,
+	//	OutputId:      e.OutputId,
 	//	Config:  e.Config,
 	//	Outputs: evtOutCfgs,
 	//})

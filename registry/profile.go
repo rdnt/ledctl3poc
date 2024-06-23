@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"ledctl3/node/event"
 	"ledctl3/registry/types"
@@ -39,7 +40,7 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 	}
 
 	if prof.Enabled {
-		return errors.New("profile already enabled")
+		//return errors.New("profile already enabled") // @@@
 	}
 
 	activeOutputIds := r.activeOutputs()
@@ -51,7 +52,7 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 	for _, linkId := range prof.LinkIds {
 		link := r.State.Links[linkId]
 		if slices.Contains(activeOutputIds, link.OutputId) {
-			return errors.New("output already in use")
+			//return errors.New("output already in use") // @@@
 		}
 	}
 
@@ -62,31 +63,139 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 		return err
 	}
 
-	fmt.Println("profile enabled:", id)
+	for srcId, src := range r.State.Sources {
+		//if !src.Connected {
+		//	continue
+		//}
+		//
+		connected := r.State.Nodes[src.NodeId].Connected
+		if !connected {
+			continue
+		}
 
-	for _, linkId := range prof.LinkIds {
-		link := r.State.Links[linkId]
-		srcNodeId := r.State.Inputs[link.InputId].NodeId
-		output := r.State.Outputs[link.OutputId]
+		err = r.configureSource(srcId)
+		if err != nil {
+			fmt.Println("error configuring source:", err)
+		}
+	}
 
-		err = r.writeNode(srcNodeId, event.SetInputActive{
-			Id: link.InputId,
-			Outputs: []event.SetInputActiveOutput{
-				{
-					OutputId: link.OutputId,
-					Leds:     output.Leds,
-					Config:   link.InputConfig,
-				},
-			},
+	for _, sink := range r.State.Sinks {
+		connected := r.State.Nodes[sink.NodeId].Connected
+
+		if !connected {
+			continue
+		}
+
+		err := r.writeNode(sink.NodeId, event.ConfigureSink{
+			SinkId:     sink.Id,
+			SinkConfig: sink.Config,
 		})
 		if err != nil {
 			fmt.Println("error sending event:", err)
+			return err
+		}
+	}
+
+	fmt.Println("profile enabled:", id)
+
+	return nil
+}
+
+func (r *Registry) configureSource(srcId uuid.UUID) error {
+	src := r.State.Sources[srcId]
+
+	inputCfgs := map[uuid.UUID]event.ConfigureSourceInput{}
+
+	for _, prof := range r.State.Profiles {
+		if !prof.Enabled {
 			continue
 		}
+
+		for _, linkId := range prof.LinkIds {
+			link := r.State.Links[linkId]
+			input := r.State.Inputs[link.InputId]
+			source := r.State.Sources[input.SourceId]
+
+			if source.Id != srcId {
+				continue
+			}
+
+			output := r.State.Outputs[link.OutputId]
+
+			cfg, ok := inputCfgs[link.InputId]
+			if !ok {
+				cfg = event.ConfigureSourceInput{
+					InputId:     input.Id,
+					InputConfig: input.Config,
+					Outputs:     nil,
+				}
+				inputCfgs[input.Id] = cfg
+			}
+
+			cfg.Outputs = append(cfg.Outputs, event.ConfigureSourceOutput{
+				NodeId:   output.NodeId,
+				SinkId:   output.SinkId,
+				OutputId: link.OutputId,
+				Leds:     output.Leds,
+				Config:   link.InputConfig,
+			})
+
+			inputCfgs[input.Id] = cfg
+		}
+	}
+
+	err := r.writeNode(src.NodeId, event.ConfigureSource{
+		SourceId:     src.Id,
+		SourceConfig: src.Config,
+		Inputs:       lo.Values(inputCfgs),
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return err
 	}
 
 	return nil
 }
+
+//func (r *Registry) enableInputProfile(inputId, profileId uuid.UUID) error {
+//	input := r.State.Inputs[inputId]
+//	var linkCfgs []event.SetInputActiveOutput
+//
+//	prof := r.State.Profiles[profileId]
+//
+//	for _, linkId := range prof.LinkIds {
+//		link := r.State.Links[linkId]
+//
+//		if link.InputId != inputId {
+//			continue
+//		}
+//
+//		output := r.State.Outputs[link.OutputId]
+//
+//		linkCfgs = append(linkCfgs, event.SetInputActiveOutput{
+//			NodeId:   output.NodeId,
+//			SinkId:   output.SinkId,
+//			OutputId: link.OutputId,
+//			Leds:     output.Leds,
+//			Config:   link.InputConfig,
+//		})
+//	}
+//
+//	if len(linkCfgs) == 0 {
+//		return nil
+//	}
+//
+//	err := r.writeNode(input.NodeId, event.SetInputActive{
+//		Id:      inputId,
+//		Outputs: linkCfgs,
+//	})
+//	if err != nil {
+//		fmt.Println("error sending event:", err)
+//		return err
+//	}
+//
+//	return nil
+//}
 
 func (r *Registry) activeOutputs() []uuid.UUID {
 	var outputIds []uuid.UUID

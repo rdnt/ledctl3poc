@@ -16,9 +16,6 @@ type Engine struct {
 	LedsCount int
 	engine    *ws281x.WS2811
 	leds      []uint32
-	wg        *sync.WaitGroup
-	stop      chan struct{}
-	rendering bool
 }
 
 // Init initializes a new instance of the ws281x library
@@ -97,42 +94,11 @@ func Init(gpioPin int, ledCount int, brightness int, stripType string) (*Engine,
 		return nil, err
 	}
 
-	// Create the effects waitgroup
-	wg := sync.WaitGroup{}
-	// Add main routine's delta to the waitgroup
-	wg.Add(1)
-	// Initialize stop channel that will stop any running effect goroutines
-	stop := make(chan struct{})
-
 	return &Engine{
 		LedsCount: ledCount,
 		engine:    ws,
 		leds:      make([]uint32, ledCount),
-		wg:        &wg,
-		stop:      stop,
-		rendering: false,
 	}, nil
-}
-
-// Cancel returns the stop channel
-func (ws *Engine) Cancel() chan struct{} {
-	return ws.stop
-}
-
-// Stop stops all running effects and prepares for new commands
-func (ws *Engine) Stop() {
-	// Notify all running goroutines that they should cancel
-	close(ws.stop)
-	// Decrement main routine's delta
-	ws.wg.Done()
-	// Wait for goroutines to finish their work
-	ws.wg.Wait()
-	// Turn off all leds
-	ws.Clear()
-	// Add main routine's delta to waitgroup again
-	ws.wg.Add(1)
-	// Re-initialize stop channel
-	ws.stop = make(chan struct{})
 }
 
 // Fini does cleanup operations
@@ -142,18 +108,13 @@ func (ws *Engine) Fini() {
 
 // Clear resets all the leds (turns them off by setting their color to black)
 func (ws *Engine) Clear() error {
-	ws.mux.Lock()
 	ws.leds = make([]uint32, ws.LedsCount)
-	ws.mux.Unlock()
-
 	return ws.Render()
 }
 
 // Render renders the colors saved on the leds array onto the led strip
 func (ws *Engine) Render() error {
-	ws.mux.Lock()
 	leds := ws.leds
-	ws.mux.Unlock()
 
 	ws.engine.SetLedsSync(0, leds)
 	return ws.engine.Render()
@@ -164,16 +125,11 @@ func (ws *Engine) SetLedColor(index int, r uint8, g uint8, b uint8, a uint8) err
 	// WRGB
 	color := uint32(a)<<24 | uint32(r)<<16 | uint32(g)<<8 | uint32(b)
 
-	ws.mux.Lock()
-
 	if index >= len(ws.leds) || index < 0 {
-		ws.mux.Unlock()
-
 		return errors.New("Invalid led index")
 	}
 
 	ws.leds[index] = color
-	ws.mux.Unlock()
 
 	return nil
 }

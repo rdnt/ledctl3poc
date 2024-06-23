@@ -49,7 +49,7 @@ func (s *Holder) GetState() (*registry.State, error) {
 		return nil, err
 	}
 
-	var state State
+	var state *registry.State
 	err = json.Unmarshal(b, &state)
 	if err != nil {
 		return nil, err
@@ -58,100 +58,48 @@ func (s *Holder) GetState() (*registry.State, error) {
 	return ToRegistryState(state), nil
 }
 
-type State struct {
-	Nodes          map[uuid.UUID]Node             `json:"nodes"`
-	Profiles       map[uuid.UUID]registry.Profile `json:"profiles"`
-	ActiveProfiles []uuid.UUID                    `json:"activeProfiles"`
-}
-
-type Node struct {
-	Id      uuid.UUID            `json:"id"`
-	Name    string               `json:"name"`
-	Inputs  map[uuid.UUID]Input  `json:"inputs"`
-	Outputs map[uuid.UUID]Output `json:"outputs"`
-	Sources map[uuid.UUID]Source `json:"sources"`
-	Sinks   map[uuid.UUID]Sink   `json:"sinks"`
-}
-
-type Source struct {
-	Id     uuid.UUID       `json:"id"`
-	Config json.RawMessage `json:"config"`
-}
-
-type Sink struct {
-	Id     uuid.UUID       `json:"id"`
-	Config json.RawMessage `json:"config"`
-}
-
-type Input struct {
-	Id       uuid.UUID       `json:"id"`
-	DriverId uuid.UUID       `json:"driverId"`
-	Schema   json.RawMessage `json:"schema"`
-	Config   json.RawMessage `json:"config"`
-}
-
-type Output struct {
-	Id       uuid.UUID       `json:"id"`
-	DriverId uuid.UUID       `json:"driverId"`
-	Leds     int             `json:"leds"`
-	Schema   json.RawMessage `json:"schema"`
-	Config   json.RawMessage `json:"config"`
-}
-
-func ToRegistryState(p State) *registry.State {
-	state := &registry.State{
-		Nodes:          make(map[uuid.UUID]*registry.Node, len(p.Nodes)),
-		Profiles:       p.Profiles,
-		ActiveProfiles: p.ActiveProfiles,
+func ToRegistryState(p *registry.State) *registry.State {
+	if p.Nodes == nil {
+		p.Nodes = make(map[uuid.UUID]*types.Node)
+	}
+	for id := range p.Nodes {
+		p.Nodes[id].Connected = false
 	}
 
-	for id, node := range p.Nodes {
-		inputs := make(map[uuid.UUID]*types.Input, len(node.Inputs))
-		for _, in := range node.Inputs {
-			inputs[in.Id] = &types.Input{
-				Id:       in.Id,
-				DriverId: in.DriverId,
-				Schema:   in.Schema,
-				Config:   in.Config,
-			}
-		}
-
-		outputs := make(map[uuid.UUID]*types.Output, len(node.Outputs))
-		for _, out := range node.Outputs {
-			outputs[out.Id] = &types.Output{
-				Id:       out.Id,
-				DriverId: out.DriverId,
-				Leds:     out.Leds,
-				Schema:   out.Schema,
-				Config:   out.Config,
-			}
-		}
-
-		sources := make(map[uuid.UUID]*registry.Source, len(node.Sources))
-		for _, source := range node.Sources {
-			sources[source.Id] = &registry.Source{
-				Id:     source.Id,
-				Config: source.Config,
-			}
-		}
-
-		sinks := make(map[uuid.UUID]*registry.Sink, len(node.Sinks))
-		for _, sink := range node.Sinks {
-			sinks[sink.Id] = &registry.Sink{
-				Id:     sink.Id,
-				Config: sink.Config,
-			}
-		}
-
-		state.Nodes[id] = &registry.Node{
-			Id:      node.Id,
-			Name:    node.Name,
-			Inputs:  inputs,
-			Outputs: outputs,
-			Sources: sources,
-			Sinks:   sinks,
-		}
+	if p.Sources == nil {
+		p.Sources = make(map[uuid.UUID]*types.Source)
+	}
+	for id := range p.Sources {
+		p.Sources[id].Connected = false
 	}
 
-	return state
+	if p.Sinks == nil {
+		p.Sinks = make(map[uuid.UUID]*types.Sink)
+	}
+	for id := range p.Sinks {
+		p.Sinks[id].Connected = false
+	}
+
+	if p.Inputs == nil {
+		p.Inputs = make(map[uuid.UUID]*types.Input)
+	}
+	for id := range p.Inputs {
+		p.Inputs[id].Connected = false
+	}
+
+	if p.Outputs == nil {
+		p.Outputs = make(map[uuid.UUID]*types.Output)
+	}
+	for id := range p.Outputs {
+		p.Outputs[id].Connected = false
+	}
+
+	if p.Profiles == nil {
+		p.Profiles = make(map[uuid.UUID]*types.Profile)
+	}
+	if p.Links == nil {
+		p.Links = make(map[uuid.UUID]*types.Link)
+	}
+
+	return p
 }

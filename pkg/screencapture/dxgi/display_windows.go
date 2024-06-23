@@ -14,7 +14,7 @@ import (
 	"ledctl3/pkg/screencapture/types"
 )
 
-var ErrNoFrame = fmt.Errorf("no frame")
+var errNoFrame = errors.New("no frame")
 
 type display struct {
 	index       int
@@ -58,41 +58,55 @@ func (d *display) String() string {
 	return fmt.Sprintf("Display{id: %d, width: %d, height: %d, left: %d, top: %d}", d.id, d.width, d.height, d.x, d.y)
 }
 
-func (d *display) Capture(ctx context.Context, framerate int) chan []byte {
-	frames := make(chan []byte)
+func (d *display) Capture(ctx context.Context, pollRate int) (chan []byte, chan error) {
+	frames := make(chan []byte, 1)
+	errCh := make(chan error, 1)
+
+	//defer d.reset()
+
+	//fmt.Println("reset now")
+	//err := d.reset()
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	fmt.Println("@@@")
+	fmt.Println(d.dev)
+	fmt.Println(d.devCtx)
+	fmt.Println(d.ddup)
 
 	go func() {
-		ticker := time.NewTicker(time.Duration(1000/framerate) * time.Millisecond)
+		defer close(frames)
+		defer close(errCh)
+
+		ticker := time.NewTicker(time.Duration(1000/pollRate) * time.Millisecond)
 		defer ticker.Stop()
 
-		fmt.Println("============ START fps", framerate)
+		fmt.Println("============ START fps", pollRate)
 
 		for range ticker.C {
 			select {
 			case <-ctx.Done():
 				fmt.Println(d.id, "context done")
-				close(frames)
 				return
 			default:
-				pix, err := d.nextFrame()
-				if errors.Is(err, ErrNoFrame) {
+				pix, err := d.GetFrame()
+				if errors.Is(err, errNoFrame) {
 					//fmt.Println(d.id, "no frame")
 					continue
 				} else if err != nil {
-					fmt.Println(d.id, "non-nil error", err)
 
 					err := d.Close()
 					if err != nil {
 						fmt.Println(d.id, "failed to reset from capture")
 					}
+					errCh <- err
 
-					close(frames)
 					return
 				}
 
 				if pix == nil {
-					fmt.Println(d.id, "invalid frame")
-					continue
+					panic("invalid frame")
 				}
 
 				//fmt.Println(d.id, "dispatch")
@@ -101,18 +115,19 @@ func (d *display) Capture(ctx context.Context, framerate int) chan []byte {
 		}
 	}()
 
-	return frames
+	return frames, errCh
 }
 
 func (d *display) Orientation() types.Orientation {
 	return d.orientation
 }
 
-func (d *display) nextFrame() ([]byte, error) {
+func (d *display) GetFrame() ([]byte, error) {
+	//fmt.Println(d.id, "GetFrame")
 	err := d.ddup.GetImage(d.buf, 0)
 	if errors.Is(err, d3d.ErrNoImageYet) {
 		// don't update
-		return nil, ErrNoFrame
+		return nil, errNoFrame
 	} else if err != nil {
 		return nil, err
 	}
@@ -166,6 +181,7 @@ func (d *display) reset() error {
 }
 
 func (d *display) Close() error {
+	fmt.Println("CLOSE called")
 	if d.dev != nil {
 		d.dev.Release()
 		d.dev = nil

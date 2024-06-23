@@ -53,8 +53,6 @@ func (e *Engine) Stop() {
 	e.wg.Done()
 	// Wait for goroutines to finish their work
 	e.wg.Wait()
-	// Turn off all leds
-	e.Clear()
 	// Add main routine's delta to waitgroup again
 	e.wg.Add(1)
 	// Re-initialize stop channel
@@ -78,7 +76,8 @@ func (e *Engine) Render() error {
 		r, g, b, _ := c.RGBA()
 		out += gcolor.RGB(uint8(r>>8), uint8(g>>8), uint8(b>>8), true).Sprint(" ")
 	}
-	fmt.Println(out)
+	fmt.Print(".")
+	//fmt.Println(out)
 
 	//g, err := gradient.New(e.leds...)
 	//if err != nil {

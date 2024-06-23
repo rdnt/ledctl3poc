@@ -1,6 +1,8 @@
 package types
 
-import "context"
+import (
+	"context"
+)
 
 type DisplayRepository interface {
 	All() ([]Display, error)
@@ -15,7 +17,7 @@ type Display interface {
 	Resolution() string
 	String() string
 	Close() error
-	Capture(ctx context.Context, framerate int) chan []byte
+	Capture(ctx context.Context, pollInterval int) (chan []byte, chan error)
 	Orientation() Orientation
 }
 

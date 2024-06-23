@@ -1,7 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
-  "description": "display",
   "properties": {
     "width": {
       "type": "integer",
@@ -21,10 +20,10 @@
       "type": "integer",
       "default": 0
     },
-    "framerate": {
-      "type": "integer",
-      "default": 60,
-      "minimum": 1
+    "orientation": {
+      "type": "string",
+      "enum": ["landscape", "landscape-reverse","portrait", "portrait-reverse"],
+      "default": "landscape"
     }
   },
   "required": [
@@ -32,6 +31,6 @@
     "height",
     "left",
     "top",
-    "framerate"
+    "orientation"
   ]
 }

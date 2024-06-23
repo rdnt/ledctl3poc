@@ -8,12 +8,13 @@ import (
 )
 
 type UpdateEvent struct {
-	SinkId  uuid.UUID
+	NodeId  uuid.UUID
 	Outputs []UpdateEventOutput
 	Latency time.Duration
 }
 
 type UpdateEventOutput struct {
+	SinkId   uuid.UUID
 	OutputId uuid.UUID
 	Pix      []color.NRGBA
 }

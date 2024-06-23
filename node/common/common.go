@@ -1,8 +1,6 @@
 package common
 
 import (
-	"image/color"
-
 	"github.com/google/uuid"
 
 	"ledctl3/node/types"
@@ -10,21 +8,21 @@ import (
 
 type Input interface {
 	Id() uuid.UUID
-	DriverId() uuid.UUID
-	Start(cfg types.LinksConfig) error
+	SourceId() uuid.UUID
+	//Init(cfg types.InputConfig) error
 	Events() <-chan types.UpdateEvent
-	Stop() error
-	Schema() map[string]any
-	AssistedSetup() map[string]any
+	//Close() error
+	Schema() []byte
+	LinkSchema() []byte
+	//AssistedSetup() map[string]any
 }
 
 type Output interface {
 	Id() uuid.UUID
 	DriverId() uuid.UUID
-	Render([]color.NRGBA)
 	Leds() int
-	//Start() error
-	//Stop() error
+	//Init() error
+	//Close() error
 }
 
 type InputRegistry interface {
@@ -43,9 +41,6 @@ type IORegistry interface {
 }
 
 type StateHolder interface {
-	//Id() uuid.UUID
-	SetConfig([]byte) error // TODO: only store state, and have the node react to config changes instead.
-	GetConfig() ([]byte, error)
 	SetState([]byte) error
 	GetState() ([]byte, error)
 }

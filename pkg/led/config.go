@@ -4,12 +4,20 @@ import (
 	_ "embed"
 )
 
-//go install github.com/atombender/go-jsonschema@latest
-//go:generate go-jsonschema -p led --tags json -o schema.gen.go schema.json
+//go:generate go-jsonschema -p led --tags json -o sink_schema.gen.go sink_schema.json
 
-//go:embed schema.json
-var schema []byte
+//go:embed sink_schema.json
+var sinkSchemaBin []byte
 
-func (d *dev) Schema() ([]byte, error) {
-	return schema, nil
+func (d *dev) Schema() []byte {
+	return sinkSchemaBin
+}
+
+//go:generate go-jsonschema -p led --tags json -o output_schema.gen.go output_schema.json
+
+//go:embed output_schema.json
+var outputSchemaBin []byte
+
+func (o *output) Schema() []byte {
+	return outputSchemaBin
 }

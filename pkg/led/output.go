@@ -27,12 +27,16 @@ func (o *output) Id() uuid.UUID {
 	return o.id
 }
 
-func (o *output) DriverId() uuid.UUID {
+func (o *output) SinkId() uuid.UUID {
 	return o.driver.id
 }
 
 func (o *output) Leds() int {
 	return o.leds
+}
+
+func (o *output) Configure([]byte) error {
+	return nil
 }
 
 //func (o *output) Render(pix []color.NRGBA) {

@@ -12,17 +12,19 @@ import (
 
 	"ledctl3/node/common"
 	"ledctl3/node/event"
-	"ledctl3/node/types"
 )
 
 type Node struct {
-	id      uuid.UUID
-	mux     sync.Mutex
-	cfg     Config
+	id  uuid.UUID
+	mux sync.Mutex
+	cfg Config
+
 	inputs  map[uuid.UUID]common.Input
 	outputs map[uuid.UUID]common.Output
 	sources map[uuid.UUID]Source
 	sinks   map[uuid.UUID]Sink
+
+	connMux sync.Mutex
 	conn    Conn
 }
 
@@ -212,6 +214,21 @@ func (n *Node) AddInput(in common.Input) {
 	n.inputs[in.Id()] = in
 	//n.inputCfgs[in.OutputId()] = inputConfig{}
 
+	n.connMux.Lock()
+	conn := n.conn
+	n.connMux.Unlock()
+
+	if conn != nil {
+		err := n.write(conn, event.InputConnected{
+			Id:       in.Id(),
+			SourceId: in.SourceId(),
+			Schema:   in.Schema(),
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
 	go func() {
 		// forward messages from input to the network
 		for e := range in.Events() {
@@ -222,7 +239,7 @@ func (n *Node) AddInput(in common.Input) {
 			//  the RTT from source to sink. the registry can then calculate
 			//  how much the sink should offset its render time to match the
 			//  latency of the slowest node on the network.
-			//if e.DriverId == n.id {
+			//if e.SinkId == n.id {
 			//	// deliver to local node outputs
 			//
 			//	for _, out := range e.Outputs {
@@ -239,6 +256,14 @@ func (n *Node) AddInput(in common.Input) {
 
 			e := e
 			go func() {
+				n.connMux.Lock()
+				conn := n.conn
+				n.connMux.Unlock()
+
+				if conn == nil {
+					return
+				}
+
 				var outputs []event.DataOutput
 				for _, output := range e.Outputs {
 					outputs = append(outputs, event.DataOutput{
@@ -248,11 +273,7 @@ func (n *Node) AddInput(in common.Input) {
 					})
 				}
 
-				if n.conn == nil {
-					return
-				}
-
-				err := n.write(n.conn, event.Data{
+				err := n.write(conn, event.Data{
 					NodeId:  e.NodeId,
 					Outputs: outputs,
 					Latency: e.Latency,
@@ -277,16 +298,16 @@ func (n *Node) AddInput(in common.Input) {
 type Source interface {
 	Id() uuid.UUID
 	Init(id uuid.UUID, reg common.IORegistry, stateHolder common.StateHolder) error
-	Configure(cfg types.SourceConfig) error
-	Schema() ([]byte, error)
+	Configure(cfg []byte) error
+	Schema() []byte
 	Close() error
 }
 
 type Sink interface {
 	Id() uuid.UUID
 	Start(id uuid.UUID, reg common.IORegistry, stateHolder common.StateHolder) error
-	SetConfig(cfg []byte) error
-	Schema() ([]byte, error)
+	Configure(cfg []byte) error
+	Schema() []byte
 	Render(pixs map[uuid.UUID][]color.NRGBA) error
 	Stop() error
 }
@@ -311,28 +332,72 @@ func RegisterSink(name string, driver Sink) {
 
 func (n *Node) RemoveInput(id uuid.UUID) {
 	//fmt.Println("RemoveInput CALLED", id)
+
+	n.connMux.Lock()
+	conn := n.conn
+	n.connMux.Unlock()
+
+	if conn != nil {
+		err := n.write(conn, event.InputDisconnected{
+			Id:       id,
+			SourceId: n.inputs[id].SourceId(),
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
 	delete(n.inputs, id)
 }
 
 func (n *Node) AddOutput(out common.Output) {
-	fmt.Println("ADD OUTPUT CALLED", out)
+	//fmt.Println("ADD OUTPUT CALLED", out)
 
 	n.outputs[out.Id()] = out
+
+	n.connMux.Lock()
+	conn := n.conn
+	n.connMux.Unlock()
+
+	if conn != nil {
+		err := n.write(conn, event.OutputConnected{
+			Id:     out.Id(),
+			SinkId: out.SinkId(),
+			Leds:   out.Leds(),
+			Schema: out.Schema(),
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 func (n *Node) RemoveOutput(id uuid.UUID) {
-	fmt.Println("REMOVE OUTPUT CALLED", id)
+	//fmt.Println("REMOVE OUTPUT CALLED", id)
+	n.connMux.Lock()
+	conn := n.conn
+	n.connMux.Unlock()
+
+	if conn != nil {
+		err := n.write(conn, event.OutputDisconnected{
+			Id:     id,
+			SinkId: n.outputs[id].SinkId(),
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 
 	delete(n.outputs, id)
 }
 
 func (n *Node) handleConfigureSink(c Conn, e event.ConfigureSink) error {
-	dev, ok := n.sinks[e.SinkId]
+	sink, ok := n.sinks[e.SinkId]
 	if !ok {
 		return errors.New("sink not found")
 	}
 
-	err := dev.SetConfig(e.SinkConfig)
+	err := sink.Configure(e.SinkConfig)
 	if err != nil {
 		return err
 	}

@@ -69,11 +69,13 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(3 * time.Second)
+
 			err := reg.EnableProfile(uuid.MustParse("aaaaaaaa-0000-4000-0000-000000000000"))
 			if err != nil {
 				fmt.Println("error enabling profile:", err)
 			}
+			break
 		}
 	}()
 

@@ -28,6 +28,7 @@ type display struct {
 	devCtx      *d3d.ID3D11DeviceContext
 	ddup        *d3d.OutputDuplicator
 	orientation types.Orientation
+	needsReset  bool
 }
 
 func (d *display) Id() int {
@@ -62,7 +63,17 @@ func (d *display) Capture(ctx context.Context, pollRate int) (chan []byte, chan 
 	frames := make(chan []byte, 1)
 	errCh := make(chan error, 1)
 
-	//defer d.reset()
+	//if d.needsReset {
+	//	err := d.reset()
+	//	if err != nil {
+	//		fmt.Println("RESET ERROR", err)
+	//		errCh <- err
+	//		close(frames)
+	//		close(errCh)
+	//		return frames, errCh
+	//	}
+	//	d.needsReset = false
+	//}
 
 	//fmt.Println("reset now")
 	//err := d.reset()
@@ -70,46 +81,34 @@ func (d *display) Capture(ctx context.Context, pollRate int) (chan []byte, chan 
 	//	panic(err)
 	//}
 
-	fmt.Println("@@@")
-	fmt.Println(d.dev)
-	fmt.Println(d.devCtx)
-	fmt.Println(d.ddup)
-
 	go func() {
+		//defer fmt.Println("CAPTURE RETURNED", d.id)
 		defer close(frames)
 		defer close(errCh)
 
 		ticker := time.NewTicker(time.Duration(1000/pollRate) * time.Millisecond)
 		defer ticker.Stop()
 
-		fmt.Println("============ START fps", pollRate)
+		//fmt.Println("capture just started", d.id)
 
 		for range ticker.C {
 			select {
 			case <-ctx.Done():
-				fmt.Println(d.id, "context done")
+				//d.Close()
+				errCh <- ctx.Err()
 				return
 			default:
+				//fmt.Println("get frame", d.id)
 				pix, err := d.GetFrame()
 				if errors.Is(err, errNoFrame) {
 					//fmt.Println(d.id, "no frame")
 					continue
 				} else if err != nil {
-
-					err := d.Close()
-					if err != nil {
-						fmt.Println(d.id, "failed to reset from capture")
-					}
+					//d.Close()
 					errCh <- err
-
 					return
 				}
 
-				if pix == nil {
-					panic("invalid frame")
-				}
-
-				//fmt.Println(d.id, "dispatch")
 				frames <- pix
 			}
 		}
@@ -136,8 +135,7 @@ func (d *display) GetFrame() ([]byte, error) {
 }
 
 func (d *display) reset() error {
-	_ = d.Close()
-
+	//fmt.Println("reset called")
 	// Keep this thread, so windows/d3d11/dxgi can use their threadlocal caches, if any
 	runtime.LockOSThread()
 
@@ -181,7 +179,7 @@ func (d *display) reset() error {
 }
 
 func (d *display) Close() error {
-	fmt.Println("CLOSE called")
+	//fmt.Println("close called")
 	if d.dev != nil {
 		d.dev.Release()
 		d.dev = nil

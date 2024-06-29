@@ -555,7 +555,6 @@ func TestCreateEnableProfile(t *testing.T) {
 				Id:     outId,
 				SinkId: sinkId,
 				Leds:   40,
-				Config: nil,
 				Schema: nil,
 			})
 			assert.NilError(t, err)

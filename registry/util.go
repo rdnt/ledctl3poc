@@ -95,7 +95,7 @@ func activateInput() {
 	//
 	//	evtOutCfgs = append(evtOutCfgs, event.SetInputActiveOutput{
 	//		OutputId: cfg.OutputId,
-	//		SinkId:   dev.Outputs[cfg.OutputId].DriverId,
+	//		SinkId:   dev.Outputs[cfg.OutputId].SinkId,
 	//		Leds:     dev.Outputs[cfg.OutputId].Leds,
 	//		Config:   cfg.Config,
 	//	})

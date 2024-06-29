@@ -8,14 +8,16 @@ const (
 	TypeInputDisconnected  = "InputDisconnected"
 	TypeOutputConnected    = "OutputConnected"
 	TypeOutputDisconnected = "OutputDisconnected"
-	TypeSetSourceConfig    = "SetConfig"
+	TypeSetSourceConfig    = "Configure"
 	TypeSetSinkConfig      = "SetSinkConfig"
 
-	TypeSetInputConfig  = "SetInputConfig"
-	TypeSetOutputConfig = "SetOutputConfig"
+	TypeConfigureInput  = "ConfigureInput"
+	TypeConfigureOutput = "ConfigureOutput"
 
 	TypeConfigureSource = "ConfigureSource"
 	TypeConfigureSink   = "ConfigureSink"
+
+	TypeConfigureLinks = "ConfigureLinks"
 
 	//TypeResponse = "CommandResponse"
 

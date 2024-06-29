@@ -14,32 +14,20 @@ import (
 
 	"ledctl3/node"
 	"ledctl3/node/common"
-	"ledctl3/node/types"
 	"ledctl3/pkg/screencapture/dxgi"
 	types2 "ledctl3/pkg/screencapture/types"
 )
 
 func init() {
-	scr, err := New("dxgi")
-	if err != nil {
-		panic(err)
-	}
-
-	node.RegisterSource("screen", scr)
+	node.RegisterSource("screen", New())
 }
 
-func New(typ string) (node.Source, error) {
-	repo, err := newDisplayRepo(typ)
-	if err != nil {
-		return nil, err
-	}
-
+func New() node.Source {
 	c := &Capturer{
-		repo:   repo,
 		inputs: make(map[uuid.UUID]*input),
 	}
 
-	return c, nil
+	return c
 }
 
 func newDisplayRepo(typ string) (types2.DisplayRepository, error) {
@@ -72,8 +60,13 @@ type Capturer struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	//cfg  SourceSchemaJson
-	//bcfg []byte
+	cfg SourceConfig
+}
+
+type SourceConfig SourceSchemaJson
+
+func (s SourceConfig) Equal(s2 SourceConfig) bool {
+	return s.CapturerType == s2.CapturerType
 }
 
 func (c *Capturer) Close() error {
@@ -89,6 +82,12 @@ func (c *Capturer) Close() error {
 }
 
 func (c *Capturer) stop() {
+	fmt.Println("capturer.stop")
+
+	if c.cancel == nil {
+		return
+	}
+
 	c.cancel()
 	c.wg.Wait()
 	c.cancel = nil
@@ -98,44 +97,28 @@ func (c *Capturer) Id() uuid.UUID {
 	return c.id
 }
 
-func (c *Capturer) Configure(cfg types.SourceConfig) error {
+func (c *Capturer) Configure(b []byte) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	//var restart bool
-	//if !bytes.Equal(c.bcfg, cfg.Config) {
-	//err := c.applyConfig(cfg.Config)
-	//if err != nil {
-	//	return err
-	//}
-	//restart = true
-	//}
-
-	//c.stop()
-
-	for _, cfg := range cfg.Inputs {
-		in, ok := c.inputs[cfg.InputId]
-		if !ok {
-			fmt.Println("unknown input", cfg.InputId)
-			continue
-		}
-
-		fmt.Println("Configuring input", in.id, len(cfg.Outputs))
-		err := in.configure(cfg)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		fmt.Println("configured", in.id)
+	var cfg SourceConfig
+	err := json.Unmarshal(b, &cfg)
+	if err != nil {
+		return err
 	}
 
-	//c.start()
+	if c.cfg.Equal(cfg) {
+		//return nil
+	}
 
-	//if restart {
-	//	fmt.Println("RESTARTING ALL")
-	//	c.captureCancel()
-	//	c.captureWg.Wait()
-	//}
+	c.stop()
+
+	fmt.Printf("source config set %+v\n", c.cfg)
+
+	err = c.start()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -154,32 +137,61 @@ func (c *Capturer) Init(id uuid.UUID, reg common.IORegistry, store common.StateH
 	c.reg = reg
 	c.store = store
 
-	c.start()
+	c.cfg = SourceConfig{
+		CapturerType: "dxgi",
+	}
+
+	err := c.start()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (c *Capturer) start() {
+func (c *Capturer) start() error {
+	fmt.Println("capturer.start")
+
+	repo, err := newDisplayRepo(string(c.cfg.CapturerType))
+	if err != nil {
+		return err
+	}
+
+	c.repo = repo
+
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
 	c.wg.Add(1)
 	go c.mainLoop(ctx)
+
+	return nil
 }
 
 func (c *Capturer) mainLoop(ctx context.Context) {
+	fmt.Println("capturer.mainLoop")
+
 	defer c.wg.Done()
 
 	for {
-		err := c.run2(ctx)
-		if err != nil {
-			fmt.Println(err)
+		select {
+		default:
+			fmt.Println("capturer.mainLoop.iter")
+			err := c.run(ctx)
+			if err != nil {
+				fmt.Println(err)
+			}
+			time.Sleep(30 * time.Millisecond)
+			if ctx.Err() != nil {
+				return
+			}
 		}
-		time.Sleep(30 * time.Millisecond)
 	}
 }
 
-func (c *Capturer) run2(ctx context.Context) error {
+func (c *Capturer) run(ctx context.Context) error {
+	fmt.Println("capturer.run")
+
 	displays, err := c.repo.All()
 	if err != nil {
 		fmt.Println("repo.All error", err)
@@ -252,7 +264,7 @@ func (c *Capturer) run2(ctx context.Context) error {
 		c.reg.AddInput(in)
 	}
 
-	fmt.Println("restarting run with displays", c.inputs)
+	//fmt.Println("restarting run with displays", c.inputs)
 
 	//ctx, cancel := context.WithCancel(context.Background())
 	//c.captureCancel = cancel
@@ -263,7 +275,7 @@ func (c *Capturer) run2(ctx context.Context) error {
 	//
 	//fmt.Println("waiting for inputs")
 	//c.captureWg.Wait()
-	//fmt.Println("inputs stopped")
+	fmt.Println("inputs starting")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -277,7 +289,7 @@ func (c *Capturer) run2(ctx context.Context) error {
 			defer captureWg.Done()
 			defer cancel()
 
-			in.run2(ctx)
+			in.run(ctx)
 		}()
 	}
 

@@ -9,8 +9,8 @@ import (
 //go:embed source_schema.json
 var sourceSchemaBin []byte
 
-func (c *Capturer) Schema() ([]byte, error) {
-	return sourceSchemaBin, nil
+func (c *Capturer) Schema() []byte {
+	return sourceSchemaBin
 }
 
 //go:generate go-jsonschema -p screen --tags json -o input_schema.gen.go input_schema.json

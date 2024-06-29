@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
 	"ledctl3/node/event"
 	"ledctl3/registry/types"
@@ -104,7 +103,7 @@ func (r *Registry) EnableProfile(id uuid.UUID) error {
 func (r *Registry) configureSource(srcId uuid.UUID) error {
 	src := r.State.Sources[srcId]
 
-	inputCfgs := map[uuid.UUID]event.ConfigureSourceInput{}
+	inputCfgs := map[uuid.UUID]event.ConfigureLinks{}
 
 	for _, prof := range r.State.Profiles {
 		if !prof.Enabled {
@@ -124,15 +123,14 @@ func (r *Registry) configureSource(srcId uuid.UUID) error {
 
 			cfg, ok := inputCfgs[link.InputId]
 			if !ok {
-				cfg = event.ConfigureSourceInput{
-					InputId:     input.Id,
-					InputConfig: input.Config,
-					Outputs:     nil,
+				cfg = event.ConfigureLinks{
+					InputId:  input.Id,
+					SourceId: input.SourceId,
+					Outputs:  nil,
 				}
-				inputCfgs[input.Id] = cfg
 			}
 
-			cfg.Outputs = append(cfg.Outputs, event.ConfigureSourceOutput{
+			cfg.Outputs = append(cfg.Outputs, event.ConfigureLinksOutput{
 				NodeId:   output.NodeId,
 				SinkId:   output.SinkId,
 				OutputId: link.OutputId,
@@ -144,14 +142,12 @@ func (r *Registry) configureSource(srcId uuid.UUID) error {
 		}
 	}
 
-	err := r.writeNode(src.NodeId, event.ConfigureSource{
-		SourceId:     src.Id,
-		SourceConfig: src.Config,
-		Inputs:       lo.Values(inputCfgs),
-	})
-	if err != nil {
-		fmt.Println("error sending event:", err)
-		return err
+	for _, cfg := range inputCfgs {
+		err := r.writeNode(src.NodeId, cfg)
+		if err != nil {
+			fmt.Println("error sending event:", err)
+			return err
+		}
 	}
 
 	return nil

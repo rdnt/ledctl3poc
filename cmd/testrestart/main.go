@@ -21,42 +21,23 @@ func main() {
 
 	d := displays[0]
 
-	fmt.Println("1")
-	func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	for {
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 
-		frames := d.Capture(ctx, 60)
+			frames, errCh := d.Capture(ctx, 240)
 
-		go func() {
 			defer cancel()
 
-			for range frames {
-				fmt.Println(".")
+			for {
+				select {
+				case _ = <-errCh:
+					//fmt.Println("error during capture:", err)
+					return
+				case <-frames:
+					fmt.Print(".")
+				}
 			}
 		}()
-	}()
-
-	time.Sleep(5 * time.Second)
-
-	fmt.Println("2")
-	func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-		frames := d.Capture(ctx, 60)
-
-		go func() {
-			defer func() {
-				fmt.Println("@@@@@@@@@@@@@@@@@@@@ CLOSE 1")
-			}()
-			defer cancel()
-
-			for range frames {
-				fmt.Println(".")
-			}
-		}()
-	}()
-
-	time.Sleep(15 * time.Second)
-	fmt.Println("close")
-	d.Close()
+	}
 }

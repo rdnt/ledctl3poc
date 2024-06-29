@@ -1,6 +1,7 @@
 package dxgi
 
 import (
+	"fmt"
 	"image"
 
 	"ledctl3/pkg/screencapture/types"
@@ -19,7 +20,8 @@ func (c *DxgiCapturer) All() ([]types.Display, error) {
 	i := 0
 	for {
 		d := &display{
-			id: i,
+			id:         i,
+			needsReset: false,
 		}
 
 		err := d.reset()
@@ -38,7 +40,7 @@ func (c *DxgiCapturer) All() ([]types.Display, error) {
 
 		ds = append(ds, d)
 
-		//fmt.Printf("display after reset:\n%#v\n", d)
+		fmt.Printf("display after reset:\n%#v\n", d)
 
 		i++
 	}

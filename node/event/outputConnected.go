@@ -11,7 +11,6 @@ type OutputConnected struct {
 	SinkId uuid.UUID
 	Leds   int
 	Schema json.RawMessage
-	Config json.RawMessage
 }
 
 func (e OutputConnected) Type() string {

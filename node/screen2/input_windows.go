@@ -1,7 +1,6 @@
 package screen
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,7 +22,6 @@ type input struct {
 	srcId   uuid.UUID
 	events  chan types.UpdateEvent
 
-	parentCtx     context.Context
 	captureWg     sync.WaitGroup
 	captureCancel context.CancelFunc
 
@@ -34,8 +32,7 @@ type input struct {
 
 	frames chan []byte
 
-	bcfg []byte
-	cfg  InputConfig
+	cfg InputConfig
 
 	prepareOnce sync.Once
 	thumb       *image.NRGBA
@@ -48,10 +45,13 @@ type input struct {
 	lastFrame []byte
 }
 
-type InputConfig struct {
-	Config  InputSchemaJson
-	Outputs map[uuid.UUID]OutputConfig
+type InputConfig InputSchemaJson
+
+func (c InputConfig) Equal(c2 InputConfig) bool {
+	return c.Framerate == c2.Framerate
 }
+
+type OutputsConfig map[uuid.UUID]OutputConfig
 
 type OutputConfig struct {
 	OutputId uuid.UUID
@@ -82,69 +82,93 @@ func newInput(id, srcId uuid.UUID, d types2.Display) *input {
 		procs:   make(map[uuid.UUID]*outputProcessor),
 		events:  make(chan types.UpdateEvent),
 		stop:    make(chan bool),
-		cfg: InputConfig{
-			Config: InputSchemaJson{
-				Framerate: 1,
-			},
-			Outputs: nil,
-		},
 	}
 
 	return in
 }
 
-func (in *input) configure(cfg types.InputConfig) error {
-	var restartCapture bool
-	if !bytes.Equal(in.bcfg, cfg.Config) {
-		restartCapture = true
-	}
-
-	var cfg2 InputSchemaJson
-	err := json.Unmarshal(cfg.Config, &cfg2)
+func (in *input) Configure(b []byte) error {
+	var cfg InputConfig
+	err := json.Unmarshal(b, &cfg)
 	if err != nil {
 		return err
 	}
 
-	inCfg := InputConfig{
-		Config:  cfg2,
-		Outputs: make(map[uuid.UUID]OutputConfig),
+	if in.cfg.Equal(cfg) {
+		return nil
 	}
 
-	for _, out := range cfg.Outputs {
+	in.stopCapture()
+	in.lastFrame = nil
+
+	in.cfg = cfg
+
+	in.startCapture()
+
+	//for _, out := range cfg.Outputs {
+	//	var ocfg LinkSchemaJson
+	//	err := json.Unmarshal(out.Config, &ocfg)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	inCfg.Outputs[out.OutputId] = OutputConfig{
+	//		OutputId: out.OutputId,
+	//		NodeId:   out.NodeId,
+	//		SinkId:   out.SinkId,
+	//		Leds:     out.Leds,
+	//		Config:   ocfg,
+	//	}
+	//}
+
+	//in.stopProcess()
+
+	//if restartCapture {
+	//	in.stopCapture()
+	//	in.lastFrame = nil
+	//}
+
+	//for _, out := range in.cfg.Outputs {
+	//	in.procs[out.OutputId] = newOutputProcessor(out, in.display.Width(), in.display.Height())
+	//}
+
+	//in.startProcess()
+
+	//if restartCapture {
+	//	in.startCapture()
+	//}
+
+	return nil
+}
+
+func (in *input) Connect(outsCfg []types.OutputConfig) error {
+	var outs []OutputConfig
+
+	for _, out := range outsCfg {
 		var ocfg LinkSchemaJson
 		err := json.Unmarshal(out.Config, &ocfg)
 		if err != nil {
 			return err
 		}
 
-		inCfg.Outputs[out.OutputId] = OutputConfig{
+		outs = append(outs, OutputConfig{
 			OutputId: out.OutputId,
 			NodeId:   out.NodeId,
 			SinkId:   out.SinkId,
 			Leds:     out.Leds,
 			Config:   ocfg,
-		}
+		})
 	}
 
 	in.stopProcess()
+	in.stopCapture()
 
-	if restartCapture {
-		in.stopCapture()
-		in.lastFrame = nil
-	}
-
-	in.cfg = inCfg
-	in.bcfg = cfg.Config
-
-	for _, out := range in.cfg.Outputs {
+	for _, out := range outs {
 		in.procs[out.OutputId] = newOutputProcessor(out, in.display.Width(), in.display.Height())
 	}
 
 	in.startProcess()
-
-	if restartCapture {
-		in.startCapture()
-	}
+	in.startCapture()
 
 	return nil
 }
@@ -162,21 +186,35 @@ func (in *input) configure(cfg types.InputConfig) error {
 //	in.stopProcess()
 //}
 
-func (in *input) run2(parentCtx context.Context) {
-	fmt.Println("run2")
-
-	in.parentCtx = parentCtx
+func (in *input) run(parentCtx context.Context) {
+	fmt.Println("input.run", in.id)
 
 	in.startProcess()
 	in.startCapture()
 
-	<-in.stop
+	select {
+	case <-parentCtx.Done():
+		fmt.Println("parent context done", parentCtx.Err())
+	}
+
+	fmt.Println("PARENT DONE", in.id)
+
+	//select {
+	//case <-in.stop:
+	//	fmt.Println("close with error")
+	//	//case <-parentCtx.Done():
+	//}
 
 	in.stopCapture()
 	in.stopProcess()
+
+	in.display.Close()
 }
 
 func (in *input) startCapture() {
+	fmt.Println("startCapture", in.id)
+	defer fmt.Println("startCapture done", in.id)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	in.captureCancel = cancel
 
@@ -185,6 +223,9 @@ func (in *input) startCapture() {
 }
 
 func (in *input) stopCapture() {
+	fmt.Println("stopCapture", in.id)
+	defer fmt.Println("stopCapture done", in.id)
+
 	in.captureCancel()
 	in.captureWg.Wait()
 }
@@ -192,21 +233,32 @@ func (in *input) stopCapture() {
 func (in *input) capture(ctx context.Context) {
 	defer in.captureWg.Done()
 
-	frames, errCh := in.display.Capture(ctx, in.cfg.Config.Framerate)
-	//defer in.display.Close()
+	var pollRate int
+	if len(in.procs) == 0 {
+		pollRate = 1
+	} else {
+		pollRate = max(in.cfg.Framerate, 1)
+	}
+
+	frames, errCh := in.display.Capture(ctx, pollRate)
 
 	for {
 		select {
-		case <-in.parentCtx.Done():
-			return
+		//case <-in.parentCtx.Done():
+		//	fmt.Println("parentctx done, capture canceled")
+		//	return
 		case err := <-errCh:
 			if err != nil {
-				in.stop <- true
+				fmt.Println("###", err, in.id)
+				return
 			}
 		case frame, ok := <-frames:
 			if !ok {
+				fmt.Println("frames closed")
 				return
 			}
+
+			fmt.Printf("%d", in.display.Id())
 
 			select {
 			case in.frames <- frame:
@@ -217,6 +269,9 @@ func (in *input) capture(ctx context.Context) {
 }
 
 func (in *input) startProcess() {
+	fmt.Println("startProcess", in.id)
+	defer fmt.Println("startProcess done", in.id)
+
 	if in.processCancel != nil {
 		return
 	}
@@ -265,6 +320,9 @@ func (in *input) prepareProcess() {
 }
 
 func (in *input) stopProcess() {
+	fmt.Println("stopProcess", in.id)
+	defer fmt.Println("stopProcess done", in.id)
+
 	if in.processCancel == nil {
 		return
 	}

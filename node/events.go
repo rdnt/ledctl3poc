@@ -1,12 +1,12 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"reflect"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
 	"ledctl3/node/event"
 	"ledctl3/node/types"
@@ -61,10 +61,13 @@ func (n *Node) ProcessEvent(c Conn, e any) error {
 	//case event.SetSinkConfig:
 	//	err = n.handleSetSinkConfig(c, e)
 	//
-	//case event.SetInputConfig:
-	//	err = n.handleSetInputConfig(c, e)
-	//case event.SetOutputConfig:
-	//	err = n.handleSetOutputConfig(c, e)
+	case event.ConfigureInput:
+		err = n.handleConfigureInput(c, e)
+	case event.ConfigureOutput:
+		err = n.handleConfigureOutput(c, e)
+
+	case event.ConfigureLinks:
+		err = n.handleConfigureLinks(c, e)
 
 	case event.Data:
 		n.handleData(c, e)
@@ -74,27 +77,93 @@ func (n *Node) ProcessEvent(c Conn, e any) error {
 		fmt.Printf("unknown event %#v\n", e)
 	}
 
-	//fmt.Println("HandleConnection done")
+	if _, ok := e.(event.Data); !ok {
+		fmt.Printf("%s: proc %s\n", c.Addr(), reflect.TypeOf(e).Name())
+	}
 
 	return err
 }
 
-//func (n *Node) handleSetInputConfig(c Conn, e event.SetInputConfig) error {
-//	// TODO: implement
-//	in, ok := n.inputs[e.InputId]
-//	if !ok {
-//		return errors.New("input not found")
-//	}
-//
-//	in.Schema()
-//	return nil
-//}
+func (n *Node) handleConfigureInput(c Conn, e event.ConfigureInput) error {
+	src, ok := n.sources[e.SourceId]
+	if !ok {
+		return errors.New("source not found")
+	}
 
-//func (n *Node) handleSetOutputConfig(c Conn, e event.SetOutputConfig) error {
-//
-//	// TODO: implement
-//	return nil
-//}
+	in, ok := n.inputs[e.InputId]
+	if !ok {
+		return errors.New("input not found")
+	}
+
+	if in.SourceId() != src.Id() {
+		return errors.New("invalid input source")
+	}
+
+	err := in.Configure(e.Config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *Node) handleConfigureLinks(c Conn, e event.ConfigureLinks) error {
+	src, ok := n.sources[e.SourceId]
+	if !ok {
+		return errors.New("source not found")
+	}
+
+	in, ok := n.inputs[e.InputId]
+	if !ok {
+		return errors.New("input not found")
+	}
+
+	if in.SourceId() != src.Id() {
+		return errors.New("invalid input source")
+	}
+
+	var cfgs []types.OutputConfig
+
+	for _, cfg := range e.Outputs {
+		cfgs = append(cfgs, types.OutputConfig{
+			OutputId: cfg.OutputId,
+			NodeId:   cfg.NodeId,
+			SinkId:   cfg.SinkId,
+			Leds:     cfg.Leds,
+			Config:   cfg.Config,
+		})
+	}
+
+	err := in.Connect(cfgs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *Node) handleConfigureOutput(c Conn, e event.ConfigureOutput) error {
+	sink, ok := n.sinks[e.SinkId]
+	if !ok {
+		return errors.New("source not found")
+	}
+
+	out, ok := n.outputs[e.OutputId]
+	if !ok {
+		return errors.New("input not found")
+	}
+
+	if out.SinkId() != sink.Id() {
+		return errors.New("invalid input source")
+	}
+
+	err := out.Configure(e.Config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (n *Node) write(c Conn, v event.Event) error {
 	codec := event.JSONCodec{}
@@ -106,6 +175,10 @@ func (n *Node) write(c Conn, v event.Event) error {
 	b, err := codec.MarshalBinary(v)
 	if err != nil {
 		return err
+	}
+
+	if c == nil {
+		panic("conn is nil")
 	}
 
 	return c.Write(b)
@@ -121,29 +194,17 @@ func (n *Node) handleConnected(c Conn) {
 
 	var sources []event.CapabilitiesSource
 	for _, d := range n.sources {
-		schema, err := d.Schema()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
 		sources = append(sources, event.CapabilitiesSource{
 			Id:     d.Id(),
-			Schema: schema,
+			Schema: d.Schema(),
 		})
 	}
 
 	var sinks []event.CapabilitiesSink
 	for _, d := range n.sinks {
-		schema, err := d.Schema()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
 		sinks = append(sinks, event.CapabilitiesSink{
 			Id:     d.Id(),
-			Schema: schema,
+			Schema: d.Schema(),
 		})
 	}
 
@@ -172,7 +233,7 @@ func (n *Node) handleConnected(c Conn) {
 	for _, out := range n.outputs {
 		err := n.write(c, event.OutputConnected{
 			Id:     out.Id(),
-			SinkId: out.DriverId(),
+			SinkId: out.SinkId(),
 			Leds:   out.Leds(),
 		})
 		if err != nil {
@@ -181,11 +242,15 @@ func (n *Node) handleConnected(c Conn) {
 		}
 	}
 
+	n.connMux.Lock()
 	n.conn = c
+	n.connMux.Unlock()
 }
 
 func (n *Node) handleDisconnected(c Conn) {
+	n.connMux.Lock()
 	n.conn = nil
+	n.connMux.Unlock()
 }
 
 //func (s *Node) handleListCapabilitiesEvent(addr string, _ event.ListCapabilities) {
@@ -235,7 +300,7 @@ func (n *Node) handleDisconnected(c Conn) {
 //		for _, output := range input.Outputs {
 //			outputCfgs = append(outputCfgs, types.OutputConfig{
 //				OutputId: output.OutputId,
-//				//DriverId: output.DriverId,
+//				//SinkId: output.SinkId,
 //				SinkId: output.SinkId,
 //				Config: types.LinkConfig{},
 //				Leds:   output.Leds,
@@ -262,38 +327,35 @@ func (n *Node) handleConfigureSource(c Conn, e event.ConfigureSource) {
 		return
 	}
 
-	inputCfgs := make(map[uuid.UUID]types.InputConfig)
+	//inputCfgs := make(map[uuid.UUID]types.InputConfig)
+	//
+	//for _, e := range e.Inputs {
+	//	in, ok := n.inputs[e.InputId]
+	//	if !ok {
+	//		fmt.Println("input not found", e.InputId)
+	//		continue
+	//	}
+	//
+	//	outputCfgs := make([]types.OutputConfig, 0, len(e.Outputs))
+	//
+	//	for _, output := range e.Outputs {
+	//		outputCfgs = append(outputCfgs, types.OutputConfig{
+	//			NodeId:   output.NodeId,
+	//			SinkId:   output.SinkId,
+	//			OutputId: output.OutputId,
+	//			Leds:     output.Leds,
+	//			Config:   output.Config,
+	//		})
+	//	}
+	//
+	//	inputCfgs[in.Id()] = types.InputConfig{
+	//		InputId: e.InputId,
+	//		Config:  e.InputConfig,
+	//		Outputs: outputCfgs,
+	//	}
+	//}
 
-	for _, e := range e.Inputs {
-		in, ok := n.inputs[e.InputId]
-		if !ok {
-			fmt.Println("input not found", e.InputId)
-			continue
-		}
-
-		outputCfgs := make([]types.OutputConfig, 0, len(e.Outputs))
-
-		for _, output := range e.Outputs {
-			outputCfgs = append(outputCfgs, types.OutputConfig{
-				NodeId:   output.NodeId,
-				SinkId:   output.SinkId,
-				OutputId: output.OutputId,
-				Leds:     output.Leds,
-				Config:   output.Config,
-			})
-		}
-
-		inputCfgs[in.Id()] = types.InputConfig{
-			InputId: e.InputId,
-			Config:  e.InputConfig,
-			Outputs: outputCfgs,
-		}
-	}
-
-	err := src.Configure(types.SourceConfig{
-		Config: e.SourceConfig,
-		Inputs: lo.Values(inputCfgs),
-	})
+	err := src.Configure(e.SourceConfig)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -354,7 +416,7 @@ func (n *Node) handleData(c Conn, e event.Data) {
 //		return errors.New("sink not found")
 //	}
 //
-//	err := dev.SetConfig(e.Config)
+//	err := dev.Configure(e.Config)
 //	if err != nil {
 //		return err
 //	}

@@ -240,22 +240,22 @@ func (r *Registry) handleInputConnected(c Conn, e event.InputConnected) error {
 	input.Connected = true
 	input.Schema = e.Schema
 
-	//r.sendInputConfig(nodeId, input.SourceId, input.Id, input.Config)
+	r.configureInput(nodeId, input.SourceId, input.Id, input.Config)
 
 	return nil
 }
 
-//func (r *Registry) sendInputConfig(nodeId, sourceId, inputId uuid.UUID, cfg json.RawMessage) {
-//	err := r.writeNode(nodeId, event.SetInputConfig{
-//		SourceId: sourceId,
-//		InputId:  inputId,
-//		Config:   cfg,
-//	})
-//	if err != nil {
-//		fmt.Println("error sending event:", err)
-//		return
-//	}
-//}
+func (r *Registry) configureInput(nodeId, sourceId, inputId uuid.UUID, cfg json.RawMessage) {
+	err := r.writeNode(nodeId, event.ConfigureInput{
+		SourceId: sourceId,
+		InputId:  inputId,
+		Config:   cfg,
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return
+	}
+}
 
 func (r *Registry) handleInputDisconnected(c Conn, e event.InputDisconnected) error {
 	if _, ok := r.Conns[c.Addr()]; !ok {
@@ -320,22 +320,22 @@ func (r *Registry) handleOutputConnected(c Conn, e event.OutputConnected) error 
 	output.Leds = e.Leds
 	output.Schema = e.Schema
 
-	//r.sendOutputConfig(nodeId, output.SinkId, output.Id, output.Config)
+	r.configureOutput(nodeId, output.SinkId, output.Id, output.Config)
 
 	return nil
 }
 
-//func (r *Registry) sendOutputConfig(nodeId, sinkId, outputId uuid.UUID, cfg json.RawMessage) {
-//	err := r.writeNode(nodeId, event.SetOutputConfig{
-//		SinkId:   sinkId,
-//		OutputId: outputId,
-//		Config:   cfg,
-//	})
-//	if err != nil {
-//		fmt.Println("error sending event:", err)
-//		return
-//	}
-//}
+func (r *Registry) configureOutput(nodeId, sinkId, outputId uuid.UUID, cfg json.RawMessage) {
+	err := r.writeNode(nodeId, event.ConfigureOutput{
+		SinkId:   sinkId,
+		OutputId: outputId,
+		Config:   cfg,
+	})
+	if err != nil {
+		fmt.Println("error sending event:", err)
+		return
+	}
+}
 
 func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
 	if _, ok := r.Conns[c.Addr()]; !ok {

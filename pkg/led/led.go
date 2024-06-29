@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -70,7 +71,7 @@ func (d *dev) Id() uuid.UUID {
 	return d.id
 }
 
-func (d *dev) SetConfig(b []byte) error {
+func (d *dev) Configure(b []byte) error {
 	err := d.applyConfig(b)
 	if err != nil {
 		return err
@@ -101,10 +102,15 @@ func (d *dev) startRenderQueue() {
 	go func() {
 		defer d.wg.Done()
 
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-ticker.C:
+				d.invalidate()
 			case <-d.invalidateCh:
 				d.render()
 			}
@@ -155,14 +161,14 @@ func (d *dev) applyConfig(b []byte) error {
 	}
 
 	for _, o := range added {
-		fmt.Println("Adding output", o)
+		//fmt.Println("Adding output", o)
 		out := newOutput(o.Id, o.Count, o.Offset, d)
 		d.reg.AddOutput(out)
 		d.leds += out.leds
 		d.outputs[o.Id] = out
 	}
 
-	d.pix = make([]color.NRGBA, d.leds)
+	d.pix = nil
 
 	d.cfg = cfg
 
@@ -173,7 +179,7 @@ func (d *dev) applyConfig(b []byte) error {
 
 	//fmt.Println("start engine with", total, "leds")
 	//fmt.Println("-")
-	engine, err := ws281x.Init(18, total, 80, "grb") // TODO: make configurable
+	engine, err := ws281x.Init(18, total, 180, "grb") // TODO: make configurable
 	if err != nil {
 		return err
 	}
@@ -203,21 +209,30 @@ func (d *dev) Render(pixs map[uuid.UUID][]color.NRGBA) error {
 
 	d.pixMux.Lock()
 
+	if d.pix == nil {
+		d.pix = make([]color.NRGBA, d.leds)
+	}
+
 	for offset, pix := range outPixs {
 		for i := range len(pix) {
 			d.pix[offset+i] = pix[i]
 		}
 	}
 
-	d.invalidate()
-
 	d.pixMux.Unlock()
+
+	d.invalidate()
 
 	return nil
 }
 
 func (d *dev) render() {
 	d.pixMux.Lock()
+
+	if d.pix == nil {
+		d.pixMux.Unlock()
+		return
+	}
 
 	for i, c := range d.pix {
 		r, g, b, _ := c.RGBA()

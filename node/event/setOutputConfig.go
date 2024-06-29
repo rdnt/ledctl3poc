@@ -1,11 +1,17 @@
 package event
 
-//type SetOutputConfig struct {
-//	SinkId   uuid.UUID
-//	OutputId uuid.UUID
-//	Config   json.RawMessage
-//}
-//
-//func (SetOutputConfig) Type() string {
-//	return TypeSetOutputConfig
-//}
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
+
+type ConfigureOutput struct {
+	SinkId   uuid.UUID
+	OutputId uuid.UUID
+	Config   json.RawMessage
+}
+
+func (ConfigureOutput) Type() string {
+	return TypeConfigureOutput
+}

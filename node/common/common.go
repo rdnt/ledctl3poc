@@ -10,17 +10,21 @@ type Input interface {
 	Id() uuid.UUID
 	SourceId() uuid.UUID
 	//Init(cfg types.InputConfig) error
+	Configure(cfg []byte) error
 	Events() <-chan types.UpdateEvent
 	//Close() error
 	Schema() []byte
 	LinkSchema() []byte
+	Connect(outs []types.OutputConfig) error
 	//AssistedSetup() map[string]any
 }
 
 type Output interface {
 	Id() uuid.UUID
-	DriverId() uuid.UUID
+	SinkId() uuid.UUID
 	Leds() int
+	Configure([]byte) error
+	Schema() []byte
 	//Init() error
 	//Close() error
 }

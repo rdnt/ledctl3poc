@@ -1,11 +1,17 @@
 package event
 
-//type SetInputConfig struct {
-//	SourceId uuid.UUID
-//	InputId  uuid.UUID
-//	Config   json.RawMessage
-//}
-//
-//func (SetInputConfig) Type() string {
-//	return TypeSetInputConfig
-//}
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
+
+type ConfigureInput struct {
+	SourceId uuid.UUID
+	InputId  uuid.UUID
+	Config   json.RawMessage
+}
+
+func (ConfigureInput) Type() string {
+	return TypeConfigureInput
+}

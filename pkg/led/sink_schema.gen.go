@@ -5,7 +5,12 @@ package led
 import "encoding/json"
 import "fmt"
 
-type SchemaJsonOutputsElem struct {
+type SinkSchemaJson struct {
+	// Outputs corresponds to the JSON schema field "outputs".
+	Outputs []SinkSchemaJsonOutputsElem `json:"outputs"`
+}
+
+type SinkSchemaJsonOutputsElem struct {
 	// Count corresponds to the JSON schema field "count".
 	Count int `json:"count,omitempty"`
 
@@ -17,12 +22,12 @@ type SchemaJsonOutputsElem struct {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *SchemaJsonOutputsElem) UnmarshalJSON(b []byte) error {
+func (j *SinkSchemaJsonOutputsElem) UnmarshalJSON(b []byte) error {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	type Plain SchemaJsonOutputsElem
+	type Plain SinkSchemaJsonOutputsElem
 	var plain Plain
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
@@ -33,30 +38,24 @@ func (j *SchemaJsonOutputsElem) UnmarshalJSON(b []byte) error {
 	if v, ok := raw["offset"]; !ok || v == nil {
 		plain.Offset = 0.0
 	}
-	*j = SchemaJsonOutputsElem(plain)
+	*j = SinkSchemaJsonOutputsElem(plain)
 	return nil
 }
 
-// display
-type SchemaJson struct {
-	// Outputs corresponds to the JSON schema field "outputs".
-	Outputs []SchemaJsonOutputsElem `json:"outputs"`
-}
-
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *SchemaJson) UnmarshalJSON(b []byte) error {
+func (j *SinkSchemaJson) UnmarshalJSON(b []byte) error {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	if v, ok := raw["outputs"]; !ok || v == nil {
-		return fmt.Errorf("field outputs in SchemaJson: required")
+	if _, ok := raw["outputs"]; raw != nil && !ok {
+		return fmt.Errorf("field outputs in SinkSchemaJson: required")
 	}
-	type Plain SchemaJson
+	type Plain SinkSchemaJson
 	var plain Plain
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
 	}
-	*j = SchemaJson(plain)
+	*j = SinkSchemaJson(plain)
 	return nil
 }

@@ -337,6 +337,29 @@ func (r *Registry) configureOutput(nodeId, sinkId, outputId uuid.UUID, cfg json.
 	}
 }
 
+//func (r *Registry) test(nodeId, sinkId, outputId uuid.UUID) {
+//	for _, prof := range r.State.Profiles {
+//		if !prof.Enabled {
+//			continue
+//		}
+//
+//		for _, linkId := range prof.LinkIds {
+//			link := r.State.Links[linkId]
+//			if link.OutputId != outputId {
+//				continue
+//			}
+//
+//			output := r.State.Outputs[link.OutputId]
+//
+//			if output.NodeId != nodeId {
+//				continue
+//			}
+//
+//			outputIds = append(outputIds, link.OutputId)
+//		}
+//	}
+//}
+
 func (r *Registry) handleOutputDisconnected(c Conn, e event.OutputDisconnected) error {
 	if _, ok := r.Conns[c.Addr()]; !ok {
 		return errors.New("not connected")

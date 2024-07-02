@@ -2,9 +2,11 @@
 
 package screen
 
-import "encoding/json"
-import "fmt"
-import "reflect"
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+)
 
 type SourceSchemaJson struct {
 	// CapturerType corresponds to the JSON schema field "capturerType".

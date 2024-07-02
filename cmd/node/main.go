@@ -16,7 +16,8 @@ import (
 	"ledctl3/node/event"
 	"ledctl3/pkg/netserver"
 
-	_ "ledctl3/node/screen2"
+	_ "ledctl3/node/drivers/display"
+	_ "ledctl3/pkg/audiocapture"
 	_ "ledctl3/pkg/led"
 )
 

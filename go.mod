@@ -18,8 +18,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rpi-ws281x/rpi-ws281x-go v1.0.10
 	github.com/samber/lo v1.38.1
+	github.com/sgreben/piecewiselinear v1.2.0
 	github.com/spf13/cobra v1.8.0
-	golang.org/x/image v0.6.0
+	golang.org/x/image v0.14.0
+	gonum.org/v1/gonum v0.15.0
 	gotest.tools/v3 v3.5.1
 	nhooyr.io/websocket v1.8.11
 )
@@ -27,7 +29,7 @@ require (
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.55 // indirect

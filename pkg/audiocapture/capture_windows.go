@@ -253,7 +253,7 @@ loop:
 				buf[n] = *b
 			}
 
-			// Release the buffer as soon as we extract the audio Samples
+			// close the buffer as soon as we extract the audio Samples
 			err = acc.ReleaseBuffer(availableFrameSize)
 			if err != nil {
 				return errors.WithMessage(err, "failed to release buffer")

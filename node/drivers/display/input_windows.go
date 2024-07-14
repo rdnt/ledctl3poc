@@ -365,8 +365,6 @@ func (in *input) processFrame(pix []byte) {
 
 	now := time.Now()
 
-	outs := map[uuid.UUID]map[uuid.UUID][]types.UpdateEventOutput{}
-
 	src := &image.RGBA{
 		Pix:    pix,
 		Stride: in.display.Width() * 4,
@@ -378,6 +376,8 @@ func (in *input) processFrame(pix []byte) {
 		fmt.Println("error resizing:", err)
 		return
 	}
+
+	outs := map[uuid.UUID]map[uuid.UUID][]types.UpdateEventOutput{}
 
 	wg := new(sync.WaitGroup)
 	wg.Add(len(in.procs))

@@ -9,7 +9,7 @@ import (
 type Input interface {
 	Id() uuid.UUID
 	SourceId() uuid.UUID
-	//Init(cfg types.InputConfig) error
+	//start(cfg types.InputConfig) error
 	Configure(cfg []byte) error
 	Events() <-chan types.UpdateEvent
 	//Close() error
@@ -25,7 +25,7 @@ type Output interface {
 	Leds() int
 	Configure([]byte) error
 	Schema() []byte
-	//Init() error
+	//start() error
 	//Close() error
 }
 

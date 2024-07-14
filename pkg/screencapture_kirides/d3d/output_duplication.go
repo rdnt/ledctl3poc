@@ -125,7 +125,7 @@ func (dup *OutputDuplicator) Snapshot(timeoutMs uint) (unmapFn, *DXGI_MAPPED_REC
 	var desktop *IDXGIResource
 	var frameInfo _DXGI_OUTDUPL_FRAME_INFO
 
-	// Release a possible previous frame
+	// close a possible previous frame
 	// TODO: Properly use ReleaseFrame...
 
 	dup.ReleaseFrame()

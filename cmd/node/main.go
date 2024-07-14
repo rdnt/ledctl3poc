@@ -16,9 +16,9 @@ import (
 	"ledctl3/node/event"
 	"ledctl3/pkg/netserver"
 
-	_ "ledctl3/node/drivers/display"
-	_ "ledctl3/pkg/audiocapture"
-	_ "ledctl3/pkg/led"
+	//_ "ledctl3/node/drivers/display"
+	_ "ledctl3/node/drivers/audio"
+	//_ "ledctl3/pkg/led"
 )
 
 type Config struct {

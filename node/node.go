@@ -209,7 +209,7 @@ func New(cfg Config) (*Node, error) {
 }
 
 func (n *Node) AddInput(in common.Input) {
-	fmt.Println("ADD INPUT CALLED", in)
+	fmt.Printf("AddInput: %+v\n", in)
 
 	n.inputs[in.Id()] = in
 	//n.inputCfgs[in.OutputId()] = inputConfig{}
@@ -297,7 +297,7 @@ func (n *Node) AddInput(in common.Input) {
 
 type Source interface {
 	Id() uuid.UUID
-	Init(id uuid.UUID, reg common.IORegistry, stateHolder common.StateHolder) error
+	Init(id uuid.UUID, reg common.IORegistry, state common.StateHolder) error
 	Configure(cfg []byte) error
 	Schema() []byte
 	Close() error
@@ -331,7 +331,7 @@ func RegisterSink(name string, driver Sink) {
 }
 
 func (n *Node) RemoveInput(id uuid.UUID) {
-	//fmt.Println("RemoveInput CALLED", id)
+	fmt.Printf("RemoveInput: %+v\n", n.inputs[id])
 
 	n.connMux.Lock()
 	conn := n.conn

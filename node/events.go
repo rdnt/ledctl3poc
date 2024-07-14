@@ -307,7 +307,7 @@ func (n *Node) handleDisconnected(c Conn) {
 //			})
 //		}
 //
-//		err := in.Init(types.LinksConfig{
+//		err := in.start(types.LinksConfig{
 //			Framerate: 60,
 //			Outputs:   outputCfgs,
 //		})
